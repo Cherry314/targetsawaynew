@@ -1,4 +1,5 @@
 // lib/screens/enter_score_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -25,6 +26,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   final scoreController = TextEditingController();
   final firearmController = TextEditingController();
   final notesController = TextEditingController();
+  final compIdController = TextEditingController();
+  final compResultController = TextEditingController();
 
   String? selectedPractice;
   String? selectedCaliber;
@@ -40,9 +43,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     super.initState();
     _loadLastSelections();
     if (widget.editEntry != null) _populateEditFields();
-    if (widget.editEntry != null) {
-      selectedDate = widget.editEntry!.date;
-    }
+    if (widget.editEntry != null) selectedDate = widget.editEntry!.date;
+
+    firearmController.addListener(() => setState(() {}));
+    notesController.addListener(() => setState(() {}));
+    compIdController.addListener(() => setState(() {}));
+    compResultController.addListener(() => setState(() {}));
   }
 
   void _populateEditFields() {
@@ -50,36 +56,29 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     scoreController.text = entry.score.toString();
     firearmController.text = entry.firearm ?? '';
     notesController.text = entry.notes ?? '';
+    compIdController.text = entry.compId ?? '';
+    compResultController.text = entry.compResult ?? '';
     selectedPractice = entry.practice;
     selectedCaliber = entry.caliber;
     selectedFirearmId = entry.firearmId;
-    targetImage = entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
-    thumbnailImage = entry.thumbnailFilePath != null ? File(entry.thumbnailFilePath!) : null;
+    targetImage =
+    entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
+    thumbnailImage =
+    entry.thumbnailFilePath != null ? File(entry.thumbnailFilePath!) : null;
   }
 
   Future<void> _loadLastSelections() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      selectedPractice = (widget.editEntry?.practice.isNotEmpty ?? false)
-          ? widget.editEntry!.practice
-          : prefs.getString('lastPractice') ??
-          (DropdownValues.practices.length > 1
-              ? DropdownValues.practices[1]
-              : DropdownValues.practices.first);
-
-      selectedCaliber = (widget.editEntry?.caliber.isNotEmpty ?? false)
-          ? widget.editEntry!.caliber
-          : prefs.getString('lastCaliber') ??
-          (DropdownValues.calibers.length > 1
-              ? DropdownValues.calibers[1]
-              : DropdownValues.calibers.first);
-
-      selectedFirearmId = (widget.editEntry?.firearmId?.isNotEmpty ?? false)
-          ? widget.editEntry!.firearmId!
-          : prefs.getString('lastFirearmId') ??
-          (DropdownValues.firearmIds.length > 1
-              ? DropdownValues.firearmIds[1]
-              : DropdownValues.firearmIds.first);
+      selectedPractice = widget.editEntry?.practice ??
+          prefs.getString('lastPractice') ??
+          DropdownValues.practices.first;
+      selectedCaliber = widget.editEntry?.caliber ??
+          prefs.getString('lastCaliber') ??
+          DropdownValues.calibers.first;
+      selectedFirearmId = widget.editEntry?.firearmId ??
+          prefs.getString('lastFirearmId') ??
+          DropdownValues.firearmIds.first;
     });
   }
 
@@ -88,12 +87,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     await prefs.setString(key, value);
   }
 
-  /// Generate a thumbnail from a full-size image
   Future<File> _generateThumbnail(File originalImage) async {
     final bytes = await originalImage.readAsBytes();
     final image = img.decodeImage(bytes)!;
-    final thumbnail = img.copyResize(image, width: 150); // small width
-
+    final thumbnail = img.copyResize(image, width: 150);
     final thumbPath = originalImage.path.replaceFirst('.jpg', '_thumb.jpg');
     final thumbFile = File(thumbPath);
     await thumbFile.writeAsBytes(img.encodeJpg(thumbnail, quality: 70));
@@ -107,7 +104,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     if (pickedFile != null) {
       final fullFile = File(pickedFile.path);
       final thumbFile = await _generateThumbnail(fullFile);
-
       setState(() {
         targetImage = fullFile;
         thumbnailImage = thumbFile;
@@ -115,348 +111,403 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     }
   }
 
-  Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
-    }
-  }
-
-  void _showTextInputDialog({
-    required String title,
-    required TextEditingController controller,
-  }) {
-    showDialog(
-      context: context,
-      builder: (_) {
-        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-        return AlertDialog(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          title: Text(title, style: TextStyle(color: themeProvider.primaryColor)),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: TextStyle(color: themeProvider.primaryColor),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('OK', style: TextStyle(color: themeProvider.primaryColor)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _showFirearmDialog() {
     final firearmBox = Hive.box<FirearmEntry>('firearms');
-    TextEditingController controller = firearmController;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Text('Enter Firearm', style: TextStyle(color: themeProvider.primaryColor)),
+        title: Text("Enter Firearm", style: TextStyle(color: themeProvider.primaryColor)),
         content: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min, // important so dialog doesn't take infinite height
           children: [
             TextField(
-              controller: controller,
-              autofocus: true,
-              style: TextStyle(color: themeProvider.primaryColor),
+              controller: firearmController,
               decoration: InputDecoration(
-                labelText: 'Firearm',
+                labelText: "Firearm",
                 labelStyle: TextStyle(color: themeProvider.primaryColor),
               ),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: () {
-                final firearms = firearmBox.values.toList();
-                if (firearms.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('No firearms found!')),
-                  );
-                  return;
-                }
-
-                showDialog(
+              icon: Icon(Icons.list, color: themeProvider.primaryColor),
+              label: Text("Select from Armory",
+                  style: TextStyle(color: themeProvider.primaryColor)),
+              onPressed: () async {
+                // open Armory list
+                final selectedGun = await showDialog<FirearmEntry>(
                   context: context,
                   builder: (_) => AlertDialog(
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    title: Text('My Armoury', style: TextStyle(color: themeProvider.primaryColor)),
+                    title: Text("My Armory",
+                        style: TextStyle(color: themeProvider.primaryColor)),
                     content: SizedBox(
                       width: double.maxFinite,
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: firearms.length,
-                        itemBuilder: (context, index) {
-                          final gun = firearms[index];
-                          final nickname = gun.nickname ?? 'Unnamed';
-                          return ListTile(
-                            title: Text(nickname, style: TextStyle(color: themeProvider.primaryColor)),
-                            onTap: () {
-                              controller.text = nickname;
-                              Navigator.pop(context);
-                            },
-                          );
-                        },
+                      child: firearmBox.isEmpty
+                          ? const Text("No firearms found")
+                          : SizedBox(
+                        height: 300,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: firearmBox.length,
+                          itemBuilder: (_, i) {
+                            final gun = firearmBox.getAt(i)!;
+                            return ListTile(
+                              title: Text(gun.nickname ?? "Unnamed"),
+                              onTap: () => Navigator.pop(context, gun),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
                 );
+
+                if (selectedGun != null) {
+                  setState(() {
+                    firearmController.text = selectedGun.nickname ?? '';
+                    selectedFirearmId = selectedGun.id;
+                  });
+                  _saveSelection('lastFirearmId', selectedGun.id);
+                }
               },
-              icon: FaIcon(FontAwesomeIcons.gun, color: themeProvider.primaryColor),
-              label: Text('My Armoury', style: TextStyle(color: themeProvider.primaryColor)),
-              style: ElevatedButton.styleFrom(foregroundColor: themeProvider.primaryColor),
             ),
           ],
         ),
         actions: [
           TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor))),
+        ],
+      ),
+    );
+  }
+
+
+
+  void _showCompetitionDialog() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title:
+        Text("Competition Result", style: TextStyle(color: themeProvider.primaryColor)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: compIdController,
+              decoration: InputDecoration(
+                labelText: "Competition ID",
+                labelStyle: TextStyle(color: themeProvider.primaryColor),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: compResultController,
+              decoration: InputDecoration(
+                labelText: "Competition Result",
+                labelStyle: TextStyle(color: themeProvider.primaryColor),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor)),
+              onPressed: () => Navigator.pop(context))
+        ],
+      ),
+    );
+  }
+
+  void _showNotesDialog() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Notes", style: TextStyle(color: themeProvider.primaryColor)),
+        content: TextField(
+          controller: notesController,
+          maxLines: 4,
+        ),
+        actions: [
+          TextButton(
+              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor)),
+              onPressed: () => Navigator.pop(context))
+        ],
+      ),
+    );
+  }
+
+  void _confirmSaveEntry() async {
+    final scoreValid = scoreController.text.isNotEmpty &&
+        int.tryParse(scoreController.text) != null;
+
+    if (!scoreValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter a valid score")));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Confirm Save"),
+        content: const Text(
+            "Do you want to save this entry and return to Home Screen?"),
+        actions: [
+          TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK', style: TextStyle(color: themeProvider.primaryColor)),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final box = Hive.box<ScoreEntry>('scores');
+              final compIsTrue = compIdController.text.isNotEmpty ||
+                  compResultController.text.isNotEmpty;
+
+              final newEntry = ScoreEntry(
+                id: widget.editEntry?.id ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                date: selectedDate,
+                score: int.parse(scoreController.text),
+                practice: selectedPractice!,
+                caliber: selectedCaliber!,
+                firearmId: selectedFirearmId!,
+                firearm: firearmController.text,
+                notes: notesController.text,
+                comp: compIsTrue,
+                compId: compIdController.text,
+                compResult: compResultController.text,
+                targetFilePath: targetImage?.path,
+                thumbnailFilePath: thumbnailImage?.path,
+                targetCaptured: targetImage != null,
+              );
+
+              await box.put(newEntry.id, newEntry);
+
+              if (!mounted) return;
+
+              Navigator.pop(context);
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+            },
+            child: const Text("Confirm Save"),
           ),
         ],
       ),
     );
   }
 
-  void _saveEntry() async {
-    if (scoreController.text.isEmpty || int.tryParse(scoreController.text) == null) {
-      if (!mounted) return; // guard
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid score')),
-      );
-      return;
-    }
-
-    final box = Hive.box<ScoreEntry>('scores');
-
-    final newEntry = ScoreEntry(
-      id: widget.editEntry?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      date: selectedDate,
-      score: int.parse(scoreController.text),
-      practice: selectedPractice!,
-      caliber: selectedCaliber!,
-      firearmId: selectedFirearmId!,
-      firearm: firearmController.text,
-      notes: notesController.text,
-      targetFilePath: targetImage?.path,
-      thumbnailFilePath: thumbnailImage?.path,
-      targetCaptured: targetImage != null,
-    );
-
-    await box.put(newEntry.id, newEntry);
-
-    await _saveSelection('lastPractice', selectedPractice!);
-    await _saveSelection('lastCaliber', selectedCaliber!);
-    await _saveSelection('lastFirearmId', selectedFirearmId!);
-
-    // Safe use of context after async
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.editEntry != null ? 'Score entry updated' : 'Score entry saved'),
-      ),
-    );
-
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context, newEntry);
-    }
+  Color iconColor(bool hasData) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return hasData ? themeProvider.primaryColor : Colors.grey;
   }
-
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
-    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    final firearmBox = Hive.box<FirearmEntry>('firearms');
+
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.editEntry != null ? 'Edit Score' : 'Enter Score'),
+        title: Text(widget.editEntry != null ? "Edit Score" : "Enter Score"),
         backgroundColor: primaryColor,
-        centerTitle: true,
       ),
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // ------------------- Date Field -------------------
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Date',
-                        labelStyle: TextStyle(color: primaryColor),
-                        border: const OutlineInputBorder(),
-                      ),
-                      controller: TextEditingController(
-                        text: "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
-                      ),
-                      style: TextStyle(color: primaryColor),
-                    ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Date
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                        labelText: "Date", border: OutlineInputBorder()),
+                    controller: TextEditingController(
+                        text:
+                        "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}"),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.calendar_today, color: primaryColor),
-                    onPressed: _pickDate,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Practice Dropdown
-              DropdownButtonFormField<String>(
-                initialValue: selectedPractice,
-                decoration: InputDecoration(
-                  labelText: 'Practice',
-                  labelStyle: TextStyle(color: primaryColor),
-                  border: const OutlineInputBorder(),
                 ),
-                items: DropdownValues.practices
-                    .map((p) => DropdownMenuItem(
-                    value: p, child: Text(p, style: TextStyle(color: primaryColor))))
-                    .toList(),
-                onChanged: (v) {
-                  setState(() => selectedPractice = v!);
-                  _saveSelection('lastPractice', v!);
-                },
-              ),
-              const SizedBox(height: 8),
+                IconButton(
+                    icon: Icon(Icons.calendar_today, color: primaryColor),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => selectedDate = picked);
+                    })
+              ],
+            ),
+            const SizedBox(height: 12),
 
-              // Row: Caliber + Firearm ID
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: selectedCaliber,
-                      decoration: InputDecoration(
-                        labelText: 'Caliber',
-                        labelStyle: TextStyle(color: primaryColor),
-                        border: const OutlineInputBorder(),
-                      ),
-                      items: DropdownValues.calibers
-                          .map((c) => DropdownMenuItem(
-                          value: c, child: Text(c, style: TextStyle(color: primaryColor))))
-                          .toList(),
-                      onChanged: (v) {
-                        setState(() => selectedCaliber = v!);
-                        _saveSelection('lastCaliber', v!);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: selectedFirearmId,
-                      decoration: InputDecoration(
-                        labelText: 'Firearm ID',
-                        labelStyle: TextStyle(color: primaryColor),
-                        border: const OutlineInputBorder(),
-                      ),
-                      items: DropdownValues.firearmIds
-                          .map((f) => DropdownMenuItem(
-                          value: f, child: Text(f, style: TextStyle(color: primaryColor))))
-                          .toList(),
-                      onChanged: (v) {
-                        setState(() => selectedFirearmId = v!);
-                        _saveSelection('lastFirearmId', v!);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+            // Practice Dropdown
+            DropdownButtonFormField<String>(
+              initialValue: selectedPractice,
+              items: DropdownValues.practices
+                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                  .toList(),
+              onChanged: (v) {
+                setState(() => selectedPractice = v);
+                if (v != null) _saveSelection('lastPractice', v);
+              },
+              decoration: const InputDecoration(
+                  labelText: "Practice", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
 
-              // Row: Score, Firearm (icon), Notes (icon)
-              Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: TextFormField(
-                      controller: scoreController,
-                      decoration: InputDecoration(
-                        labelText: 'Score',
-                        labelStyle: TextStyle(color: primaryColor),
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(color: primaryColor),
-                    ),
+            // Caliber + Firearm ID
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedCaliber,
+                    items: DropdownValues.calibers
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() => selectedCaliber = v);
+                      if (v != null) _saveSelection('lastCaliber', v);
+                    },
+                    decoration: const InputDecoration(
+                        labelText: "Caliber", border: OutlineInputBorder()),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: FaIcon(FontAwesomeIcons.gun, color: primaryColor),
-                    tooltip: 'Enter Firearm',
-                    onPressed: _showFirearmDialog,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedFirearmId,
+                    items: firearmBox.values
+                        .map((gun) => DropdownMenuItem(
+                      value: gun.id,
+                      child: Text(gun.nickname ?? "Unnamed"),
+                    ))
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() => selectedFirearmId = v);
+                      if (v != null) _saveSelection('lastFirearmId', v);
+                    },
+                    decoration: const InputDecoration(
+                        labelText: "Firearm ID", border: OutlineInputBorder()),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.note, color: primaryColor),
-                    tooltip: 'Enter Notes',
-                    onPressed: () => _showTextInputDialog(
-                        title: 'Notes', controller: notesController),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
 
-              // Capture Target Image + Save Entry
-              Row(
+
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Score + Icons
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: scoreController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "Score", border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: FaIcon(FontAwesomeIcons.gun,
+                      color: iconColor(firearmController.text.isNotEmpty)),
+                  tooltip: "Enter Firearm",
+                  onPressed: _showFirearmDialog,
+                ),
+                IconButton(
+                  icon: Icon(Icons.emoji_events,
+                      color: iconColor(compIdController.text.isNotEmpty ||
+                          compResultController.text.isNotEmpty)),
+                  tooltip: "Competition Result",
+                  onPressed: _showCompetitionDialog,
+                ),
+                IconButton(
+                  icon: Icon(Icons.note,
+                      color: iconColor(notesController.text.isNotEmpty)),
+                  tooltip: "Enter Notes",
+                  onPressed: _showNotesDialog,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Capture Target + Save
+            LayoutBuilder(builder: (context, constraints) {
+              bool wide = constraints.maxWidth > 400;
+              return wide
+                  ? Row(
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
+                      icon: Icon(Icons.camera_alt),
+                      label: Text("Capture Target"),
                       onPressed: _pickImage,
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Capture Target'),
                       style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
                         backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _saveEntry,
+                      onPressed: _confirmSaveEntry,
                       style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
                         backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
                       ),
-                      child: Text(widget.editEntry != null ? 'Update Entry' : 'Save Entry'),
+                      child: Text(widget.editEntry != null
+                          ? "Update Entry"
+                          : "Save Entry"),
+                    ),
+                  )
+                ],
+              )
+                  : Column(
+                children: [
+                  ElevatedButton.icon(
+                    icon: Icon(Icons.camera_alt),
+                    label: Text("Capture Target"),
+                    onPressed: _pickImage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Thumbnail below buttons
-              if (thumbnailImage != null) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: SizedBox(
-                    width: 100,
-                    height: 100,
-                    child: Image.file(thumbnailImage!, fit: BoxFit.cover),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _confirmSaveEntry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(widget.editEntry != null
+                        ? "Update Entry"
+                        : "Save Entry"),
                   ),
+                ],
+              );
+            }),
+            const SizedBox(height: 20),
+
+            if (targetImage != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  targetImage!,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

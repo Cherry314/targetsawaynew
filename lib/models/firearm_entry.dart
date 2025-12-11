@@ -47,5 +47,32 @@ class FirearmEntry extends HiveObject {
     this.thumbnailPath,
     this.nickname,
   });
-}
 
+  /// Convert to JSON
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'make': make,
+    'model': model,
+    'caliber': caliber,
+    'owned': owned,
+    'scopeSize': scopeSize,
+    'notes': notes,
+    'imagePath': imagePath,
+    'thumbnailPath': thumbnailPath,
+    'nickname': nickname,
+  };
+
+  /// Create from JSON
+  factory FirearmEntry.fromJson(Map<String, dynamic> json) => FirearmEntry(
+    id: json['id'],
+    make: json['make'],
+    model: json['model'],
+    caliber: json['caliber'],
+    owned: json['owned'] ?? false,
+    scopeSize: json['scopeSize'],
+    notes: json['notes'],
+    imagePath: json['imagePath'],
+    thumbnailPath: json['thumbnailPath'],
+    nickname: json['nickname'],
+  );
+}

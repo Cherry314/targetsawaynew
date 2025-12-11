@@ -117,6 +117,7 @@ class ProgressScreenState extends State<ProgressScreen> {
   }
 
   Widget _buildCaliberDropdown(Color primaryColor) {
+
     return DropdownButtonFormField<String>(
       initialValue: selectedCaliber,
       decoration: InputDecoration(

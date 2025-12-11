@@ -1,3 +1,4 @@
+// lib/models/membership_card_entry.dart
 import 'package:hive/hive.dart';
 
 part 'membership_card_entry.g.dart'; // optional if you want code generation later
@@ -30,4 +31,25 @@ class MembershipCardEntry extends HiveObject {
     this.backImagePath,
     this.notes,
   });
+
+  /// Convert to JSON
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'memberName': memberName,
+    'cardNumber': cardNumber,
+    'frontImagePath': frontImagePath,
+    'backImagePath': backImagePath,
+    'notes': notes,
+  };
+
+  /// Create from JSON
+  factory MembershipCardEntry.fromJson(Map<String, dynamic> json) =>
+      MembershipCardEntry(
+        id: json['id'],
+        memberName: json['memberName'],
+        cardNumber: json['cardNumber'],
+        frontImagePath: json['frontImagePath'],
+        backImagePath: json['backImagePath'],
+        notes: json['notes'],
+      );
 }
