@@ -88,15 +88,15 @@ class _ArmoryFullScreenState extends State<ArmoryFullScreen>
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          Text('Make: ${entry.make ?? "-"}',
+                          Text('Make: ${entry.make}',
                               style: const TextStyle(
                                   color: Colors.white, fontSize: 16)),
                           const SizedBox(height: 4),
-                          Text('Model: ${entry.model ?? "-"}',
+                          Text('Model: ${entry.model}',
                               style: const TextStyle(
                                   color: Colors.white, fontSize: 16)),
                           const SizedBox(height: 4),
-                          Text('Calibre: ${entry.caliber ?? "-"}',
+                          Text('Calibre: ${entry.caliber}',
                               style: const TextStyle(
                                   color: Colors.white, fontSize: 16)),
                           const SizedBox(height: 4),

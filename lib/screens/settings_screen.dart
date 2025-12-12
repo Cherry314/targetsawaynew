@@ -18,7 +18,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String resultsText = "";
   final TextEditingController folderController = TextEditingController();
-  bool includeImages = true; // Default for backup checkbox
+  bool includeImages = true;
 
   @override
   void dispose() {
@@ -50,7 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---------------- Color Scheme ----------------
             ListTile(
               title: const Text('Color Scheme'),
               trailing: DropdownButton<int>(
@@ -69,7 +68,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // ---------------- Optional Folder Filter ----------------
             TextField(
               controller: folderController,
               decoration: const InputDecoration(
@@ -79,26 +77,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 10),
 
-            // ---------------- Calculate Storage Usage ----------------
             ElevatedButton(
               onPressed: _calculateSizes,
               child: const Text('Calculate Storage Usage'),
             ),
             const SizedBox(height: 10),
-            Text(
-              resultsText,
-              style: const TextStyle(fontSize: 14),
-            ),
+
+            Text(resultsText, style: const TextStyle(fontSize: 14)),
             const Divider(height: 40),
 
-            // ---------------- Backup Section ----------------
+            // ---------------- Backup ----------------
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
                       try {
-                        final file = await BackupRestore.backupAppData(includeImages: includeImages);
+                        final file =
+                        await BackupRestore.backupAppData(includeImages: includeImages);
+
                         await showDialog(
                           context: context,
                           builder: (_) => AlertDialog(
@@ -122,24 +119,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: includeImages,
-                        onChanged: (val) {
-                          if (val != null) setState(() => includeImages = val);
-                        },
-                      ),
-                      const Flexible(child: Text('Include Images')),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: includeImages,
+                      onChanged: (v) {
+                        if (v != null) setState(() => includeImages = v);
+                      },
+                    ),
+                    const Text('Include Images'),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 10),
 
-            // ---------------- Restore Section ----------------
+            // ---------------- Restore ----------------
             ElevatedButton(
               onPressed: () async {
                 try {
@@ -147,9 +142,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     type: FileType.custom,
                     allowedExtensions: ['zip'],
                   );
+
                   if (result != null && result.files.single.path != null) {
                     final file = File(result.files.single.path!);
+
                     await BackupRestore.restoreAppData(file);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Restore complete!')),
                     );
@@ -167,10 +165,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-}
-
-// Small helper because package_info_plus wasn't imported
-class PackageInfoShim {
-  final String packageName;
-  PackageInfoShim({required this.packageName});
 }

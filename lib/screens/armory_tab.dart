@@ -76,7 +76,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
                   Checkbox(
                     value: owned,
                     onChanged: (val) => setState(() => owned = val!),
-                    fillColor: MaterialStateProperty.all(primaryColor),
+                    fillColor: WidgetStateProperty.all(primaryColor),
                   ),
                 ],
               ),
@@ -246,9 +246,9 @@ class _ArmoryTabState extends State<ArmoryTab> {
                       Navigator.push(
                         context,
                         PageRouteBuilder(
-                          pageBuilder: (_, __, ___) =>
+                          pageBuilder: (_, _, _) =>
                               ArmoryFullScreen(entry: firearm),
-                          transitionsBuilder: (_, animation, __, child) {
+                          transitionsBuilder: (_, animation, _, child) {
                             return FadeTransition(
                                 opacity: animation, child: child);
                           },

@@ -185,7 +185,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                                               _buildDetailRow('Score:', entry.score.toString()),
                                               _buildDetailRow('Practice:', entry.practice),
                                               _buildDetailRow('Calibre:', entry.caliber),
-                                              _buildDetailRow('Firearm ID:', entry.firearmId ?? '-'),
+                                              _buildDetailRow('Firearm ID:', entry.firearmId),
                                               if (entry.firearm != null && entry.firearm!.isNotEmpty)
                                                 _buildDetailRow('Firearm:', entry.firearm!),
                                               if (entry.notes != null && entry.notes!.isNotEmpty) ...[

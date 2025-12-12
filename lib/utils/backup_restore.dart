@@ -28,15 +28,20 @@ class BackupRestore {
     for (var entry in hiveBoxes.entries) {
       final boxName = entry.key;
       final box = entry.value;
+
       final list = box.values.map((e) {
         if (e is ScoreEntry) return e.toJson();
         if (e is FirearmEntry) return e.toJson();
         if (e is MembershipCardEntry) return e.toJson();
         return {};
       }).toList();
+
       final jsonStr = jsonEncode(list);
       final bytes = utf8.encode(jsonStr);
-      archive.addFile(ArchiveFile('data/$boxName.json', bytes.length, bytes));
+
+      archive.addFile(
+        ArchiveFile('data/$boxName.json', bytes.length, bytes),
+      );
     }
 
     // ---------------------------
@@ -44,148 +49,159 @@ class BackupRestore {
     // ---------------------------
     final prefs = await SharedPreferences.getInstance();
     final spMap = <String, dynamic>{};
+
     for (var key in prefs.getKeys()) {
       spMap[key] = prefs.get(key);
     }
-    final spJson = utf8.encode(jsonEncode(spMap));
-    archive.addFile(ArchiveFile('data/shared_preferences.json', spJson.length, spJson));
+
+    final spBytes = utf8.encode(jsonEncode(spMap));
+    archive.addFile(
+      ArchiveFile('data/shared_preferences.json', spBytes.length, spBytes),
+    );
 
     // ---------------------------
-    // 3. Images from Hive entries
+    // 3. Include images (optional)
     // ---------------------------
     if (includeImages) {
       // ScoreEntry images
-      if (Hive.isBoxOpen('scores')) {
-        final box = Hive.box<ScoreEntry>('scores');
-        for (var entry in box.values) {
-          if (entry.targetFilePath != null) {
-            await _addFileToArchive(entry.targetFilePath!, archive, 'images/targets/full');
-          }
-          if (entry.thumbnailFilePath != null) {
-            await _addFileToArchive(entry.thumbnailFilePath!, archive, 'images/targets/thumbs');
-          }
+      for (var entry in Hive.box<ScoreEntry>('scores').values) {
+        if (entry.targetFilePath != null) {
+          await _addFileToArchive(
+              entry.targetFilePath!, archive, 'images/targets/full');
+        }
+        if (entry.thumbnailFilePath != null) {
+          await _addFileToArchive(
+              entry.thumbnailFilePath!, archive, 'images/targets/thumbs');
         }
       }
 
       // FirearmEntry images
-      if (Hive.isBoxOpen('firearms')) {
-        final box = Hive.box<FirearmEntry>('firearms');
-        for (var entry in box.values) {
-          if (entry.imagePath != null) {
-            await _addFileToArchive(entry.imagePath!, archive, 'images/armory');
-          }
+      for (var entry in Hive.box<FirearmEntry>('firearms').values) {
+        if (entry.imagePath != null) {
+          await _addFileToArchive(
+              entry.imagePath!, archive, 'images/armory');
         }
       }
 
-      // Membership images
-      if (Hive.isBoxOpen('membership')) {
-        final box = Hive.box<MembershipCardEntry>('membership');
-        for (var entry in box.values) {
-          if (entry.frontImagePath != null) {
-            await _addFileToArchive(entry.frontImagePath!, archive, 'images/membership');
-          }
-          if (entry.backImagePath != null) {
-            await _addFileToArchive(entry.backImagePath!, archive, 'images/membership');
-          }
+      // Membership images — FIXED (correct box name)
+      for (var entry in Hive.box<MembershipCardEntry>('membership_cards').values) {
+        if (entry.frontImagePath != null) {
+          await _addFileToArchive(
+              entry.frontImagePath!, archive, 'images/membership');
+        }
+        if (entry.backImagePath != null) {
+          await _addFileToArchive(
+              entry.backImagePath!, archive, 'images/membership');
         }
       }
     }
 
     // ---------------------------
-    // 4. Save ZIP to app-specific folder
+    // 4. Save ZIP to user-visible Downloads folder
     // ---------------------------
-    final zipEncoder = ZipEncoder();
-    final zipData = zipEncoder.encode(archive);
+    Directory outputDir;
+
+    if (Platform.isAndroid) {
+      // This is the correct public /Download folder
+      outputDir = Directory('/storage/emulated/0/Download');
+
+      if (!await outputDir.exists()) {
+        // fallback – but normally not used
+        outputDir = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+      }
+    } else {
+      // iOS: must store inside the app container
+      outputDir = await getApplicationDocumentsDirectory();
+    }
 
     final dateStr = DateFormat('ddMMMyyyy').format(DateTime.now());
+    final backupFile = File('${outputDir.path}/TargetsAway-$dateStr.zip');
 
-    // App-specific folder for cross-platform compatibility
-    Directory appDir;
-    if (Platform.isAndroid) {
-      appDir = (await getExternalStorageDirectory())!;
-    } else {
-      appDir = await getApplicationDocumentsDirectory();
-    }
+    final zipEncoder = ZipEncoder();
+    final zipBytes = zipEncoder.encode(archive);
+    await backupFile.writeAsBytes(zipBytes);
 
-    final file = File('${appDir.path}/TargetsAway-$dateStr.zip');
-    await file.writeAsBytes(zipData);
-
-    return file;
+    return backupFile;
   }
 
-  /// Helper: add a file to the archive with a relative folder
-  static Future<void> _addFileToArchive(String path, Archive archive, String folder) async {
+  /// Add a file to the archive
+  static Future<void> _addFileToArchive(
+      String path, Archive archive, String folder) async {
     final f = File(path);
     if (await f.exists()) {
       final bytes = await f.readAsBytes();
-      final name = '$folder/${f.uri.pathSegments.last}';
-      archive.addFile(ArchiveFile(name, bytes.length, bytes));
+      final fileName = f.uri.pathSegments.last;
+
+      archive.addFile(
+        ArchiveFile('$folder/$fileName', bytes.length, bytes),
+      );
     }
   }
 
-  /// Restore app data from ZIP
+  /// Restore backup ZIP
   static Future<void> restoreAppData(File zipFile) async {
     final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
     final appDir = await getApplicationDocumentsDirectory();
 
+    // Extract JSON + images
     for (var file in archive) {
       final filePath = file.name;
-
-      if (filePath.startsWith('data/')) {
-        final jsonFile = File('${appDir.path}/${filePath}');
-        await jsonFile.parent.create(recursive: true);
-        await jsonFile.writeAsBytes(file.content as List<int>);
-      } else if (filePath.startsWith('images/')) {
-        final outFile = File('${appDir.path}/${filePath}');
-        await outFile.parent.create(recursive: true);
-        await outFile.writeAsBytes(file.content as List<int>);
-      }
+      final outFile = File('${appDir.path}/$filePath');
+      await outFile.parent.create(recursive: true);
+      await outFile.writeAsBytes(file.content as List<int>);
     }
 
-    // After extracting JSON files, restore Hive and SharedPreferences
+    // Now restore Hive + SharedPreferences
     await _restoreHiveAndPrefs(appDir);
   }
 
-  /// Restore Hive boxes and SharedPreferences from JSON
+  /// Restore JSON data into Hive + SharedPreferences
   static Future<void> _restoreHiveAndPrefs(Directory appDir) async {
-    final hiveBoxNames = ['scores', 'firearms', 'membership_cards'];
+    const boxNames = ['scores', 'firearms', 'membership_cards'];
 
-    for (var boxName in hiveBoxNames) {
+    for (var boxName in boxNames) {
       final file = File('${appDir.path}/data/$boxName.json');
-      if (await file.exists()) {
-        final jsonStr = await file.readAsString();
-        final List<dynamic> list = jsonDecode(jsonStr);
-        final box = await Hive.openBox(boxName);
-        await box.clear();
-        for (var item in list) {
-          if (boxName == 'scores') {
-            await box.add(ScoreEntry.fromJson(Map<String, dynamic>.from(item)));
-          } else if (boxName == 'firearms') {
-            await box.add(FirearmEntry.fromJson(Map<String, dynamic>.from(item)));
-          } else if (boxName == 'membership') {
-            await box.add(MembershipCardEntry.fromJson(Map<String, dynamic>.from(item)));
-          }
+      if (!await file.exists()) continue;
+
+      final jsonStr = await file.readAsString();
+      final List<dynamic> list = jsonDecode(jsonStr);
+
+      final box = Hive.box(boxName);
+      await box.clear();
+
+      for (var item in list) {
+        final map = Map<String, dynamic>.from(item);
+
+        if (boxName == 'scores') {
+          box.add(ScoreEntry.fromJson(map));
+        } else if (boxName == 'firearms') {
+          box.add(FirearmEntry.fromJson(map));
+        } else if (boxName == 'membership_cards') {
+          box.add(MembershipCardEntry.fromJson(map));
         }
       }
     }
 
-    // SharedPreferences
+    // Shared Preferences
     final spFile = File('${appDir.path}/data/shared_preferences.json');
-    if (await spFile.exists()) {
-      final jsonStr = await spFile.readAsString();
-      final Map<String, dynamic> spMap = jsonDecode(jsonStr);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      for (var key in spMap.keys) {
-        final value = spMap[key];
-        if (value is int) await prefs.setInt(key, value);
-        else if (value is double) await prefs.setDouble(key, value);
-        else if (value is bool) await prefs.setBool(key, value);
-        else if (value is String) await prefs.setString(key, value);
-        else if (value is List<String>) await prefs.setStringList(key, value);
-      }
+    if (!await spFile.exists()) return;
+
+    final spJson = await spFile.readAsString();
+    final Map<String, dynamic> spMap = jsonDecode(spJson);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    for (var key in spMap.keys) {
+      final v = spMap[key];
+
+      if (v is int) prefs.setInt(key, v);
+      else if (v is double) prefs.setDouble(key, v);
+      else if (v is bool) prefs.setBool(key, v);
+      else if (v is String) prefs.setString(key, v);
+      else if (v is List) prefs.setStringList(key, List<String>.from(v));
     }
   }
 }

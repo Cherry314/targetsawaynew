@@ -7,11 +7,16 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image/image.dart' as img;
+import 'package:provider/provider.dart';
+
 import '../models/score_entry.dart';
 import '../models/firearm_entry.dart';
 import '../data/dropdown_values.dart';
-import 'package:provider/provider.dart';
 import '../main.dart';
+
+import 'methods/competition_dialog.dart';
+import 'methods/firearm_dialog.dart';
+import 'methods/notes_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
@@ -42,6 +47,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   void initState() {
     super.initState();
     _loadLastSelections();
+
     if (widget.editEntry != null) _populateEditFields();
     if (widget.editEntry != null) selectedDate = widget.editEntry!.date;
 
@@ -58,11 +64,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     notesController.text = entry.notes ?? '';
     compIdController.text = entry.compId ?? '';
     compResultController.text = entry.compResult ?? '';
+
     selectedPractice = entry.practice;
     selectedCaliber = entry.caliber;
     selectedFirearmId = entry.firearmId;
-    targetImage =
-    entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
+
+    targetImage = entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
     thumbnailImage =
     entry.thumbnailFilePath != null ? File(entry.thumbnailFilePath!) : null;
   }
@@ -73,9 +80,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       selectedPractice = widget.editEntry?.practice ??
           prefs.getString('lastPractice') ??
           DropdownValues.practices.first;
+
       selectedCaliber = widget.editEntry?.caliber ??
           prefs.getString('lastCaliber') ??
           DropdownValues.calibers.first;
+
       selectedFirearmId = widget.editEntry?.firearmId ??
           prefs.getString('lastFirearmId') ??
           DropdownValues.firearmIds.first;
@@ -91,8 +100,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     final bytes = await originalImage.readAsBytes();
     final image = img.decodeImage(bytes)!;
     final thumbnail = img.copyResize(image, width: 150);
+
     final thumbPath = originalImage.path.replaceFirst('.jpg', '_thumb.jpg');
     final thumbFile = File(thumbPath);
+
     await thumbFile.writeAsBytes(img.encodeJpg(thumbnail, quality: 70));
     return thumbFile;
   }
@@ -101,143 +112,16 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     final picker = ImagePicker();
     final pickedFile =
     await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+
     if (pickedFile != null) {
       final fullFile = File(pickedFile.path);
       final thumbFile = await _generateThumbnail(fullFile);
+
       setState(() {
         targetImage = fullFile;
         thumbnailImage = thumbFile;
       });
     }
-  }
-
-  void _showFirearmDialog() {
-    final firearmBox = Hive.box<FirearmEntry>('firearms');
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Enter Firearm", style: TextStyle(color: themeProvider.primaryColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min, // important so dialog doesn't take infinite height
-          children: [
-            TextField(
-              controller: firearmController,
-              decoration: InputDecoration(
-                labelText: "Firearm",
-                labelStyle: TextStyle(color: themeProvider.primaryColor),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: Icon(Icons.list, color: themeProvider.primaryColor),
-              label: Text("Select from Armory",
-                  style: TextStyle(color: themeProvider.primaryColor)),
-              onPressed: () async {
-                // open Armory list
-                final selectedGun = await showDialog<FirearmEntry>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text("My Armory",
-                        style: TextStyle(color: themeProvider.primaryColor)),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: firearmBox.isEmpty
-                          ? const Text("No firearms found")
-                          : SizedBox(
-                        height: 300,
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: firearmBox.length,
-                          itemBuilder: (_, i) {
-                            final gun = firearmBox.getAt(i)!;
-                            return ListTile(
-                              title: Text(gun.nickname ?? "Unnamed"),
-                              onTap: () => Navigator.pop(context, gun),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-
-                if (selectedGun != null) {
-                  setState(() {
-                    firearmController.text = selectedGun.nickname ?? '';
-                    selectedFirearmId = selectedGun.id;
-                  });
-                  _saveSelection('lastFirearmId', selectedGun.id);
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor))),
-        ],
-      ),
-    );
-  }
-
-
-
-  void _showCompetitionDialog() {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title:
-        Text("Competition Result", style: TextStyle(color: themeProvider.primaryColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: compIdController,
-              decoration: InputDecoration(
-                labelText: "Competition ID",
-                labelStyle: TextStyle(color: themeProvider.primaryColor),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: compResultController,
-              decoration: InputDecoration(
-                labelText: "Competition Result",
-                labelStyle: TextStyle(color: themeProvider.primaryColor),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor)),
-              onPressed: () => Navigator.pop(context))
-        ],
-      ),
-    );
-  }
-
-  void _showNotesDialog() {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Notes", style: TextStyle(color: themeProvider.primaryColor)),
-        content: TextField(
-          controller: notesController,
-          maxLines: 4,
-        ),
-        actions: [
-          TextButton(
-              child: Text("OK", style: TextStyle(color: themeProvider.primaryColor)),
-              onPressed: () => Navigator.pop(context))
-        ],
-      ),
-    );
   }
 
   void _confirmSaveEntry() async {
@@ -255,7 +139,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       builder: (_) => AlertDialog(
         title: const Text("Confirm Save"),
         content: const Text(
-            "Do you want to save this entry and return to Home Screen?"),
+            "Do you want to save this entry and return to the Home Screen?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -289,7 +173,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
               if (!mounted) return;
 
-              Navigator.pop(context);
+              Navigator.pop(context); // close dialog
               Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
             },
             child: const Text("Confirm Save"),
@@ -299,17 +183,17 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     );
   }
 
-  Color iconColor(bool hasData) {
+  Color iconColor(bool active) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    return hasData ? themeProvider.primaryColor : Colors.grey;
+    return active ? themeProvider.primaryColor : Colors.grey;
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
-    final firearmBox = Hive.box<FirearmEntry>('firearms');
 
+    final firearmBox = Hive.box<FirearmEntry>('firearms');
 
     return Scaffold(
       appBar: AppBar(
@@ -320,32 +204,36 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Date
+            // Date Picker
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     readOnly: true,
                     decoration: const InputDecoration(
-                        labelText: "Date", border: OutlineInputBorder()),
+                      labelText: "Date",
+                      border: OutlineInputBorder(),
+                    ),
                     controller: TextEditingController(
                         text:
                         "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}"),
                   ),
                 ),
                 IconButton(
-                    icon: Icon(Icons.calendar_today, color: primaryColor),
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) setState(() => selectedDate = picked);
-                    })
+                  icon: Icon(Icons.calendar_today, color: primaryColor),
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) setState(() => selectedDate = picked);
+                  },
+                ),
               ],
             ),
+
             const SizedBox(height: 12),
 
             // Practice Dropdown
@@ -359,11 +247,14 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 if (v != null) _saveSelection('lastPractice', v);
               },
               decoration: const InputDecoration(
-                  labelText: "Practice", border: OutlineInputBorder()),
+                labelText: "Practice",
+                border: OutlineInputBorder(),
+              ),
             ),
+
             const SizedBox(height: 12),
 
-            // Caliber + Firearm ID
+            // Caliber + Firearm ID row
             Row(
               children: [
                 Expanded(
@@ -377,13 +268,15 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       if (v != null) _saveSelection('lastCaliber', v);
                     },
                     decoration: const InputDecoration(
-                        labelText: "Caliber", border: OutlineInputBorder()),
+                      labelText: "Caliber",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: selectedFirearmId,
+                    initialValue: selectedFirearmId, // <<< Fixes the red-screen dropdown error
                     items: firearmBox.values
                         .map((gun) => DropdownMenuItem(
                       value: gun.id,
@@ -395,16 +288,17 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       if (v != null) _saveSelection('lastFirearmId', v);
                     },
                     decoration: const InputDecoration(
-                        labelText: "Firearm ID", border: OutlineInputBorder()),
+                      labelText: "Firearm ID",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-
-
-                )
+                ),
               ],
             ),
+
             const SizedBox(height: 12),
 
-            // Score + Icons
+            // Score + Dialog Buttons
             Row(
               children: [
                 Expanded(
@@ -412,90 +306,103 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     controller: scoreController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                        labelText: "Score", border: OutlineInputBorder()),
+                      labelText: "Score",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
+
+                // Firearm dialog button
                 IconButton(
                   icon: FaIcon(FontAwesomeIcons.gun,
                       color: iconColor(firearmController.text.isNotEmpty)),
                   tooltip: "Enter Firearm",
-                  onPressed: _showFirearmDialog,
+                  onPressed: () {
+                    showFirearmDialog(
+                      context: context,
+                      firearmController: firearmController,
+                      onSelectId: (id) => setState(() => selectedFirearmId = id),
+                      saveSelection: _saveSelection,
+                    );
+                  },
                 ),
+
+                // Competition dialog button
                 IconButton(
-                  icon: Icon(Icons.emoji_events,
-                      color: iconColor(compIdController.text.isNotEmpty ||
-                          compResultController.text.isNotEmpty)),
+                  icon: Icon(
+                    Icons.emoji_events,
+                    color: iconColor(compIdController.text.isNotEmpty ||
+                        compResultController.text.isNotEmpty),
+                  ),
                   tooltip: "Competition Result",
-                  onPressed: _showCompetitionDialog,
+                  onPressed: () {
+                    showCompetitionDialog(
+                      context: context,
+                      compIdController: compIdController,
+                      compResultController: compResultController,
+                    );
+                  },
                 ),
+
+                // Notes dialog button
                 IconButton(
                   icon: Icon(Icons.note,
                       color: iconColor(notesController.text.isNotEmpty)),
                   tooltip: "Enter Notes",
-                  onPressed: _showNotesDialog,
+                  onPressed: () {
+                    showNotesDialog(
+                      context: context,
+                      notesController: notesController,
+                    );
+                  },
                 ),
               ],
             ),
+
             const SizedBox(height: 20),
 
-            // Capture Target + Save
+            // Capture target + Save buttons
             LayoutBuilder(builder: (context, constraints) {
               bool wide = constraints.maxWidth > 400;
+
+              var captureBtn = ElevatedButton.icon(
+                icon: Icon(Icons.camera_alt),
+                label: Text("Capture Target"),
+                onPressed: _pickImage,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              );
+
+              var saveBtn = ElevatedButton(
+                onPressed: _confirmSaveEntry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child:
+                Text(widget.editEntry != null ? "Update Entry" : "Save Entry"),
+              );
+
               return wide
                   ? Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(Icons.camera_alt),
-                      label: Text("Capture Target"),
-                      onPressed: _pickImage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
+                  Expanded(child: captureBtn),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _confirmSaveEntry,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(widget.editEntry != null
-                          ? "Update Entry"
-                          : "Save Entry"),
-                    ),
-                  )
+                  Expanded(child: saveBtn),
                 ],
               )
                   : Column(
                 children: [
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.camera_alt),
-                    label: Text("Capture Target"),
-                    onPressed: _pickImage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
+                  captureBtn,
                   const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _confirmSaveEntry,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(widget.editEntry != null
-                        ? "Update Entry"
-                        : "Save Entry"),
-                  ),
+                  saveBtn,
                 ],
               );
             }),
+
             const SizedBox(height: 20),
 
             if (targetImage != null)

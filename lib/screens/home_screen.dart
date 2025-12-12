@@ -48,11 +48,6 @@ class _HomeScreenState extends State<HomeScreen>
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-  //    appBar: AppBar(
-  //      title: const Text('Targets Away'),
-  //      backgroundColor: primaryColor,
-  //      centerTitle: true,
-  //    ),
       backgroundColor: bgColor,
       body: AnimatedBuilder(
         animation: _controller,
