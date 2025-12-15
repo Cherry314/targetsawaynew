@@ -1,13 +1,44 @@
 // lib/data/dropdown_values.dart
+import 'package:flutter/foundation.dart';
+
 class DropdownValues {
-  static List<String> practices = [
-    'All',
-    'T&P1',
-    'Multi Target 1',
-    'Left Shoot',
-    '10 Rounds Kneeling',
-    // add more here
+  // Internal list for user-selected favorite practices (without 'All')
+  static List<String> _favoritePractices = [
+    '25m Precision',
+    'Timed & Precision 1',
+    'Multi Target',
+    '25m Timed',
   ];
+
+  // Getter that always returns 'All' at the top followed by favorites
+  // Returns a new list each time to prevent external modifications
+  static List<String> get practices {
+    debugPrint('DEBUG practices getter called');
+    debugPrint('  _favoritePractices: $_favoritePractices');
+    debugPrint('  Contains All? ${_favoritePractices.contains('All')}');
+
+    // Debug: Ensure _favoritePractices doesn't contain 'All'
+    assert(!_favoritePractices.contains('All'),
+    'Internal error: _favoritePractices contains "All"');
+
+    final result = ['All', ..._favoritePractices];
+    debugPrint('  Returning: $result');
+    debugPrint('  Count of "All": ${result
+        .where((e) => e == 'All')
+        .length}');
+    return result;
+  }
+
+  // Setter to update favorite practices (removes 'All' if present)
+  static set practices(List<String> value) {
+    // Filter out 'All' and remove any duplicates
+    final filtered = value.where((p) => p != 'All').toSet().toList();
+    debugPrint('DEBUG DropdownValues.practices setter:');
+    debugPrint('  Input: $value');
+    debugPrint('  Filtered: $filtered');
+    debugPrint('  Stack: ${StackTrace.current}');
+    _favoritePractices = filtered;
+  }
 
   static List<String> calibers = [
     'All',
@@ -27,4 +58,76 @@ class DropdownValues {
     'LBP',
     'LBR',
   ];
+
+  static List<String> masterPractices = [
+    '25m Precision',
+    '25m Precision Muzzle Loading',
+    '25m Precision Benched',
+    '50m Precision',
+    '50m Precision',
+    '50m Precision Muzzle Loading',
+    '50m Precision Benched',
+    'America Match',
+    'Timed & Precision 1',
+    'Timed & Precision 1 Air Piston',
+    'Timed & Precision 1 Shotgun',
+    'Timed & Precision 1 Shotgun Classic',
+    'Timed & Precision 1 Muzzle Loading',
+    'Timed & Precision 2',
+    'Timed & Precision 3',
+    'Multi Target',
+    'Multi-Target Shotgun',
+    'Multi-Target Muzzle Loading Revolver',
+    'Phoenix A',
+    'Multi-Target 3',
+    '1500',
+    '1020',
+    'Bianchi',
+    'WA48',
+    'Advancing Target Muzzle Loading Revolver',
+    'Advancing Target Benched',
+    'Speed Steels Challenge',
+    'Speed Steels Challenge Benched',
+    '25m Timed',
+    '25m Timed Muzzle Loading Revolver',
+    'Sport Pistol',
+    'NRA Rapid Fire Pistol',
+    'Standard Pistol',
+    'The Grand',
+    'NRA Embassy Cup',
+    'Service Match',
+    'Man v Man',
+    'Metallic Silhouettes',
+    '25m Classic Muzzle Loading',
+    'Granet',
+    'Granet Muzzle Loading',
+    'Imperial Silhouettes',
+    'Surrenden',
+    '100 Yards Muzzle Loading',
+    '100/200 Yards',
+    '200/300 Yards',
+    'IGRF Limited Bolt Action Rifle',
+    'Sporting Rifle Statics',
+    '100/200/300 Yards',
+    '100/200/300 Yards Sporting',
+    '400/500/600 Yards',
+    '400/500/600 Yards F Class',
+    '400/500/600 Yards Black Powder',
+    '800/900/1000 Yards',
+    '800/900/1000 Yards F Class',
+    '800/900/1000 Yards Black Powder',
+    '200 Yards',
+    'Mini McQueen',
+    'McQueen',
+    '25m Precision Unlimited',
+    'Advancing Target Unlimited',
+    'Cotterill Unlimited',
+    'Imperial Silhouettes Unlimited',
+    'Timed & Precision 1 Unlimited',
+    'Advance Target Team',
+    'Lord Salisbury Team',
+    'Peel Cup',
+  ];
+
+
 }

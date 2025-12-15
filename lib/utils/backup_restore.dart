@@ -137,21 +137,7 @@ class BackupRestore {
     }
 
     // ---------------------------
-    // 6. Close boxes before restore
-    // ---------------------------
-    for (var boxName in ['scores', 'firearms', 'membership_cards']) {
-      if (Hive.isBoxOpen(boxName)) await Hive.box(boxName).close();
-    }
-
-    // ---------------------------
-    // 7. Re-open boxes
-    // ---------------------------
-    await Hive.openBox<ScoreEntry>('scores');
-    await Hive.openBox<FirearmEntry>('firearms');
-    await Hive.openBox<MembershipCardEntry>('membership_cards');
-
-    // ---------------------------
-    // 8. Restore Hive JSON & SharedPreferences
+    // 6. Restore Hive JSON & SharedPreferences
     // ---------------------------
     await _restoreHiveAndPrefs(appDir);
   }
@@ -167,15 +153,32 @@ class BackupRestore {
       final jsonStr = await file.readAsString();
       final List<dynamic> list = jsonDecode(jsonStr);
 
-      final box = Hive.box(boxName); // already open
+      // Get the typed box (should already be open from main.dart)
+      Box box;
+      if (boxName == 'scores') {
+        box = Hive.box<ScoreEntry>(boxName);
+      } else if (boxName == 'firearms') {
+        box = Hive.box<FirearmEntry>(boxName);
+      } else {
+        box = Hive.box<MembershipCardEntry>(boxName);
+      }
+
       await box.clear();
 
       for (var item in list) {
         final map = Map<String, dynamic>.from(item);
 
-        if (boxName == 'scores') box.add(ScoreEntry.fromJson(map));
-        else if (boxName == 'firearms') box.add(FirearmEntry.fromJson(map));
-        else if (boxName == 'membership_cards') box.add(MembershipCardEntry.fromJson(map));
+        // Update image paths to point to restored locations
+        if (boxName == 'scores') {
+          _updateScoreImagePaths(map, appDir);
+          box.add(ScoreEntry.fromJson(map));
+        } else if (boxName == 'firearms') {
+          _updateFirearmImagePath(map, appDir);
+          box.add(FirearmEntry.fromJson(map));
+        } else if (boxName == 'membership_cards') {
+          _updateMembershipImagePaths(map, appDir);
+          box.add(MembershipCardEntry.fromJson(map));
+        }
       }
     }
 
@@ -196,6 +199,67 @@ class BackupRestore {
       else if (v is bool) prefs.setBool(key, v);
       else if (v is String) prefs.setString(key, v);
       else if (v is List) prefs.setStringList(key, List<String>.from(v));
+    }
+  }
+
+  /// Update ScoreEntry image paths to point to restored location
+  static void _updateScoreImagePaths(Map<String, dynamic> map,
+      Directory appDir) {
+    if (map['targetFilePath'] != null) {
+      final filename = map['targetFilePath']
+          .toString()
+          .split('/')
+          .last
+          .split('\\')
+          .last;
+      map['targetFilePath'] = '${appDir.path}/images/targets/full/$filename';
+    }
+    if (map['thumbnailFilePath'] != null) {
+      final filename = map['thumbnailFilePath']
+          .toString()
+          .split('/')
+          .last
+          .split('\\')
+          .last;
+      map['thumbnailFilePath'] =
+      '${appDir.path}/images/targets/thumbs/$filename';
+    }
+  }
+
+  /// Update FirearmEntry image path to point to restored location
+  static void _updateFirearmImagePath(Map<String, dynamic> map,
+      Directory appDir) {
+    if (map['imagePath'] != null) {
+      final filename = map['imagePath']
+          .toString()
+          .split('/')
+          .last
+          .split('\\')
+          .last;
+      map['imagePath'] = '${appDir.path}/images/armory/$filename';
+    }
+  }
+
+  /// Update MembershipCardEntry image paths to point to restored location
+  static void _updateMembershipImagePaths(Map<String, dynamic> map,
+      Directory appDir) {
+    if (map['frontImagePath'] != null) {
+      final filename = map['frontImagePath']
+          .toString()
+          .split('/')
+          .last
+          .split('\\')
+          .last;
+      map['frontImagePath'] = '${appDir.path}/images/membership/$filename';
+    }
+    if (map['backImagePath'] != null) {
+      final filename = map['backImagePath']
+          .toString()
+          .split('/')
+          .last
+          .split('\\')
+          .last;
+      map['backImagePath'] = '${appDir.path}/images/membership/$filename';
     }
   }
 }

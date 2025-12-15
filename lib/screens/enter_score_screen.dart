@@ -10,13 +10,13 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../models/score_entry.dart';
-import '../models/firearm_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
 
 import 'methods/competition_dialog.dart';
 import 'methods/firearm_dialog.dart';
 import 'methods/notes_dialog.dart';
+import 'methods/practice_selection_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
@@ -43,18 +43,28 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   DateTime selectedDate = DateTime.now();
 
+  // Cache the practice items at state level to prevent recreation on every build
+  List<DropdownMenuItem<String>> _cachedPracticeItems = [];
+  String _cachedPracticeListHash = '';
+
   @override
   void initState() {
     super.initState();
-    _loadLastSelections();
-
-    if (widget.editEntry != null) _populateEditFields();
-    if (widget.editEntry != null) selectedDate = widget.editEntry!.date;
+    _initializeScreen();
 
     firearmController.addListener(() => setState(() {}));
     notesController.addListener(() => setState(() {}));
     compIdController.addListener(() => setState(() {}));
     compResultController.addListener(() => setState(() {}));
+  }
+
+  Future<void> _initializeScreen() async {
+    await _loadLastSelections();
+
+    if (widget.editEntry != null) {
+      _populateEditFields();
+      selectedDate = widget.editEntry!.date;
+    }
   }
 
   void _populateEditFields() {
@@ -65,29 +75,72 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     compIdController.text = entry.compId ?? '';
     compResultController.text = entry.compResult ?? '';
 
-    selectedPractice = entry.practice;
-    selectedCaliber = entry.caliber;
-    selectedFirearmId = entry.firearmId;
+    setState(() {
+      // Validate that the practice exists in the dropdown list
+      final currentPractices = DropdownValues.practices;
+      if (!currentPractices.contains(entry.practice) &&
+          entry.practice != 'All') {
+        // If not in favorites, add it temporarily (setter will handle 'All' automatically)
+        final practicesWithoutAll = currentPractices
+            .where((p) => p != 'All')
+            .toList();
+        DropdownValues.practices = [entry.practice, ...practicesWithoutAll];
+      }
+      selectedPractice = entry.practice;
 
-    targetImage = entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
-    thumbnailImage =
-    entry.thumbnailFilePath != null ? File(entry.thumbnailFilePath!) : null;
+      selectedCaliber = entry.caliber;
+      selectedFirearmId = entry.firearmId;
+
+      targetImage =
+      entry.targetFilePath != null ? File(entry.targetFilePath!) : null;
+      thumbnailImage =
+      entry.thumbnailFilePath != null ? File(entry.thumbnailFilePath!) : null;
+    });
   }
 
   Future<void> _loadLastSelections() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Load favorite practices from SharedPreferences
+    final favoritePractices = prefs.getStringList('favoritePractices');
+    if (favoritePractices != null && favoritePractices.isNotEmpty) {
+      // Clean and filter the data (remove 'All' if it exists)
+      final cleanedPractices = favoritePractices
+          .where((p) => p != 'All')
+          .toList();
+      // Save back the cleaned data
+      await prefs.setStringList('favoritePractices', cleanedPractices);
+      // The setter will automatically filter out 'All' and add it at the top
+      DropdownValues.practices = cleanedPractices;
+    }
+
     setState(() {
-      selectedPractice = widget.editEntry?.practice ??
-          prefs.getString('lastPractice') ??
-          DropdownValues.practices.first;
+      // Get the last selected practice
+      final lastPractice = widget.editEntry?.practice ??
+          prefs.getString('lastPractice');
+
+      // Ensure the selected practice exists in the dropdown list
+      if (lastPractice != null &&
+          DropdownValues.practices.contains(lastPractice)) {
+        selectedPractice = lastPractice;
+      } else {
+        selectedPractice = DropdownValues.practices.first;
+      }
 
       selectedCaliber = widget.editEntry?.caliber ??
           prefs.getString('lastCaliber') ??
           DropdownValues.calibers.first;
 
-      selectedFirearmId = widget.editEntry?.firearmId ??
-          prefs.getString('lastFirearmId') ??
-          DropdownValues.firearmIds.first;
+      // Get the last firearm ID, but ensure it exists in the list
+      final lastFirearmId = widget.editEntry?.firearmId ??
+          prefs.getString('lastFirearmId');
+
+      if (lastFirearmId != null &&
+          DropdownValues.firearmIds.contains(lastFirearmId)) {
+        selectedFirearmId = lastFirearmId;
+      } else {
+        selectedFirearmId = DropdownValues.firearmIds.first;
+      }
     });
   }
 
@@ -193,7 +246,15 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
 
-    final firearmBox = Hive.box<FirearmEntry>('firearms');
+    // Cache the practices list at state level - only rebuild if list changes
+    final practicesList = DropdownValues.practices;
+    final currentHash = practicesList.join(',');
+    if (_cachedPracticeItems.isEmpty || _cachedPracticeListHash != currentHash) {
+      _cachedPracticeListHash = currentHash;
+      _cachedPracticeItems = practicesList
+          .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+          .toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -236,20 +297,45 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
             const SizedBox(height: 12),
 
-            // Practice Dropdown
-            DropdownButtonFormField<String>(
-              initialValue: selectedPractice,
-              items: DropdownValues.practices
-                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                  .toList(),
-              onChanged: (v) {
-                setState(() => selectedPractice = v);
-                if (v != null) _saveSelection('lastPractice', v);
-              },
-              decoration: const InputDecoration(
-                labelText: "Practice",
-                border: OutlineInputBorder(),
-              ),
+            // Practice Dropdown with Settings Icon
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedPractice,
+                    items: _cachedPracticeItems,
+                    onChanged: (v) {
+                      setState(() => selectedPractice = v);
+                      if (v != null) _saveSelection('lastPractice', v);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: "Practice",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.settings, color: primaryColor),
+                  tooltip: "Select Favorite Practices",
+                  onPressed: () async {
+                    await showPracticeSelectionDialog(
+                      context: context,
+                      onSelectionChanged: () {
+                        setState(() {
+                          // Invalidate cache so it rebuilds with new practices
+                          _cachedPracticeItems = [];
+                          _cachedPracticeListHash = '';
+                          // Ensure selectedPractice is still valid after changes
+                          final currentPractices = DropdownValues.practices;
+                          if (!currentPractices.contains(selectedPractice)) {
+                            selectedPractice = 'All';
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ],
             ),
 
             const SizedBox(height: 12),
@@ -276,12 +362,13 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: selectedFirearmId, // <<< Fixes the red-screen dropdown error
-                    items: firearmBox.values
-                        .map((gun) => DropdownMenuItem(
-                      value: gun.id,
-                      child: Text(gun.nickname ?? "Unnamed"),
-                    ))
+                    initialValue: selectedFirearmId,
+                    items: DropdownValues.firearmIds
+                        .map((id) =>
+                        DropdownMenuItem(
+                          value: id,
+                          child: Text(id),
+                        ))
                         .toList(),
                     onChanged: (v) {
                       setState(() => selectedFirearmId = v);

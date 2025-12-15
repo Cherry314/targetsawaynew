@@ -151,14 +151,26 @@ class _MainScreenState extends State<MainScreen> {
     ];
   }
 
+  Widget _getCurrentScreen() {
+    // Create EnterScoreScreen with unique key to force fresh state
+    if (_currentIndex == 1) {
+      return EnterScoreScreen(key: ValueKey('enter_score_${DateTime
+          .now()
+          .millisecondsSinceEpoch}'));
+    }
+    return _screens[_currentIndex];
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme
+        .of(context)
+        .brightness == Brightness.dark;
 
     return SafeArea(
       child: Scaffold(
-        body: _screens[_currentIndex],
+        body: _getCurrentScreen(),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
