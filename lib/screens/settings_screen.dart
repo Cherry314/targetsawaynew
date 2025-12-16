@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../main.dart';
 import '../utils/backup_restore.dart';
@@ -68,15 +69,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            TextField(
-              controller: folderController,
-              decoration: const InputDecoration(
-                labelText: "Optional folder filter (not required)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-
             ElevatedButton(
               onPressed: _calculateSizes,
               child: const Text('Calculate Storage Usage'),
@@ -90,32 +82,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.backup),
+                    label: const Text('Create Backup'),
                     onPressed: () async {
                       try {
-                        final file =
-                        await BackupRestore.backupAppData(includeImages: includeImages);
-
-                        await showDialog(
+                        // Show loading indicator
+                        showDialog(
                           context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Backup Created'),
-                            content: Text('Backup saved to:\n${file.path}'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
+                          barrierDismissible: false,
+                          builder: (_) =>
+                          const Center(
+                            child: CircularProgressIndicator(),
                           ),
                         );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Backup failed: $e')),
+
+                        final file = await BackupRestore.backupAppData(
+                            includeImages: includeImages);
+
+                        // Close loading indicator
+                        if (context.mounted) Navigator.pop(context);
+
+                        // Share the file using native share dialog
+                        final result = await Share.shareXFiles(
+                          [XFile(file.path)],
+                          subject: 'TargetsAway Backup',
+                          text: 'My TargetsAway backup file - ${file.uri
+                              .pathSegments.last}',
                         );
+
+                        // Show result
+                        if (context.mounted) {
+                          if (result.status == ShareResultStatus.success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Backup shared successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else
+                          if (result.status == ShareResultStatus.dismissed) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Share cancelled'),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        // Close loading if still open
+                        if (context.mounted) Navigator.pop(context);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Backup failed: $e')),
+                          );
+                        }
                       }
                     },
-                    child: const Text('Backup'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -135,12 +159,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
 
             // ---------------- Restore ----------------
-            ElevatedButton(
+            ElevatedButton.icon(
+              icon: const Icon(Icons.restore),
+              label: const Text('Restore from Backup'),
               onPressed: () async {
+                // Show confirmation dialog first
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (_) =>
+                      AlertDialog(
+                        title: const Text('Restore Backup?'),
+                        content: const Text(
+                            'This will replace all current data with the backup data. '
+                                'Are you sure you want to continue?'
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Restore'),
+                          ),
+                        ],
+                      ),
+                );
+
+                if (confirmed != true) return;
+
                 try {
+                  // Show loading
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) =>
+                      const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
                   final result = await FilePicker.platform.pickFiles(
                     type: FileType.custom,
                     allowedExtensions: ['zip'],
+                    dialogTitle: 'Select TargetsAway Backup File',
                   );
 
                   if (result != null && result.files.single.path != null) {
@@ -148,17 +212,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                     await BackupRestore.restoreAppData(file);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Restore complete!')),
-                    );
+                    // Close loading
+                    if (context.mounted) Navigator.pop(context);
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Restore complete! Restart the app to see changes.'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 5),
+                        ),
+                      );
+                    }
+                  } else {
+                    // Close loading if cancelled
+                    if (context.mounted) Navigator.pop(context);
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Restore failed: $e')),
-                  );
+                  // Close loading
+                  if (context.mounted) Navigator.pop(context);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Restore failed: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
-              child: const Text('Restore Backup'),
             ),
           ],
         ),

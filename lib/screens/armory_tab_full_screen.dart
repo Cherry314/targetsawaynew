@@ -76,7 +76,7 @@ class _ArmoryFullScreenState extends State<ArmoryFullScreen>
                 // Overlay with details
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                     padding: const EdgeInsets.all(16),
                     child: SingleChildScrollView(
                       child: Column(

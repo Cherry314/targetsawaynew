@@ -37,7 +37,8 @@ class _PersonalScreenState extends State<PersonalScreen>
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
-    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.grey[900] : Colors.grey[200];
 
     // Interpolate between background and AppBar color
     final tabBarColor = Color.lerp(bgColor, primaryColor, 0.3);

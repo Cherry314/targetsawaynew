@@ -240,7 +240,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
                         style: TextStyle(color: primaryColor)),
                     subtitle: Text('${firearm.make} ${firearm.model}',
                         style:
-                        TextStyle(color: primaryColor.withOpacity(0.7))),
+                        TextStyle(color: primaryColor.withValues(alpha: 0.7))),
                     onTap: () {
                       // Navigate to full-screen page with fade animation
                       Navigator.push(

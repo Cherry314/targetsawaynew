@@ -92,19 +92,13 @@ class BackupRestore {
     final zipEncoder = ZipEncoder();
     final zipData = zipEncoder.encode(archive);
 
-    final dateStr = DateFormat('ddMMMyyyy').format(DateTime.now());
+    final dateStr = DateFormat('ddMMMyyyy_HHmm').format(DateTime.now());
 
     // ---------------------------
-    // 5. Save to Downloads (Android) or App folder (iOS)
+    // 5. Save to temporary directory first (for sharing)
     // ---------------------------
-    Directory saveDir;
-    if (Platform.isAndroid) {
-      saveDir = (await getExternalStorageDirectories(type: StorageDirectory.downloads))!.first;
-    } else {
-      saveDir = await getApplicationDocumentsDirectory();
-    }
-
-    final file = File('${saveDir.path}/TargetsAway-$dateStr.zip');
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/TargetsAway_Backup_$dateStr.zip');
     await file.writeAsBytes(zipData);
 
     return file;
@@ -194,11 +188,17 @@ class BackupRestore {
 
     for (var key in spMap.keys) {
       final v = spMap[key];
-      if (v is int) prefs.setInt(key, v);
-      else if (v is double) prefs.setDouble(key, v);
-      else if (v is bool) prefs.setBool(key, v);
-      else if (v is String) prefs.setString(key, v);
-      else if (v is List) prefs.setStringList(key, List<String>.from(v));
+      if (v is int) {
+        prefs.setInt(key, v);
+      } else if (v is double) {
+        prefs.setDouble(key, v);
+      } else if (v is bool) {
+        prefs.setBool(key, v);
+      } else if (v is String) {
+        prefs.setString(key, v);
+      } else if (v is List) {
+        prefs.setStringList(key, List<String>.from(v));
+      }
     }
   }
 
