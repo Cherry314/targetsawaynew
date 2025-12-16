@@ -64,8 +64,8 @@ Future<void> showFirearmDialog({
 
               if (selectedGun != null) {
                 firearmController.text = selectedGun.nickname ?? '';
-                onSelectId(selectedGun.id);
-                saveSelection('lastFirearmId', selectedGun.id);
+                // Note: We don't call onSelectId or saveSelection here
+                // because the Firearm ID dropdown is separate from the armory database ID
               }
             },
           ),

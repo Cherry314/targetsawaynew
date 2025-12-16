@@ -334,7 +334,14 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         _cachedPracticeListHash != currentHash) {
       _cachedPracticeListHash = currentHash;
       _cachedPracticeItems = practicesList
-          .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+          .map((p) => DropdownMenuItem(
+        value: p,
+        child: Text(
+          p,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+      ))
           .toList();
     }
 
@@ -445,12 +452,21 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: selectedPractice,
+                          value: DropdownValues.practices.contains(
+                              selectedPractice)
+                              ? selectedPractice
+                              : DropdownValues.practices.first,
                           items: _cachedPracticeItems,
                           onChanged: (v) {
                             setState(() => selectedPractice = v);
                             if (v != null) _saveSelection('lastPractice', v);
                           },
+                          isDense: true,
+                          isExpanded: true,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                           decoration: InputDecoration(
                             labelText: "Practice",
                             prefixIcon: Icon(
@@ -542,7 +558,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: selectedCaliber,
+                          value: DropdownValues.calibers.contains(
+                              selectedCaliber)
+                              ? selectedCaliber
+                              : DropdownValues.calibers.first,
                           isDense: true,
                           isExpanded: true,
                           style: TextStyle(
@@ -594,7 +613,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: selectedFirearmId,
+                          value: DropdownValues.firearmIds.contains(
+                              selectedFirearmId)
+                              ? selectedFirearmId
+                              : DropdownValues.firearmIds.first,
                           isDense: true,
                           isExpanded: true,
                           style: TextStyle(
