@@ -94,7 +94,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
     final qualityOptions = ['Low (50%)', 'Medium (70%)', 'Large (85%)'];
 
-    return Scaffold(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
       drawer: const AppDrawer(currentRoute: 'settings'),
       appBar: AppBar(
         title: const Text('Settings'),
@@ -452,6 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       ),
+    ),
     );
   }
 }

@@ -1,6 +1,7 @@
 // lib/widgets/app_drawer.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 
@@ -100,9 +101,41 @@ class AppDrawer extends StatelessWidget {
             route: 'settings',
             primaryColor: primaryColor,
           ),
+          ListTile(
+            leading: const Icon(Icons.exit_to_app),
+            title: const Text('Exit'),
+            onTap: () async {
+              Navigator.pop(context); // Close drawer first
+              final shouldExit = await _showExitDialog(context);
+              if (shouldExit) {
+                SystemNavigator.pop();
+              }
+            },
+          ),
         ],
       ),
     );
+  }
+
+  Future<bool> _showExitDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Exit Application'),
+            content: const Text('Are you sure you want to exit?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
+    ) ?? false;
   }
 
   Widget _buildDrawerItem({

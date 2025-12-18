@@ -441,10 +441,20 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           .toList();
     }
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-      drawer: const AppDrawer(currentRoute: 'enter_score'),
-      appBar: AppBar(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+          drawer: const AppDrawer(currentRoute: 'enter_score'),
+          appBar: AppBar(
         elevation: 0,
         title: Text(
           widget.editEntry != null ? "Edit Score" : "Enter Score",
@@ -941,6 +951,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         ),
       ),
       ),
+    ),
     );
   }
 

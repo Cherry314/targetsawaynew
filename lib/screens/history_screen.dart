@@ -34,10 +34,20 @@ class HistoryScreenState extends State<HistoryScreen> {
         .brightness == Brightness.dark;
     final primaryColor = themeProvider.primaryColor;
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-      drawer: const AppDrawer(currentRoute: 'history'),
-      appBar: AppBar(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+          drawer: const AppDrawer(currentRoute: 'history'),
+          appBar: AppBar(
         elevation: 0,
         title: const Text(
           'Previous Targets',
@@ -464,6 +474,7 @@ class HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ],
+      ),
       ),
       ),
     );

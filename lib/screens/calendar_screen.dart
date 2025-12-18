@@ -166,9 +166,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
         .of(context)
         .brightness == Brightness.dark;
 
-    return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'calendar'),
-      appBar: AppBar(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
+          drawer: const AppDrawer(currentRoute: 'calendar'),
+          appBar: AppBar(
         title: const Text('Calendar'),
         centerTitle: true,
         backgroundColor: primaryColor,
@@ -455,6 +465,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      ),
     );
   }
 

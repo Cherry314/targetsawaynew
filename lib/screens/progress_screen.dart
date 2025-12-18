@@ -73,10 +73,20 @@ class ProgressScreenState extends State<ProgressScreen> {
         .of(context)
         .brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-      drawer: const AppDrawer(currentRoute: 'progress'),
-      appBar: AppBar(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+          drawer: const AppDrawer(currentRoute: 'progress'),
+          appBar: AppBar(
         elevation: 0,
         title: const Text(
           'Progress Graph',
@@ -264,6 +274,7 @@ class ProgressScreenState extends State<ProgressScreen> {
           ),
         ],
         ),
+      ),
       ),
     );
   }

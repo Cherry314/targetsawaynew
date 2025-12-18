@@ -46,7 +46,17 @@ class _PersonalScreenState extends State<PersonalScreen>
     // Interpolate between background and AppBar color
     final tabBarColor = Color.lerp(bgColor, primaryColor, 0.3);
 
-    return Scaffold(
+    return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) async {
+          if (didPop) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        child: Scaffold(
       backgroundColor: bgColor,
       drawer: const AppDrawer(currentRoute: 'personal'),
       appBar: AppBar(
@@ -86,6 +96,7 @@ class _PersonalScreenState extends State<PersonalScreen>
           ],
         ),
       ),
+    ),
     );
   }
 }

@@ -1,10 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/help_icon_button.dart';
-import '../utils/help_content.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -58,6 +57,27 @@ class _HomeScreenState extends State<HomeScreen>
         sin((t * 0.25 + seed * 3) * 2 * pi) * 0.2;
   }
 
+  Future<bool> _showExitDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Exit Application'),
+            content: const Text('Are you sure you want to exit?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
+    ) ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     // final themeProvider = Provider.of<ThemeProvider>(context);
@@ -70,107 +90,114 @@ class _HomeScreenState extends State<HomeScreen>
         .of(context)
         .size;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Targets Away',
-          style: TextStyle(color: Colors.white),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) {
+          return;
+        }
+        final shouldExit = await _showExitDialog();
+        if (shouldExit && context.mounted) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Targets Away',
+            style: TextStyle(color: Colors.white),
+          ),
+          centerTitle: true,
+          elevation: 0,
         ),
-        centerTitle: true,
-        elevation: 0,
+        drawer: const AppDrawer(currentRoute: 'home'),
+        body: SafeArea(
+          bottom: true,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final t = _controller.value;
+              double dx = 0;
+              double dy = 0;
 
-      ),
-      drawer: const AppDrawer(currentRoute: 'home'),
-      body: SafeArea(
-        bottom: true,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (_, child) {
-          final t = _controller.value;
-          double dx = 0;
-          double dy = 0;
+              // Only calculate animation offsets if animations are enabled
+              if (animationsEnabled) {
+                dx = sin(t * 2 * pi) * swayAmount;
+                dy = sin(t * 2 * pi * 0.6) * swayAmount;
+                dy += breathingAmount * sin(t * 2 * pi * 0.25);
+                dx += _smoothNoise(t, 0.8) * tremorAmount;
+                dy += _smoothNoise(t, 1.3) * tremorAmount;
+              }
 
-          // Only calculate animation offsets if animations are enabled
-          if (animationsEnabled) {
-            dx = sin(t * 2 * pi) * swayAmount;
-            dy = sin(t * 2 * pi * 0.6) * swayAmount;
-            dy += breathingAmount * sin(t * 2 * pi * 0.25);
-            dx += _smoothNoise(t, 0.8) * tremorAmount;
-            dy += _smoothNoise(t, 1.3) * tremorAmount;
-          }
+              return Stack(
+                children: [
+                  // Black background
+                  Container(color: bgColor),
 
-          return Stack(
-            children: [
-              // Black background
-              Container(color: bgColor),
-
-              // New background image stretched horizontally, keeping aspect ratio
-              Center(
-                child: Image.asset(
-                  'assets/range1.jpg',
-                  width: screenSize.width,
-                  fit: BoxFit.fitWidth,
-                ),
-              ),
-
-              // Existing homeback2.png with modulated color
-
-
-              // Existing animated front image
-              Center(
-                child: Transform.translate(
-                  offset: Offset(dx, dy -96),
-                  child: Image.asset(
-                    'assets/homefront.png',
-                    width: screenSize.width * 0.65,
-                    fit: BoxFit.contain,
-                    //color: primaryColor.withAlpha((0.09 * 255).round()),
-                    colorBlendMode: BlendMode.modulate,
+                  // New background image stretched horizontally, keeping aspect ratio
+                  Center(
+                    child: Image.asset(
+                      'assets/range1.jpg',
+                      width: screenSize.width,
+                      fit: BoxFit.fitWidth,
+                    ),
                   ),
-                ),
-              ),
 
-              // Black block overlay at bottom 1/3 of screen
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: screenSize.height / 3,
-                child: Container(
-                  color: Colors.black, // fully black
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/targetsaway.png',
-                        width: screenSize.width * 0.5, // adjust size as needed
+                  // Existing homeback2.png with modulated color
+
+
+                  // Existing animated front image
+                  Center(
+                    child: Transform.translate(
+                      offset: Offset(dx, dy - 96),
+                      child: Image.asset(
+                        'assets/homefront.png',
+                        width: screenSize.width * 0.65,
                         fit: BoxFit.contain,
+                        //color: primaryColor.withAlpha((0.09 * 255).round()),
+                        colorBlendMode: BlendMode.modulate,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Firearm Scoring Database',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-
-
-
-
-            ],
-          );
-        },
-      ),
+                  // Black block overlay at bottom 1/3 of screen
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: screenSize.height / 3,
+                    child: Container(
+                      color: Colors.black, // fully black
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/targetsaway.png',
+                            width: screenSize.width * 0.5,
+                            // adjust size as needed
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Firearm Scoring Database',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
