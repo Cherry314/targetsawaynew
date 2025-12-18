@@ -66,8 +66,9 @@ class _MembershipCardsTabState extends State<MembershipCardsTab> {
                       source: ImageSource.camera,
                       imageQuality: imageQualityProvider.qualityPercentage
                   );
-                  if (picked != null) setState(() =>
-                  frontImage = File(picked.path));
+                  if (picked != null) {
+                    setState(() => frontImage = File(picked.path));
+                  }
                 },
                 icon: const Icon(Icons.camera_alt),
                 label: const Text('Capture Front'),

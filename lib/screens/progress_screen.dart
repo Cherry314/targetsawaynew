@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/score_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
+import '../widgets/app_drawer.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -72,6 +73,7 @@ class ProgressScreenState extends State<ProgressScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+      drawer: const AppDrawer(currentRoute: 'progress'),
       appBar: AppBar(
         elevation: 0,
         title: const Text(
@@ -92,7 +94,9 @@ class ProgressScreenState extends State<ProgressScreen> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        bottom: true,
+        child: Column(
         children: [
           // Compact Filter Section
           Container(
@@ -251,6 +255,7 @@ class ProgressScreenState extends State<ProgressScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

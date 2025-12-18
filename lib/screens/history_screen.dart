@@ -7,6 +7,8 @@ import '../data/dropdown_values.dart';
 import 'enter_score_screen.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../widgets/app_drawer.dart';
+import '../services/calendar_score_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -32,6 +34,7 @@ class HistoryScreenState extends State<HistoryScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+      drawer: const AppDrawer(currentRoute: 'history'),
       appBar: AppBar(
         elevation: 0,
         title: const Text(
@@ -52,7 +55,9 @@ class HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        bottom: true,
+        child: Column(
         children: [
           // Compact Filter Section
           Container(
@@ -349,12 +354,18 @@ class HistoryScreenState extends State<HistoryScreen> {
                           }
                           return false;
                         },
-                        onDismissed: (direction) {
+                        onDismissed: (direction) async {
                           if (direction == DismissDirection.startToEnd) {
+                            // Delete the calendar entry first
+                            await CalendarScoreService().deleteScoreAppointment(
+                                entry.id);
+                            // Then delete the score
                             box.delete(entry.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Score entry deleted')));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Score entry deleted')));
+                            }
                           }
                         },
                         child: ListTile(
@@ -445,6 +456,7 @@ class HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

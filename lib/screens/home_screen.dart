@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../widgets/app_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,9 +70,22 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) {
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Targets Away',
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      drawer: const AppDrawer(currentRoute: 'home'),
+      body: SafeArea(
+        bottom: true,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (_, child) {
           final t = _controller.value;
           double dx = 0;
           double dy = 0;
@@ -153,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           );
         },
+      ),
       ),
     );
   }

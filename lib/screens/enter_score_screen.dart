@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 import '../models/score_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
+import '../widgets/app_drawer.dart';
+import '../services/calendar_score_service.dart';
 
 import 'methods/competition_dialog.dart';
 import 'methods/firearm_dialog.dart';
@@ -20,8 +22,13 @@ import 'methods/practice_selection_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
+  final bool openedFromCalendar;
 
-  const EnterScoreScreen({super.key, this.editEntry});
+  const EnterScoreScreen({
+    super.key,
+    this.editEntry,
+    this.openedFromCalendar = false,
+  });
 
   @override
   EnterScoreScreenState createState() => EnterScoreScreenState();
@@ -61,9 +68,15 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   Future<void> _initializeScreen() async {
     await _loadLastSelections();
 
-    if (widget.editEntry != null) {
+    if (widget.editEntry != null && !widget.openedFromCalendar) {
+      // Only populate fields if it's a real edit entry (not from calendar)
       _populateEditFields();
       selectedDate = widget.editEntry!.date;
+    } else if (widget.editEntry != null && widget.openedFromCalendar) {
+      // From calendar: just set the date, keep last selections
+      setState(() {
+        selectedDate = widget.editEntry!.date;
+      });
     }
   }
 
@@ -116,8 +129,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
     setState(() {
       // Get the last selected practice
-      final lastPractice = widget.editEntry?.practice ??
-          prefs.getString('lastPractice');
+      // Only use editEntry values if NOT from calendar and values are not empty
+      final lastPractice = (widget.editEntry?.practice != null &&
+          widget.editEntry!.practice.isNotEmpty &&
+          !widget.openedFromCalendar)
+          ? widget.editEntry!.practice
+          : prefs.getString('lastPractice');
 
       // Ensure the selected practice exists in the dropdown list
       if (lastPractice != null &&
@@ -127,13 +144,20 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         selectedPractice = DropdownValues.practices.first;
       }
 
-      selectedCaliber = widget.editEntry?.caliber ??
-          prefs.getString('lastCaliber') ??
-          DropdownValues.calibers.first;
+      // Only use editEntry caliber if NOT from calendar and not empty
+      selectedCaliber = (widget.editEntry?.caliber != null &&
+          widget.editEntry!.caliber.isNotEmpty &&
+          !widget.openedFromCalendar)
+          ? widget.editEntry!.caliber
+          : (prefs.getString('lastCaliber') ?? DropdownValues.calibers.first);
 
-      // Get the last firearm ID, but ensure it exists in the list
-      final lastFirearmId = widget.editEntry?.firearmId ??
-          prefs.getString('lastFirearmId');
+      // Get the last firearm ID
+      // Only use editEntry firearmId if NOT from calendar and not empty
+      final lastFirearmId = (widget.editEntry?.firearmId != null &&
+          widget.editEntry!.firearmId.isNotEmpty &&
+          !widget.openedFromCalendar)
+          ? widget.editEntry!.firearmId
+          : prefs.getString('lastFirearmId');
 
       if (lastFirearmId != null &&
           DropdownValues.firearmIds.contains(lastFirearmId)) {
@@ -141,12 +165,45 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       } else {
         selectedFirearmId = DropdownValues.firearmIds.first;
       }
+
+      // Load last firearm name if not from calendar or if editEntry doesn't have it
+      if (!widget.openedFromCalendar ||
+          widget.editEntry?.firearm == null ||
+          widget.editEntry!.firearm!.isEmpty) {
+        final lastFirearm = prefs.getString('lastFirearm');
+        if (lastFirearm != null) {
+          firearmController.text = lastFirearm;
+        }
+      }
     });
   }
 
   Future<void> _saveSelection(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
+  }
+
+  void _resetFormForNextEntry() {
+    setState(() {
+      // Clear the score field
+      scoreController.clear();
+
+      // Clear optional fields
+      firearmController.clear();
+      notesController.clear();
+      compIdController.clear();
+      compResultController.clear();
+
+      // Clear images
+      targetImage = null;
+      thumbnailImage = null;
+
+      // Reset date to today
+      selectedDate = DateTime.now();
+
+      // Keep the last selected practice, caliber, and firearm ID
+      // (They're already in state from the last save)
+    });
   }
 
   Future<File> _generateThumbnail(File originalImage) async {
@@ -196,8 +253,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Confirm Save"),
-        content: const Text(
-            "Do you want to save this entry and return to the Home Screen?"),
+        content: Text(
+            widget.openedFromCalendar
+                ? "Do you want to save this entry and return to the Calendar?"
+                : "Do you want to save this entry?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -211,7 +270,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
               final newEntry = ScoreEntry(
                 id: widget.editEntry?.id ??
-                    DateTime.now().millisecondsSinceEpoch.toString(),
+                    DateTime
+                        .now()
+                        .millisecondsSinceEpoch
+                        .toString(),
                 date: selectedDate,
                 score: int.parse(scoreController.text),
                 practice: selectedPractice!,
@@ -229,10 +291,37 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
               await box.put(newEntry.id, newEntry);
 
+              // Save the selections for next time
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('lastPractice', selectedPractice!);
+              await prefs.setString('lastCaliber', selectedCaliber!);
+              await prefs.setString('lastFirearmId', selectedFirearmId!);
+              if (firearmController.text.isNotEmpty) {
+                await prefs.setString('lastFirearm', firearmController.text);
+              }
+
+              // Create calendar entry for this score
+              await CalendarScoreService().createOrUpdateScoreAppointment(
+                  newEntry);
+
               if (!mounted) return;
 
               Navigator.pop(context); // close dialog
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
+              if (widget.openedFromCalendar) {
+                // Return to calendar screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/calendar', (route) => false);
+              } else {
+                // Clear form and stay on screen for next entry
+                _resetFormForNextEntry();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Score saved! Ready for next entry.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: const Text("Confirm Save"),
           ),
@@ -352,6 +441,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+      drawer: const AppDrawer(currentRoute: 'enter_score'),
       appBar: AppBar(
         elevation: 0,
         title: Text(
@@ -372,9 +462,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: SafeArea(
+        bottom: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Session Details Card
@@ -458,10 +550,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: DropdownValues.practices.contains(
-                              selectedPractice)
-                              ? selectedPractice
-                              : DropdownValues.practices.first,
+                          key: ValueKey('practice_$selectedPractice'),
+                          value: selectedPractice,
                           items: _cachedPracticeItems,
                           onChanged: (v) {
                             setState(() => selectedPractice = v);
@@ -564,10 +654,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: DropdownValues.calibers.contains(
-                              selectedCaliber)
-                              ? selectedCaliber
-                              : DropdownValues.calibers.first,
+                          key: ValueKey('caliber_$selectedCaliber'),
+                          value: selectedCaliber,
                           isDense: true,
                           isExpanded: true,
                           style: TextStyle(
@@ -619,10 +707,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: DropdownValues.firearmIds.contains(
-                              selectedFirearmId)
-                              ? selectedFirearmId
-                              : DropdownValues.firearmIds.first,
+                          key: ValueKey('firearm_$selectedFirearmId'),
+                          value: selectedFirearmId,
                           isDense: true,
                           isExpanded: true,
                           style: TextStyle(
@@ -842,9 +928,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
               onPressed: _confirmSaveEntry,
               primaryColor: primaryColor,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
           ],
         ),
+      ),
       ),
     );
   }

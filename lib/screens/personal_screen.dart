@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'armory_tab.dart';
 import 'membership_cards_tab.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../main.dart';
+import '../widgets/app_drawer.dart';
 
 class PersonalScreen extends StatefulWidget {
   const PersonalScreen({super.key});
@@ -45,6 +46,7 @@ class _PersonalScreenState extends State<PersonalScreen>
 
     return Scaffold(
       backgroundColor: bgColor,
+      drawer: const AppDrawer(currentRoute: 'personal'),
       appBar: AppBar(
         title: const Text('Personal', style: TextStyle(
           fontWeight: FontWeight.bold,
@@ -66,12 +68,15 @@ class _PersonalScreenState extends State<PersonalScreen>
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          ArmoryTab(primaryColor: primaryColor),
-          MembershipCardsTab(primaryColor: primaryColor),
-        ],
+      body: SafeArea(
+        bottom: true,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            ArmoryTab(primaryColor: primaryColor),
+            MembershipCardsTab(primaryColor: primaryColor),
+          ],
+        ),
       ),
     );
   }

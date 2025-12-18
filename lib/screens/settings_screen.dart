@@ -8,6 +8,7 @@ import 'dart:io';
 import '../main.dart';
 import '../utils/backup_restore.dart';
 import '../utils/storage_usage.dart';
+import '../widgets/app_drawer.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -92,16 +93,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final qualityOptions = ['Low (50%)', 'Medium (70%)', 'Large (85%)'];
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'settings'),
       appBar: AppBar(
         title: const Text('Settings'),
         centerTitle: true,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: SafeArea(
+        bottom: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Appearance Section
             _buildSectionCard(
               title: 'Appearance',
@@ -438,6 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
