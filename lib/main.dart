@@ -78,13 +78,66 @@ class ThemeProvider extends ChangeNotifier {
   }
 }
 
+// ImageQualityProvider manages the saved image quality setting
+class ImageQualityProvider extends ChangeNotifier {
+  int _qualityIndex = 1; // Default to Medium (70%)
+  int get qualityIndex => _qualityIndex;
+
+  // Returns the quality percentage as an integer (50, 70, or 85)
+  int get qualityPercentage {
+    switch (_qualityIndex) {
+      case 0:
+        return 50; // Low
+      case 1:
+        return 70; // Medium
+      case 2:
+        return 85; // Large
+      default:
+        return 70; // Default to Medium
+    }
+  }
+
+  String get qualityName {
+    switch (_qualityIndex) {
+      case 0:
+        return 'Low (50%)';
+      case 1:
+        return 'Medium (70%)';
+      case 2:
+        return 'Large (85%)';
+      default:
+        return 'Medium (70%)';
+    }
+  }
+
+  void setQuality(int index) {
+    _qualityIndex = index;
+    notifyListeners();
+  }
+}
+
+// AnimationsProvider manages whether home screen animations are enabled
+class AnimationsProvider extends ChangeNotifier {
+  bool _animationsEnabled = true; // Default to enabled
+  bool get animationsEnabled => _animationsEnabled;
+
+  void setAnimationsEnabled(bool enabled) {
+    _animationsEnabled = enabled;
+    notifyListeners();
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ImageQualityProvider()),
+        ChangeNotifierProvider(create: (_) => AnimationsProvider()),
+      ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(
           debugShowCheckedModeBanner: false,

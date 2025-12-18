@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +25,22 @@ class _HomeScreenState extends State<HomeScreen>
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: cycleMs),
-    )..repeat();
+    )
+      ..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animationsEnabled = Provider
+        .of<AnimationsProvider>(context)
+        .animationsEnabled;
+    if (animationsEnabled && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!animationsEnabled && _controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 0;
+    }
   }
 
   @override
@@ -42,8 +59,13 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     // final themeProvider = Provider.of<ThemeProvider>(context);
     // final primaryColor = themeProvider.primaryColor;
+    final animationsEnabled = Provider
+        .of<AnimationsProvider>(context)
+        .animationsEnabled;
     final bgColor = Colors.black; // Black background under range.jpg
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = MediaQuery
+        .of(context)
+        .size;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -51,11 +73,17 @@ class _HomeScreenState extends State<HomeScreen>
         animation: _controller,
         builder: (_, child) {
           final t = _controller.value;
-          double dx = sin(t * 2 * pi) * swayAmount;
-          double dy = sin(t * 2 * pi * 0.6) * swayAmount;
-          dy += breathingAmount * sin(t * 2 * pi * 0.25);
-          dx += _smoothNoise(t, 0.8) * tremorAmount;
-          dy += _smoothNoise(t, 1.3) * tremorAmount;
+          double dx = 0;
+          double dy = 0;
+
+          // Only calculate animation offsets if animations are enabled
+          if (animationsEnabled) {
+            dx = sin(t * 2 * pi) * swayAmount;
+            dy = sin(t * 2 * pi * 0.6) * swayAmount;
+            dy += breathingAmount * sin(t * 2 * pi * 0.25);
+            dx += _smoothNoise(t, 0.8) * tremorAmount;
+            dy += _smoothNoise(t, 1.3) * tremorAmount;
+          }
 
           return Stack(
             children: [

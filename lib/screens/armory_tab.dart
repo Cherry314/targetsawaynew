@@ -85,9 +85,12 @@ class _ArmoryTabState extends State<ArmoryTab> {
                 Image.file(imageFile!, width: 100, height: 100),
               ElevatedButton.icon(
                 onPressed: () async {
+                  final imageQualityProvider = Provider.of<
+                      ImageQualityProvider>(context, listen: false);
                   final picker = ImagePicker();
                   final picked = await picker.pickImage(
-                      source: ImageSource.camera, imageQuality: 85);
+                      source: ImageSource.camera,
+                      imageQuality: imageQualityProvider.qualityPercentage);
                   if (picked != null) setState(() => imageFile = File(picked.path));
                 },
                 icon: const Icon(Icons.camera_alt),

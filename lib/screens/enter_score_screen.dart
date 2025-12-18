@@ -162,9 +162,14 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   }
 
   Future<void> _pickImage() async {
+    final imageQualityProvider = Provider.of<ImageQualityProvider>(
+        context, listen: false);
     final picker = ImagePicker();
     final pickedFile =
-    await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: imageQualityProvider.qualityPercentage
+    );
 
     if (pickedFile != null) {
       final fullFile = File(pickedFile.path);
@@ -356,6 +361,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             letterSpacing: 0.5,
           ),
         ),
+        centerTitle: true,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

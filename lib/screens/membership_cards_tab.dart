@@ -59,9 +59,15 @@ class _MembershipCardsTabState extends State<MembershipCardsTab> {
                 Image.file(frontImage!, width: 100, height: 100),
               ElevatedButton.icon(
                 onPressed: () async {
+                  final imageQualityProvider = Provider.of<
+                      ImageQualityProvider>(context, listen: false);
                   final picker = ImagePicker();
-                  final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-                  if (picked != null) setState(() => frontImage = File(picked.path));
+                  final picked = await picker.pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: imageQualityProvider.qualityPercentage
+                  );
+                  if (picked != null) setState(() =>
+                  frontImage = File(picked.path));
                 },
                 icon: const Icon(Icons.camera_alt),
                 label: const Text('Capture Front'),
@@ -75,8 +81,13 @@ class _MembershipCardsTabState extends State<MembershipCardsTab> {
                 Image.file(backImage!, width: 100, height: 100),
               ElevatedButton.icon(
                 onPressed: () async {
+                  final imageQualityProvider = Provider.of<
+                      ImageQualityProvider>(context, listen: false);
                   final picker = ImagePicker();
-                  final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                  final picked = await picker.pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: imageQualityProvider.qualityPercentage
+                  );
                   if (picked != null) setState(() => backImage = File(picked.path));
                 },
                 icon: const Icon(Icons.camera_alt),

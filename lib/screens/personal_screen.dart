@@ -46,7 +46,10 @@ class _PersonalScreenState extends State<PersonalScreen>
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Personal'),
+        title: const Text('Personal', style: TextStyle(
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),),
         backgroundColor: primaryColor,
         centerTitle: true,
         bottom: PreferredSize(
