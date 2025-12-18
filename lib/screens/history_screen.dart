@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
 import '../services/calendar_score_service.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -54,6 +56,12 @@ class HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ),
+        actions: const [
+          HelpIconButton(
+            title: 'History Help',
+            content: HelpContent.historyScreen,
+          ),
+        ],
       ),
       body: SafeArea(
         bottom: true,

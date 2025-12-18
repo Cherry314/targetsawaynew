@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         centerTitle: true,
         elevation: 0,
+
       ),
       drawer: const AppDrawer(currentRoute: 'home'),
       body: SafeArea(

@@ -14,6 +14,8 @@ import '../data/dropdown_values.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
 import '../services/calendar_score_service.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 import 'methods/competition_dialog.dart';
 import 'methods/firearm_dialog.dart';
@@ -461,6 +463,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             ),
           ),
         ),
+        actions: const [
+          HelpIconButton(
+            title: 'Enter Score Help',
+            content: HelpContent.enterScoreScreen,
+          ),
+        ],
       ),
       body: SafeArea(
         bottom: true,

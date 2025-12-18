@@ -7,6 +7,8 @@ import '../models/score_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -93,6 +95,12 @@ class ProgressScreenState extends State<ProgressScreen> {
             ),
           ),
         ),
+        actions: const [
+          HelpIconButton(
+            title: 'Progress Graph Help',
+            content: HelpContent.progressScreen,
+          ),
+        ],
       ),
       body: SafeArea(
         bottom: true,

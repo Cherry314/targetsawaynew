@@ -9,6 +9,8 @@ import '../main.dart';
 import '../utils/backup_restore.dart';
 import '../utils/storage_usage.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -98,6 +100,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings'),
         centerTitle: true,
         elevation: 0,
+        actions: const [
+          HelpIconButton(
+            title: 'Settings Help',
+            content: HelpContent.settingsScreen,
+          ),
+        ],
       ),
       body: SafeArea(
         bottom: true,

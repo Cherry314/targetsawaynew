@@ -5,6 +5,8 @@ import 'membership_cards_tab.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class PersonalScreen extends StatefulWidget {
   const PersonalScreen({super.key});
@@ -54,6 +56,12 @@ class _PersonalScreenState extends State<PersonalScreen>
         ),),
         backgroundColor: primaryColor,
         centerTitle: true,
+        actions: const [
+          HelpIconButton(
+            title: 'Personal Help',
+            content: HelpContent.personalScreen,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48.0),
           child: Container(

@@ -13,6 +13,8 @@ import '../models/score_entry.dart';
 import 'dart:io';
 import '../utils/date_utils.dart';
 import 'enter_score_screen.dart';
+import '../widgets/help_icon_button.dart';
+import '../utils/help_content.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -181,6 +183,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 _selectedDay = DateTime.now();
               });
             },
+          ),
+          const HelpIconButton(
+            title: 'Calendar Help',
+            content: HelpContent.calendarScreen,
+            iconColor: Colors.white,
           ),
         ],
       ),
