@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1049042700396",
+    "project_id": "targets-away",
+    "storage_bucket": "targets-away.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1049042700396:android:a3277f1a55e2447d447049",
+        "android_client_info": {
+          "package_name": "uk.co.drazen.targetsaway"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPSiSnu4yS3kI4pSD0lijV-wcuv2DaGlY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1049042700396:android:f437c6e4e576515c447049",
+        "android_client_info": {
+          "package_name": "uk.co.drazen.targetsawayadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPSiSnu4yS3kI4pSD0lijV-wcuv2DaGlY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

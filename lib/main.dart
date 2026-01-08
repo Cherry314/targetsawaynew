@@ -17,6 +17,7 @@ import 'screens/settings_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/personal_screen.dart';
 import 'screens/calendar_screen.dart';
+import 'screens/event_picker_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -243,6 +244,7 @@ class MyApp extends StatelessWidget {
             '/progress': (context) => const ProgressScreen(),
             '/calendar': (context) => const CalendarScreen(),
             '/personal': (context) => const PersonalScreen(),
+            '/event_picker': (context) => const EventPickerScreen(),
             '/settings': (context) => const SettingsScreen(),
           },
         ),

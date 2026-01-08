@@ -93,6 +93,13 @@ class AppDrawer extends StatelessWidget {
             route: 'personal',
             primaryColor: primaryColor,
           ),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.event,
+            title: 'Event Picker',
+            route: 'event_picker',
+            primaryColor: primaryColor,
+          ),
           const Divider(),
           _buildDrawerItem(
             context: context,
