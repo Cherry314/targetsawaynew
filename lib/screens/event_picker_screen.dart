@@ -12,6 +12,7 @@ import '../models/hive/practice.dart';
 import '../models/hive/sighters.dart';
 import '../data/firearm_table.dart';
 import '../utils/import_data.dart';
+import '../widgets/app_drawer.dart';
 
 class EventPickerScreen extends StatefulWidget {
   const EventPickerScreen({super.key});
@@ -30,6 +31,7 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
     final events = eventBox.values.toList();
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'event_picker'),
       appBar: AppBar(
         title: const Text("Event"),
       ),

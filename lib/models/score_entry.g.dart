@@ -31,13 +31,14 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       targetFilePath: fields[11] as String?,
       thumbnailFilePath: fields[12] as String?,
       targetCaptured: fields[13] as bool,
+      x: fields[14] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ScoreEntry obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       ..writeByte(12)
       ..write(obj.thumbnailFilePath)
       ..writeByte(13)
-      ..write(obj.targetCaptured);
+      ..write(obj.targetCaptured)
+      ..writeByte(14)
+      ..write(obj.x);
   }
 
   @override

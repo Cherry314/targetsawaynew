@@ -10,6 +10,8 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../models/score_entry.dart';
+import '../models/hive/event.dart';
+import '../models/hive/firearm.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
@@ -21,6 +23,8 @@ import 'methods/competition_dialog.dart';
 import 'methods/firearm_dialog.dart';
 import 'methods/notes_dialog.dart';
 import 'methods/practice_selection_dialog.dart';
+import 'methods/firearm_selection_dialog.dart';
+import 'methods/caliber_selection_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
@@ -38,6 +42,7 @@ class EnterScoreScreen extends StatefulWidget {
 
 class EnterScoreScreenState extends State<EnterScoreScreen> {
   final scoreController = TextEditingController();
+  final xController = TextEditingController();
   final firearmController = TextEditingController();
   final notesController = TextEditingController();
   final compIdController = TextEditingController();
@@ -85,6 +90,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   void _populateEditFields() {
     final entry = widget.editEntry!;
     scoreController.text = entry.score.toString();
+    xController.text = entry.x?.toString() ?? '';
     firearmController.text = entry.firearm ?? '';
     notesController.text = entry.notes ?? '';
     compIdController.text = entry.compId ?? '';
@@ -93,13 +99,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     setState(() {
       // Validate that the practice exists in the dropdown list
       final currentPractices = DropdownValues.practices;
-      if (!currentPractices.contains(entry.practice) &&
-          entry.practice != 'All') {
-        // If not in favorites, add it temporarily (setter will handle 'All' automatically)
-        final practicesWithoutAll = currentPractices
-            .where((p) => p != 'All')
+      if (!currentPractices.contains(entry.practice) && entry.practice.isNotEmpty) {
+        // If not in favorites, add it temporarily
+        final practicesWithoutEmpty = currentPractices
+            .where((p) => p.isNotEmpty)
             .toList();
-        DropdownValues.practices = [entry.practice, ...practicesWithoutAll];
+        DropdownValues.practices = [entry.practice, ...practicesWithoutEmpty];
       }
       selectedPractice = entry.practice;
 
@@ -125,8 +130,24 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           .toList();
       // Save back the cleaned data
       await prefs.setStringList('favoritePractices', cleanedPractices);
-      // The setter will automatically filter out 'All' and add it at the top
+      // The setter will automatically filter out 'All' and add empty string at the top
       DropdownValues.practices = cleanedPractices;
+    }
+
+// Load favorite calibers from SharedPreferences
+    final favoriteCalibers = prefs.getStringList('favoriteCalibers');
+    if (favoriteCalibers != null && favoriteCalibers.isNotEmpty) {
+      DropdownValues.calibers = favoriteCalibers;
+    }
+
+// Load favorite firearm IDs from SharedPreferences
+    final favoriteFirearmIds = prefs.getStringList('favoriteFirearmIds');
+    if (favoriteFirearmIds != null && favoriteFirearmIds.isNotEmpty) {
+      DropdownValues.favoriteFirearmIds = favoriteFirearmIds
+          .map((id) => int.tryParse(id))
+          .where((id) => id != null)
+          .cast<int>()
+          .toList();
     }
 
     setState(() {
@@ -138,20 +159,29 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           ? widget.editEntry!.practice
           : prefs.getString('lastPractice');
 
+      final practicesList = DropdownValues.practices;
       // Ensure the selected practice exists in the dropdown list
-      if (lastPractice != null &&
-          DropdownValues.practices.contains(lastPractice)) {
+      if (lastPractice != null && practicesList.contains(lastPractice)) {
         selectedPractice = lastPractice;
       } else {
-        selectedPractice = DropdownValues.practices.first;
+        // Select first item in list (empty string if no favorites, or first favorite)
+        selectedPractice = practicesList.first;
       }
 
       // Only use editEntry caliber if NOT from calendar and not empty
-      selectedCaliber = (widget.editEntry?.caliber != null &&
+      final lastCaliber = (widget.editEntry?.caliber != null &&
           widget.editEntry!.caliber.isNotEmpty &&
           !widget.openedFromCalendar)
           ? widget.editEntry!.caliber
-          : (prefs.getString('lastCaliber') ?? DropdownValues.calibers.first);
+          : prefs.getString('lastCaliber');
+
+      final calibersList = DropdownValues.calibers;
+      if (lastCaliber != null && calibersList.contains(lastCaliber)) {
+        selectedCaliber = lastCaliber;
+      } else {
+        // Select first item in list (empty string if no favorites, or first favorite)
+        selectedCaliber = calibersList.first;
+      }
 
       // Get the last firearm ID
       // Only use editEntry firearmId if NOT from calendar and not empty
@@ -161,11 +191,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           ? widget.editEntry!.firearmId
           : prefs.getString('lastFirearmId');
 
-      if (lastFirearmId != null &&
-          DropdownValues.firearmIds.contains(lastFirearmId)) {
+      final firearmIdsList = DropdownValues.firearmIds;
+      if (lastFirearmId != null && firearmIdsList.contains(lastFirearmId)) {
         selectedFirearmId = lastFirearmId;
       } else {
-        selectedFirearmId = DropdownValues.firearmIds.first;
+        // Select first item in list (empty string if no favorites, or first favorite)
+        selectedFirearmId = firearmIdsList.first;
       }
 
       // Load last firearm name if not from calendar or if editEntry doesn't have it
@@ -189,6 +220,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     setState(() {
       // Clear the score field
       scoreController.clear();
+      xController.clear();
 
       // Clear optional fields
       firearmController.clear();
@@ -289,6 +321,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 targetFilePath: targetImage?.path,
                 thumbnailFilePath: thumbnailImage?.path,
                 targetCaptured: targetImage != null,
+                x: xController.text.isNotEmpty ? int.tryParse(xController.text) : null,
               );
 
               await box.put(newEntry.id, newEntry);
@@ -364,6 +397,75 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     );
   }
 
+  /// Get the max score for the selected event/practice and firearm
+  int? _getMaxScoreForSelectedEvent() {
+    debugPrint('=== _getMaxScoreForSelectedEvent called ===');
+    debugPrint('selectedPractice: $selectedPractice');
+    debugPrint('selectedFirearmId: $selectedFirearmId');
+    
+    // Return null if either practice or firearmId not selected
+    if (selectedPractice == null || selectedPractice!.isEmpty ||
+        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+      debugPrint('One or both selections are empty');
+      return null;
+    }
+
+    try {
+      // Check if events box is open
+      if (!Hive.isBoxOpen('events')) {
+        debugPrint('Events box is not open');
+        return null;
+      }
+      
+      // Open the events box
+      final eventBox = Hive.box<Event>('events');
+      debugPrint('Events box has ${eventBox.length} events');
+      
+      // Find the event by matching the practice name to event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        debugPrint('Checking event: ${event.name}');
+        if (event.name == selectedPractice) {
+          matchedEvent = event;
+          debugPrint('Found matching event!');
+          break;
+        }
+      }
+      
+      if (matchedEvent == null) {
+        debugPrint('No matching event found for practice: $selectedPractice');
+        return null;
+      }
+
+      // Get the firearm ID from the code
+      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
+      debugPrint('Firearm ID for code $selectedFirearmId: $firearmId');
+      
+      if (firearmId == null) {
+        debugPrint('Could not find firearm ID for code: $selectedFirearmId');
+        return null;
+      }
+
+      // Create a Firearm object to get the correct content (with overrides)
+      final firearm = Firearm(
+        id: firearmId,
+        code: selectedFirearmId!,
+        gunType: '', // Not needed for this operation
+      );
+
+      // Get the content for this firearm (applies overrides automatically)
+      final content = matchedEvent.getContentForFirearm(firearm);
+      debugPrint('Course of fire max score: ${content.courseOfFire.maxScore}');
+
+      // Return the max score from courseOfFire
+      return content.courseOfFire.maxScore;
+    } catch (e, stackTrace) {
+      debugPrint('Error getting max score: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
   Widget _buildGradientButton({
     required String label,
     required VoidCallback onPressed,
@@ -433,9 +535,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           .map((p) => DropdownMenuItem(
         value: p,
         child: Text(
-          p,
+          p.isEmpty ? 'Please select a Favorite' : p,
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
+          style: p.isEmpty ? const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey) : null,
         ),
       ))
           .toList();
@@ -563,7 +666,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Practice Dropdown with Settings Icon
+ // Practice Dropdown with Settings Icon
                   Row(
                     children: [
                       Expanded(
@@ -582,7 +685,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                             color: isDark ? Colors.white : Colors.black,
                           ),
                           decoration: InputDecoration(
-                            labelText: "Practice",
+                            labelText: "Event / Practice",
                             prefixIcon: Icon(
                                 Icons.track_changes, color: primaryColor),
                             border: OutlineInputBorder(
@@ -620,11 +723,9 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                 setState(() {
                                   _cachedPracticeItems = [];
                                   _cachedPracticeListHash = '';
-                                  final currentPractices = DropdownValues
-                                      .practices;
-                                  if (!currentPractices.contains(
-                                      selectedPractice)) {
-                                    selectedPractice = 'All';
+                                  final currentPractices = DropdownValues.practices;
+                                  if (!currentPractices.contains(selectedPractice)) {
+                                    selectedPractice = currentPractices.first;
                                   }
                                 });
                               },
@@ -638,7 +739,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
               ),
             ),
 
-            // Firearm Details Card
+ // Firearm Details Card
             _buildSectionCard(
               context: context,
               child: Column(
@@ -667,120 +768,188 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Caliber + Firearm ID row
-                  Row(
+// Caliber + Firearm ID row
+                  Column(
                     children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey('caliber_$selectedCaliber'),
-                          value: selectedCaliber,
-                          isDense: true,
-                          isExpanded: true,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                          items: DropdownValues.calibers
-                              .map((c) =>
-                              DropdownMenuItem(
-                                value: c,
-                                child: Text(
-                                  c,
-                                  style: const TextStyle(fontSize: 14),
-                                  overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              key: ValueKey('caliber_$selectedCaliber'),
+                              value: selectedCaliber,
+                              isDense: true,
+                              isExpanded: true,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                              items: DropdownValues.calibers
+                                  .map((c) =>
+                                  DropdownMenuItem(
+                                    value: c,
+                                    child: Text(
+                                      c.isEmpty ? 'Please select a Favorite' : c,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: c.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                        color: c.isEmpty ? Colors.grey : null,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ))
+                                  .toList(),
+                              onChanged: (v) {
+                                setState(() => selectedCaliber = v);
+                                if (v != null) _saveSelection('lastCaliber', v);
+                              },
+                              decoration: InputDecoration(
+                                labelText: "Caliber",
+                                labelStyle: const TextStyle(fontSize: 13),
+                                prefixIcon: Icon(
+                                    Icons.straighten, color: primaryColor,
+                                    size: 20),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              ))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() => selectedCaliber = v);
-                            if (v != null) _saveSelection('lastCaliber', v);
-                          },
-                          decoration: InputDecoration(
-                            labelText: "Caliber",
-                            labelStyle: const TextStyle(fontSize: 13),
-                            prefixIcon: Icon(
-                                Icons.straighten, color: primaryColor,
-                                size: 20),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                      color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                      color: primaryColor, width: 2),
+                                ),
+                                filled: true,
+                                fillColor: isDark ? Colors.grey[800] : Colors
+                                    .grey[50],
+                              ),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: primaryColor, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: isDark ? Colors.grey[800] : Colors
-                                .grey[50],
                           ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.favorite, color: primaryColor, size: 20),
+                              tooltip: "Manage Favorite Calibers",
+                              onPressed: () async {
+                                await showCaliberSelectionDialog(
+                                  context: context,
+                                  onSelectionChanged: () {
+                                    setState(() {
+                                      final currentCalibers = DropdownValues.calibers;
+                                      if (!currentCalibers.contains(selectedCaliber)) {
+                                        selectedCaliber = currentCalibers.first;
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              key: ValueKey('firearm_$selectedFirearmId'),
+                              value: selectedFirearmId,
+                              isDense: true,
+                              isExpanded: true,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                              items: DropdownValues.firearmIds
+                                  .map((id) =>
+                                  DropdownMenuItem(
+                                    value: id,
+                                    child: Text(
+                                      id.isEmpty ? 'Please select a Favorite' : id,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: id.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                        color: id.isEmpty ? Colors.grey : null,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ))
+                                  .toList(),
+                              onChanged: (v) {
+                                setState(() => selectedFirearmId = v);
+                                if (v != null && v.isNotEmpty) {
+                                  _saveSelection('lastFirearmId', v);
+                                }
+                              },
+                              decoration: InputDecoration(
+                                labelText: "Firearm ID",
+                                labelStyle: const TextStyle(fontSize: 13),
+                                prefixIcon: Icon(
+                                    Icons.tag, color: primaryColor, size: 20),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                      color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                      color: primaryColor, width: 2),
+                                ),
+                                filled: true,
+                                fillColor: isDark ? Colors.grey[800] : Colors
+                                    .grey[50],
+                              ),
+                            ),
+                          ),
+
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.favorite, color: primaryColor, size: 20),
+                          tooltip: "Select Favorite Firearms",
+                          onPressed: () async {
+                            await showFirearmSelectionDialog(
+                              context: context,
+                              onSelectionChanged: () {
+                                setState(() {
+                                  final currentFirearmIds = DropdownValues.firearmIds;
+                                  if (!currentFirearmIds.contains(selectedFirearmId)) {
+                                    selectedFirearmId = currentFirearmIds.first;
+                                  }
+                                });
+                              },
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey('firearm_$selectedFirearmId'),
-                          value: selectedFirearmId,
-                          isDense: true,
-                          isExpanded: true,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                          items: DropdownValues.firearmIds
-                              .map((id) =>
-                              DropdownMenuItem(
-                                value: id,
-                                child: Text(
-                                  id,
-                                  style: const TextStyle(fontSize: 14),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() => selectedFirearmId = v);
-                            if (v != null) _saveSelection('lastFirearmId', v);
-                          },
-                          decoration: InputDecoration(
-                            labelText: "Firearm ID",
-                            labelStyle: const TextStyle(fontSize: 13),
-                            prefixIcon: Icon(
-                                Icons.tag, color: primaryColor, size: 20),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: primaryColor, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: isDark ? Colors.grey[800] : Colors
-                                .grey[50],
-                          ),
-                        ),
-                      ),
+                    ],
+                  ),
+
                     ],
                   ),
                 ],
               ),
             ),
 
-            // Score & Additional Info Card
+// Score, X and Additional Info Card
             _buildSectionCard(
               context: context,
               child: Column(
@@ -808,30 +977,121 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Score Input
-                  TextFormField(
-                    controller: scoreController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(
-                      labelText: "Score",
-                      prefixIcon: Icon(
-                          Icons.military_tech, color: primaryColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // Max Score Display (only if both practice and firearmId are selected)
+                  if (_getMaxScoreForSelectedEvent() != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Icon(Icons.emoji_events, color: primaryColor, size: 18),
+                          const SizedBox(width: 8),
+                          Column(
+                            children: [
+                              Text(
+                                'Max score for this\nEvent/Practice',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                              // Text(
+                              //   'Event / Practice:',
+                              //   style: TextStyle(
+                              //     fontSize: 13,
+                              //     color: isDark ? Colors.white70 : Colors.black87,
+                              //   ),
+                              // ),
+
+                            ],
+                          ),
+
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                _getMaxScoreForSelectedEvent().toString(),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 20,),
+
+
+                        ],
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: primaryColor, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
                     ),
+                  ],
+
+// Score and X Input Row
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: scoreController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            labelText: "Score",
+                            prefixIcon: Icon(
+                                Icons.military_tech, color: primaryColor),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: primaryColor, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 1,
+                        child: TextFormField(
+                          controller: xController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(
+                                Icons.gps_fixed, color: primaryColor),
+                            labelText: "X",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: primaryColor, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 
@@ -889,7 +1149,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
               ),
             ),
 
-            // Target Image Card (if captured)
+// Target Image Card (if captured)
             if (targetImage != null)
               _buildSectionCard(
                 context: context,
@@ -930,7 +1190,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 ),
               ),
 
-            // Action Buttons
+ // Action Buttons
             const SizedBox(height: 8),
             _buildGradientButton(
               label: "Capture Target",

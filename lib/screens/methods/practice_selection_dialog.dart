@@ -125,7 +125,7 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Favorite Practices'),
+      title: const Text('Favorite Events'),
       content: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SizedBox(
@@ -133,34 +133,6 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            // Show helpful note if no favorites selected yet
-            if (selectedPractices.isEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Please select your favorite events from the full events list below',
-                        style: TextStyle(
-                          color: Colors.blue.shade900,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            
             // Custom practices section
             if (customPractices.isNotEmpty) ...[
               ...customPractices.map((practice) {

@@ -33,6 +33,8 @@ class ScoreEntry extends HiveObject {
   String? thumbnailFilePath;
   @HiveField(13)
   bool targetCaptured;
+  @HiveField(14)
+  int? x;
 
   ScoreEntry({
     required this.id,
@@ -49,6 +51,7 @@ class ScoreEntry extends HiveObject {
     this.targetFilePath,
     this.thumbnailFilePath,
     required this.targetCaptured,
+    this.x,
   });
 
   /// Convert to JSON
@@ -67,6 +70,7 @@ class ScoreEntry extends HiveObject {
     'targetFilePath': targetFilePath,
     'thumbnailFilePath': thumbnailFilePath,
     'targetCaptured': targetCaptured,
+    'x': x,
   };
 
   /// Create from JSON
@@ -85,5 +89,6 @@ class ScoreEntry extends HiveObject {
     targetFilePath: json['targetFilePath'],
     thumbnailFilePath: json['thumbnailFilePath'],
     targetCaptured: json['targetCaptured'],
+    x: json['x'],
   );
 }
