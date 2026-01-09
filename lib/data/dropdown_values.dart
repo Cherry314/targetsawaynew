@@ -1,14 +1,12 @@
 // lib/data/dropdown_values.dart
 import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
+import '../models/hive/event.dart';
 
 class DropdownValues {
   // Internal list for user-selected favorite practices (without 'All')
-  static List<String> _favoritePractices = [
-    '25m Precision',
-    'Timed & Precision 1',
-    'Multi Target',
-    '25m Timed',
-  ];
+  // Starts empty - users should select favorites from the full events list
+  static List<String> _favoritePractices = [];
 
   // Getter that always returns 'All' at the top followed by favorites
   // Returns a new list each time to prevent external modifications
@@ -21,7 +19,7 @@ class DropdownValues {
     assert(!_favoritePractices.contains('All'),
     'Internal error: _favoritePractices contains "All"');
 
-    final result = ['All', ..._favoritePractices];
+    final result = ['', ..._favoritePractices];
     debugPrint('  Returning: $result');
     debugPrint('  Count of "All": ${result
         .where((e) => e == 'All')
@@ -59,7 +57,8 @@ class DropdownValues {
     'LBR',
   ];
 
-  static List<String> masterPractices = [
+  // Default fallback list for master practices
+  static const List<String> _defaultMasterPractices = [
     '25m Precision',
     '25m Precision Muzzle Loading',
     '25m Precision Benched',
@@ -128,6 +127,45 @@ class DropdownValues {
     'Lord Salisbury Team',
     'Peel Cup',
   ];
+
+  /// Get master practices list from Hive Event names, or use default list as fallback
+  static List<String> get masterPractices {
+    try {
+      // Try to open the events box
+      if (Hive.isBoxOpen('events')) {
+        final eventBox = Hive.box<Event>('events');
+        
+        // If box is empty, use default list
+        if (eventBox.isEmpty) {
+          debugPrint('Events box is empty, using default master practices');
+          return List.from(_defaultMasterPractices);
+        }
+        
+        // Extract event names from Hive in insertion order
+        final eventNames = <String>[];
+        final seenNames = <String>{};
+        
+        for (final event in eventBox.values) {
+          // Only add if not already seen (removes duplicates while preserving order)
+          if (!seenNames.contains(event.name)) {
+            eventNames.add(event.name);
+            seenNames.add(event.name);
+          }
+        }
+        
+        debugPrint('Loaded ${eventNames.length} master practices from Hive');
+        return eventNames;
+      } else {
+        // Box not open yet, use default list
+        debugPrint('Events box not open, using default master practices');
+        return List.from(_defaultMasterPractices);
+      }
+    } catch (e) {
+      // If any error occurs, fall back to default list
+      debugPrint('Error loading master practices from Hive: $e');
+      return List.from(_defaultMasterPractices);
+    }
+  }
 
 
 }

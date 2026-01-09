@@ -3,12 +3,47 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'models/score_entry.dart';
 import 'models/firearm_entry.dart';
 import 'models/membership_card_entry.dart';
 import 'models/appointment_entry.dart';
 import 'services/notification_service.dart';
+
+// Hive model imports
+import 'models/hive/event.dart';
+import 'models/hive/event_content.dart';
+import 'models/hive/event_override.dart';
+import 'models/hive/override_content.dart';
+import 'models/hive/firearm.dart';
+import 'models/hive/target.dart';
+import 'models/hive/ammunition.dart';
+import 'models/hive/sight.dart';
+import 'models/hive/position.dart';
+import 'models/hive/ready_position.dart';
+import 'models/hive/practice.dart';
+import 'models/hive/stage.dart';
+import 'models/hive/course_of_fire.dart';
+import 'models/hive/event_notes.dart';
+import 'models/hive/sighters.dart';
+import 'models/hive/notes.dart';
+import 'models/hive/scoring.dart';
+import 'models/hive/loading.dart';
+import 'models/hive/magazine.dart';
+import 'models/hive/reloading.dart';
+import 'models/hive/equipment.dart';
+import 'models/hive/range_equipment.dart';
+import 'models/hive/changing_position.dart';
+import 'models/hive/range_command.dart';
+import 'models/hive/tie.dart';
+import 'models/hive/procedural_penalty.dart';
+import 'models/hive/classification.dart';
+import 'models/hive/target_id.dart';
+import 'models/hive/target_position.dart';
+import 'models/hive/practice_stage.dart';
+import 'models/hive/zone.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
@@ -22,6 +57,11 @@ import 'screens/event_picker_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   // Initialize Hive
   await Hive.initFlutter();
 
@@ -31,11 +71,48 @@ void main() async {
   Hive.registerAdapter(MembershipCardEntryAdapter()); // typeId:3
   Hive.registerAdapter(AppointmentEntryAdapter()); // typeId:4
 
+  // Register Hive adapters for Event system
+  Hive.registerAdapter(EventAdapter()); // typeId:100
+  Hive.registerAdapter(EventContentAdapter()); // typeId:101
+  Hive.registerAdapter(EventOverrideAdapter()); // typeId:102
+  Hive.registerAdapter(OverrideContentAdapter()); // typeId:103
+  Hive.registerAdapter(FirearmAdapter()); // typeId:104
+  Hive.registerAdapter(TargetAdapter()); // typeId:105
+  Hive.registerAdapter(AmmunitionAdapter()); // typeId:106
+  Hive.registerAdapter(SightAdapter()); // typeId:107
+  Hive.registerAdapter(PositionAdapter()); // typeId:108
+  Hive.registerAdapter(ReadyPositionAdapter()); // typeId:109
+  Hive.registerAdapter(RangeCommandAdapter()); // typeId:110
+  Hive.registerAdapter(TieAdapter()); // typeId:111
+  Hive.registerAdapter(ProceduralPenaltyAdapter()); // typeId:112
+  Hive.registerAdapter(ClassificationAdapter()); // typeId:113
+  Hive.registerAdapter(TargetPositionAdapter()); // typeId:114
+  Hive.registerAdapter(CourseOfFireAdapter()); // typeId:115
+  Hive.registerAdapter(EventNotesAdapter()); // typeId:116
+  Hive.registerAdapter(SightersAdapter()); // typeId:117
+  Hive.registerAdapter(NotesAdapter()); // typeId:118
+  Hive.registerAdapter(ScoringAdapter()); // typeId:119
+  Hive.registerAdapter(LoadingAdapter()); // typeId:120
+  Hive.registerAdapter(MagazineAdapter()); // typeId:121
+  Hive.registerAdapter(ReloadingAdapter()); // typeId:122
+  Hive.registerAdapter(EquipmentAdapter()); // typeId:123
+  Hive.registerAdapter(RangeEquipmentAdapter()); // typeId:124
+  Hive.registerAdapter(ChangingPositionAdapter()); // typeId:125
+  Hive.registerAdapter(TargetIDAdapter()); // typeId:126
+  Hive.registerAdapter(PracticeAdapter()); // typeId:127
+  Hive.registerAdapter(StageAdapter()); // typeId:128
+  Hive.registerAdapter(PracticeStageAdapter()); // typeId:129
+  Hive.registerAdapter(ZoneAdapter()); // typeId:130
+
   // Open all boxes once at startup
   await Hive.openBox<ScoreEntry>('scores');
   await Hive.openBox<FirearmEntry>('firearms');
   await Hive.openBox<MembershipCardEntry>('membership_cards');
   await Hive.openBox<AppointmentEntry>('appointments');
+
+  // Open boxes for Event system
+  await Hive.openBox<Event>('events');
+  await Hive.openBox<Firearm>('firearms_hive');
 
   // Initialize notification service
   await NotificationService().initialize();

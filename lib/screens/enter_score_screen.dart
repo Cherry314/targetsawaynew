@@ -611,7 +611,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: IconButton(
-                          icon: Icon(Icons.settings, color: primaryColor),
+                          icon: Icon(Icons.favorite, color: primaryColor),
                           tooltip: "Select Favorite Practices",
                           onPressed: () async {
                             await showPracticeSelectionDialog(
