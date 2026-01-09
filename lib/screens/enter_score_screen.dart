@@ -25,6 +25,7 @@ import 'methods/notes_dialog.dart';
 import 'methods/practice_selection_dialog.dart';
 import 'methods/firearm_selection_dialog.dart';
 import 'methods/caliber_selection_dialog.dart';
+import 'methods/event_details_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
@@ -49,6 +50,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   final compResultController = TextEditingController();
 
   String? selectedPractice;
+  String? previousPractice; // Track previous selection for reverting
   String? selectedCaliber;
   String? selectedFirearmId;
 
@@ -397,7 +399,57 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     );
   }
 
-  /// Get the max score for the selected event/practice and firearm
+  /// Check if firearm is eligible for a given practice
+  bool _isFirearmEligibleForPractice(String practiceOrEvent, String firearmCode) {
+    // If either is empty, no validation needed
+    if (practiceOrEvent.isEmpty || firearmCode.isEmpty) {
+      return true;
+    }
+
+    try {
+      // Check if events box is open
+      if (!Hive.isBoxOpen('events')) {
+        return true; // Allow if events not loaded
+      }
+      
+      final eventBox = Hive.box<Event>('events');
+      
+      // Find the event by matching the practice name to event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == practiceOrEvent) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      
+      if (matchedEvent == null) {
+        return true; // Allow if event not found
+      }
+
+      // Get the firearm ID from the code
+      final firearmId = DropdownValues.getFirearmIdByCode(firearmCode);
+      if (firearmId == null) {
+        return true; // Allow if firearm ID not found
+      }
+
+      // Check if the firearm ID is in the applicable list
+      final isEligible = matchedEvent.applicableFirearmIds.contains(firearmId);
+      
+      debugPrint('Firearm eligibility check:');
+      debugPrint('  Event: $practiceOrEvent');
+      debugPrint('  Firearm Code: $firearmCode (ID: $firearmId)');
+      debugPrint('  Applicable IDs: ${matchedEvent.applicableFirearmIds}');
+      debugPrint('  Is Eligible: $isEligible');
+      
+      return isEligible;
+    } catch (e) {
+      debugPrint('Error checking firearm eligibility: $e');
+      return true; // Allow on error
+    }
+  }
+
+/// Get the max score for the selected event/practice and firearm
   int? _getMaxScoreForSelectedEvent() {
     debugPrint('=== _getMaxScoreForSelectedEvent called ===');
     debugPrint('selectedPractice: $selectedPractice');
@@ -615,6 +667,19 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const Spacer(),
+                      // Event Details Icon Button
+                      IconButton(
+                        icon: Icon(Icons.article, color: primaryColor),
+                        tooltip: "View Event Details",
+                        onPressed: () {
+                          showEventDetailsDialog(
+                            context: context,
+                            practiceName: selectedPractice,
+                            firearmCode: selectedFirearmId,
+                          );
+                        },
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -674,9 +739,47 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           key: ValueKey('practice_$selectedPractice'),
                           value: selectedPractice,
                           items: _cachedPracticeItems,
-                          onChanged: (v) {
-                            setState(() => selectedPractice = v);
-                            if (v != null) _saveSelection('lastPractice', v);
+                          onChanged: (v) async {
+                            if (v != null) {
+                              bool needsDialog = false;
+                              
+                              setState(() {
+                                selectedPractice = v;
+                                
+                                // Check if current firearm is eligible for new practice
+                                if (selectedFirearmId != null && selectedFirearmId!.isNotEmpty) {
+                                  if (!_isFirearmEligibleForPractice(v, selectedFirearmId!)) {
+                                    // Clear firearm selection if not eligible
+                                    debugPrint('Clearing firearm selection - not eligible for new practice');
+                                    selectedFirearmId = DropdownValues.firearmIds.isNotEmpty 
+                                        ? DropdownValues.firearmIds.first 
+                                        : '';
+                                    needsDialog = true;
+                                  }
+                                }
+                              });
+                              
+                              // Show dialog after setState if needed
+                              if (needsDialog && mounted) {
+                                await showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Firearm Not Eligible'),
+                                    content: const Text('The firearm you have selected is not eligible for this event. It has been cleared.'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('OK'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              
+                              if (v.isNotEmpty) {
+                                _saveSelection('lastPractice', v);
+                              }
+                            }
                           },
                           isDense: true,
                           isExpanded: true,
@@ -883,10 +986,34 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                     ),
                                   ))
                                   .toList(),
-                              onChanged: (v) {
-                                setState(() => selectedFirearmId = v);
+                              onChanged: (v) async {
                                 if (v != null && v.isNotEmpty) {
+                                  // Check if firearm is eligible for current practice
+                                  if (selectedPractice != null && selectedPractice!.isNotEmpty) {
+                                    if (!_isFirearmEligibleForPractice(selectedPractice!, v)) {
+                                      // Show dialog and don't change selection
+                                      await showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Firearm Not Eligible'),
+                                          content: const Text('That firearm is not eligible for this event.'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      return; // Don't change the selection
+                                    }
+                                  }
+                                  
+                                  // Valid selection
+                                  setState(() => selectedFirearmId = v);
                                   _saveSelection('lastFirearmId', v);
+                                } else {
+                                  setState(() => selectedFirearmId = v);
                                 }
                               },
                               decoration: InputDecoration(
@@ -1001,14 +1128,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                   color: isDark ? Colors.white70 : Colors.black87,
                                 ),
                               ),
-                              // Text(
-                              //   'Event / Practice:',
-                              //   style: TextStyle(
-                              //     fontSize: 13,
-                              //     color: isDark ? Colors.white70 : Colors.black87,
-                              //   ),
-                              // ),
-
                             ],
                           ),
 

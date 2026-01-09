@@ -23,6 +23,22 @@ class HistoryScreenState extends State<HistoryScreen> {
   String selectedPractice = 'All';
   String selectedCaliber = 'All';
   String selectedFirearmId = 'All';
+  
+  // Get filter lists with "All" option
+  List<String> get practiceFilterList {
+    final favorites = DropdownValues.practices.where((p) => p.isNotEmpty).toList();
+    return ['All', ...favorites];
+  }
+  
+  List<String> get caliberFilterList {
+    final favorites = DropdownValues.calibers.where((c) => c.isNotEmpty).toList();
+    return ['All', ...favorites];
+  }
+  
+  List<String> get firearmIdFilterList {
+    final favorites = DropdownValues.firearmIds.where((f) => f.isNotEmpty).toList();
+    return ['All', ...favorites];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +164,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                           fillColor: isDark ? Colors.grey[800] : Colors
                               .grey[50],
                         ),
-                        items: DropdownValues.practices
+                        items: practiceFilterList
                             .map((p) =>
                             DropdownMenuItem(
                               value: p,
@@ -190,7 +206,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                           fillColor: isDark ? Colors.grey[800] : Colors
                               .grey[50],
                         ),
-                        items: DropdownValues.calibers
+                        items: caliberFilterList
                             .map((c) =>
                             DropdownMenuItem(
                               value: c,
@@ -232,7 +248,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                           fillColor: isDark ? Colors.grey[800] : Colors
                               .grey[50],
                         ),
-                        items: DropdownValues.firearmIds
+                        items: firearmIdFilterList
                             .map((f) =>
                             DropdownMenuItem(
                               value: f,
