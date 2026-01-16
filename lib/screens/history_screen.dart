@@ -5,6 +5,7 @@ import '../models/score_entry.dart';
 import '../utils/date_utils.dart';
 import '../data/dropdown_values.dart';
 import 'enter_score_screen.dart';
+import 'score_detail_screen.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
@@ -411,75 +412,12 @@ class HistoryScreenState extends State<HistoryScreen> {
                           subtitle: Text(
                               'Score: ${entry.score} | Date: $formattedDate'),
                           onTap: () {
-                            if (entry.targetFilePath != null &&
-                                File(entry.targetFilePath!).existsSync()) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      Scaffold(
-                                        appBar: AppBar(title: Text(
-                                            formatUKDate(entry.date))),
-                                        body: Column(
-                                          crossAxisAlignment: CrossAxisAlignment
-                                              .start,
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(
-                                                  16.0),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment
-                                                    .start,
-                                                children: [
-                                                  _buildDetailRow('Score:',
-                                                      entry.score.toString()),
-                                                  _buildDetailRow('Practice:',
-                                                      entry.practice),
-                                                  _buildDetailRow('Calibre:',
-                                                      entry.caliber),
-                                                  _buildDetailRow('Firearm ID:',
-                                                      entry.firearmId),
-                                                  if (entry.firearm != null &&
-                                                      entry.firearm!.isNotEmpty)
-                                                    _buildDetailRow('Firearm:',
-                                                        entry.firearm!),
-                                                  if (entry.notes != null &&
-                                                      entry.notes!
-                                                          .isNotEmpty) ...[
-                                                    const SizedBox(height: 8),
-                                                    const Text('Notes:',
-                                                        style: TextStyle(
-                                                            fontWeight: FontWeight
-                                                                .bold)),
-                                                    Text(entry.notes!),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Expanded(
-                                              child: Center(
-                                                child: InteractiveViewer(
-                                                  panEnabled: true,
-                                                  minScale: 1.0,
-                                                  maxScale: 5.0,
-                                                  child: Image.file(File(
-                                                      entry.targetFilePath!),
-                                                      fit: BoxFit.contain),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text(
-                                    'No image available for this entry')),
-                              );
-                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ScoreDetailScreen(entry: entry),
+                              ),
+                            );
                           },
                         ),
                       ),

@@ -32,13 +32,25 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       thumbnailFilePath: fields[12] as String?,
       targetCaptured: fields[13] as bool,
       x: fields[14] as int?,
+      scoreX: fields[15] as int?,
+      score10: fields[16] as int?,
+      score9: fields[17] as int?,
+      score8: fields[18] as int?,
+      score7: fields[19] as int?,
+      score6: fields[20] as int?,
+      score5: fields[21] as int?,
+      score4: fields[22] as int?,
+      score3: fields[23] as int?,
+      score2: fields[24] as int?,
+      score1: fields[25] as int?,
+      score0: fields[26] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ScoreEntry obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(27)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -68,7 +80,31 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       ..writeByte(13)
       ..write(obj.targetCaptured)
       ..writeByte(14)
-      ..write(obj.x);
+      ..write(obj.x)
+      ..writeByte(15)
+      ..write(obj.scoreX)
+      ..writeByte(16)
+      ..write(obj.score10)
+      ..writeByte(17)
+      ..write(obj.score9)
+      ..writeByte(18)
+      ..write(obj.score8)
+      ..writeByte(19)
+      ..write(obj.score7)
+      ..writeByte(20)
+      ..write(obj.score6)
+      ..writeByte(21)
+      ..write(obj.score5)
+      ..writeByte(22)
+      ..write(obj.score4)
+      ..writeByte(23)
+      ..write(obj.score3)
+      ..writeByte(24)
+      ..write(obj.score2)
+      ..writeByte(25)
+      ..write(obj.score1)
+      ..writeByte(26)
+      ..write(obj.score0);
   }
 
   @override

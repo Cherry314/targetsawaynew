@@ -26,6 +26,7 @@ import 'methods/practice_selection_dialog.dart';
 import 'methods/firearm_selection_dialog.dart';
 import 'methods/caliber_selection_dialog.dart';
 import 'methods/event_details_dialog.dart';
+import 'methods/score_calculator_dialog.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
@@ -58,6 +59,9 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   File? thumbnailImage;
 
   DateTime selectedDate = DateTime.now();
+
+  // Score breakdown storage (from calculator)
+  Map<int, int>? _scoreBreakdown;
 
   // Cache the practice items at state level to prevent recreation on every build
   List<DropdownMenuItem<String>> _cachedPracticeItems = [];
@@ -233,6 +237,9 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       // Clear images
       targetImage = null;
       thumbnailImage = null;
+      
+      // Clear score breakdown
+      _scoreBreakdown = null;
 
       // Reset date to today
       selectedDate = DateTime.now();
@@ -324,6 +331,21 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 thumbnailFilePath: thumbnailImage?.path,
                 targetCaptured: targetImage != null,
                 x: xController.text.isNotEmpty ? int.tryParse(xController.text) : null,
+                // Score breakdown from calculator (if available)
+                scoreX: _scoreBreakdown != null && xController.text.isNotEmpty 
+                    ? int.tryParse(xController.text) 
+                    : null,
+                score10: _scoreBreakdown?[10],
+                score9: _scoreBreakdown?[9],
+                score8: _scoreBreakdown?[8],
+                score7: _scoreBreakdown?[7],
+                score6: _scoreBreakdown?[6],
+                score5: _scoreBreakdown?[5],
+                score4: _scoreBreakdown?[4],
+                score3: _scoreBreakdown?[3],
+                score2: _scoreBreakdown?[2],
+                score1: _scoreBreakdown?[1],
+                score0: _scoreBreakdown?[0],
               );
 
               await box.put(newEntry.id, newEntry);
@@ -514,6 +536,60 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     } catch (e, stackTrace) {
       debugPrint('Error getting max score: $e');
       debugPrint('Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
+  /// Get the total rounds for the selected event/practice and firearm
+  int? _getTotalRoundsForSelectedEvent() {
+    // Return null if either practice or firearmId not selected
+    if (selectedPractice == null || selectedPractice!.isEmpty ||
+        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+      return null;
+    }
+
+    try {
+      // Check if events box is open
+      if (!Hive.isBoxOpen('events')) {
+        return null;
+      }
+      
+      final eventBox = Hive.box<Event>('events');
+      
+      // Find the event by matching the practice name to event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == selectedPractice) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      
+      if (matchedEvent == null) {
+        return null;
+      }
+
+      // Get the firearm ID from the code
+      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
+      
+      if (firearmId == null) {
+        return null;
+      }
+
+      // Create a Firearm object to get the correct content (with overrides)
+      final firearm = Firearm(
+        id: firearmId,
+        code: selectedFirearmId!,
+        gunType: '', // Not needed for this operation
+      );
+
+      // Get the content for this firearm (applies overrides automatically)
+      final content = matchedEvent.getContentForFirearm(firearm);
+
+      // Return the total rounds from courseOfFire
+      return content.courseOfFire.totalRounds;
+    } catch (e) {
+      debugPrint('Error getting total rounds: $e');
       return null;
     }
   }
@@ -1099,6 +1175,29 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      const Spacer(),
+                      // Score Calculator Icon Button
+                      IconButton(
+                        icon: Icon(Icons.calculate, color: primaryColor),
+                        tooltip: "Score Calculator",
+                        onPressed: () async {
+                          final totalRounds = _getTotalRoundsForSelectedEvent();
+                          final result = await showScoreCalculatorDialog(
+                            context: context,
+                            totalRounds: totalRounds,
+                          );
+                          if (result != null) {
+                            setState(() {
+                              scoreController.text = result.score.toString();
+                              xController.text = result.xCount > 0 
+                                  ? result.xCount.toString() 
+                                  : '';
+                              // Store the score breakdown for saving to Hive later
+                              _scoreBreakdown = result.scoreCounts;
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),

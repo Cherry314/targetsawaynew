@@ -10,9 +10,9 @@ import '../widgets/appointment_dialog.dart';
 import '../main.dart';
 import '../services/calendar_score_service.dart';
 import '../models/score_entry.dart';
-import 'dart:io';
 import '../utils/date_utils.dart';
 import 'enter_score_screen.dart';
+import 'score_detail_screen.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
 
@@ -88,59 +88,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            Scaffold(
-              appBar: AppBar(
-                title: Text(formatUKDate(score.date)),
-              ),
-              body: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDetailRow('Score:', score.score.toString()),
-                        _buildDetailRow('Practice:', score.practice),
-                        _buildDetailRow('Calibre:', score.caliber),
-                        _buildDetailRow('Firearm ID:', score.firearmId),
-                        if (score.firearm != null && score.firearm!.isNotEmpty)
-                          _buildDetailRow('Firearm:', score.firearm!),
-                        if (score.notes != null && score.notes!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          const Text('Notes:',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(score.notes!),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (score.targetFilePath != null &&
-                      File(score.targetFilePath!).existsSync())
-                    Expanded(
-                      child: Center(
-                        child: InteractiveViewer(
-                          panEnabled: true,
-                          minScale: 1.0,
-                          maxScale: 5.0,
-                          child: Image.file(
-                            File(score.targetFilePath!),
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    const Expanded(
-                      child: Center(
-                        child: Text('No target image available'),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+        builder: (_) => ScoreDetailScreen(entry: score),
       ),
     );
   }

@@ -1,0 +1,2 @@
+When install to load the database automatically
+when load check for updates to database

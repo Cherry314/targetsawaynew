@@ -35,6 +35,32 @@ class ScoreEntry extends HiveObject {
   bool targetCaptured;
   @HiveField(14)
   int? x;
+  
+  // Score breakdown fields (number of hits at each score level)
+  @HiveField(15)
+  int? scoreX;
+  @HiveField(16)
+  int? score10;
+  @HiveField(17)
+  int? score9;
+  @HiveField(18)
+  int? score8;
+  @HiveField(19)
+  int? score7;
+  @HiveField(20)
+  int? score6;
+  @HiveField(21)
+  int? score5;
+  @HiveField(22)
+  int? score4;
+  @HiveField(23)
+  int? score3;
+  @HiveField(24)
+  int? score2;
+  @HiveField(25)
+  int? score1;
+  @HiveField(26)
+  int? score0;
 
   ScoreEntry({
     required this.id,
@@ -52,6 +78,18 @@ class ScoreEntry extends HiveObject {
     this.thumbnailFilePath,
     required this.targetCaptured,
     this.x,
+    this.scoreX,
+    this.score10,
+    this.score9,
+    this.score8,
+    this.score7,
+    this.score6,
+    this.score5,
+    this.score4,
+    this.score3,
+    this.score2,
+    this.score1,
+    this.score0,
   });
 
   /// Convert to JSON
@@ -71,6 +109,18 @@ class ScoreEntry extends HiveObject {
     'thumbnailFilePath': thumbnailFilePath,
     'targetCaptured': targetCaptured,
     'x': x,
+    'scoreX': scoreX,
+    'score10': score10,
+    'score9': score9,
+    'score8': score8,
+    'score7': score7,
+    'score6': score6,
+    'score5': score5,
+    'score4': score4,
+    'score3': score3,
+    'score2': score2,
+    'score1': score1,
+    'score0': score0,
   };
 
   /// Create from JSON
@@ -90,5 +140,17 @@ class ScoreEntry extends HiveObject {
     thumbnailFilePath: json['thumbnailFilePath'],
     targetCaptured: json['targetCaptured'],
     x: json['x'],
+    scoreX: json['scoreX'],
+    score10: json['score10'],
+    score9: json['score9'],
+    score8: json['score8'],
+    score7: json['score7'],
+    score6: json['score6'],
+    score5: json['score5'],
+    score4: json['score4'],
+    score3: json['score3'],
+    score2: json['score2'],
+    score1: json['score1'],
+    score0: json['score0'],
   );
 }
