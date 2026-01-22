@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
+import '../services/data_sync_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  final DataSyncService _dataSyncService = DataSyncService();
 
   final double swayAmount = 10;
   final double tremorAmount = 2;
@@ -29,6 +31,163 @@ class _HomeScreenState extends State<HomeScreen>
       duration: Duration(milliseconds: cycleMs),
     )
       ..repeat();
+    
+    // Check for data updates when the app launches
+    _checkForDataUpdates();
+  }
+
+  /// Check for data updates from Firebase
+  Future<void> _checkForDataUpdates() async {
+    // Wait a bit for the UI to settle
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      final isUpdateAvailable = await _dataSyncService.isUpdateAvailable();
+
+      if (isUpdateAvailable && mounted) {
+        // Show dialog to user about available update
+        final shouldUpdate = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.cloud_download, color: Colors.blue),
+                  SizedBox(width: 10),
+                  Text('New Data Available'),
+                ],
+              ),
+              content: const Text(
+                'A new version of the shooting rules and target data is available. '
+                'Would you like to download it now?\n\n'
+                'This will update your event rules, firearms, and target data.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Later'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Update Now'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (shouldUpdate == true && mounted) {
+          await _downloadDataUpdate();
+        }
+      }
+    } catch (e) {
+      print('Error checking for updates: $e');
+      // Silently fail - don't interrupt user experience
+    }
+  }
+
+  /// Download and apply data update
+  Future<void> _downloadDataUpdate() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Downloading update...'),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      final results = await _dataSyncService.downloadAndReplaceData();
+
+      if (mounted) {
+        // Close loading dialog
+        Navigator.of(context).pop();
+
+        final eventCount = results['events'] ?? 0;
+        final firearmCount = results['firearms'] ?? 0;
+        final targetCount = results['targets'] ?? 0;
+
+        // Show success notification
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green),
+                  SizedBox(width: 10),
+                  Text('Update Complete'),
+                ],
+              ),
+              content: Text(
+                'Successfully downloaded:\n'
+                '• $eventCount events\n'
+                '• $firearmCount firearms\n'
+                '• $targetCount targets\n\n'
+                'Your data is now up to date!',
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Close loading dialog
+        Navigator.of(context).pop();
+
+        // Show error dialog
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red),
+                  SizedBox(width: 10),
+                  Text('Update Failed'),
+                ],
+              ),
+              content: Text(
+                'Failed to download update: $e\n\n'
+                'Please try again later or check your internet connection.',
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
   }
 
   @override

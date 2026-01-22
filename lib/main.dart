@@ -44,6 +44,8 @@ import 'models/hive/target_id.dart';
 import 'models/hive/target_position.dart';
 import 'models/hive/practice_stage.dart';
 import 'models/hive/zone.dart';
+import 'models/hive/target_zone.dart';
+import 'models/hive/target_info.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
@@ -103,6 +105,8 @@ void main() async {
   Hive.registerAdapter(StageAdapter()); // typeId:128
   Hive.registerAdapter(PracticeStageAdapter()); // typeId:129
   Hive.registerAdapter(ZoneAdapter()); // typeId:130
+  Hive.registerAdapter(TargetZoneAdapter()); // typeId:131
+  Hive.registerAdapter(TargetInfoAdapter()); // typeId:132
 
   // Open all boxes once at startup
   await Hive.openBox<ScoreEntry>('scores');
@@ -113,6 +117,7 @@ void main() async {
   // Open boxes for Event system
   await Hive.openBox<Event>('events');
   await Hive.openBox<Firearm>('firearms_hive');
+  await Hive.openBox<TargetInfo>('target_info'); // Target zone scoring database
 
   // Initialize notification service
   await NotificationService().initialize();

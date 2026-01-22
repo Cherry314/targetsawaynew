@@ -1186,6 +1186,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           final result = await showScoreCalculatorDialog(
                             context: context,
                             totalRounds: totalRounds,
+                            selectedPractice: selectedPractice,
+                            selectedFirearmId: selectedFirearmId,
                           );
                           if (result != null) {
                             setState(() {

@@ -2,7 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../main.dart';
+import '../../models/hive/event.dart';
+import '../../models/hive/firearm.dart';
+import '../../models/hive/target_info.dart';
+import '../../data/dropdown_values.dart';
 
 /// Result class to return score, X count, and score breakdown from the calculator
 class ScoreCalculatorResult {
@@ -22,20 +27,30 @@ class ScoreCalculatorResult {
 Future<ScoreCalculatorResult?> showScoreCalculatorDialog({
   required BuildContext context,
   required int? totalRounds,
+  String? selectedPractice,
+  String? selectedFirearmId,
 }) async {
   return await showDialog<ScoreCalculatorResult>(
     context: context,
     builder: (BuildContext context) {
-      return _ScoreCalculatorDialog(totalRounds: totalRounds);
+      return _ScoreCalculatorDialog(
+        totalRounds: totalRounds,
+        selectedPractice: selectedPractice,
+        selectedFirearmId: selectedFirearmId,
+      );
     },
   );
 }
 
 class _ScoreCalculatorDialog extends StatefulWidget {
   final int? totalRounds;
+  final String? selectedPractice;
+  final String? selectedFirearmId;
 
   const _ScoreCalculatorDialog({
     required this.totalRounds,
+    this.selectedPractice,
+    this.selectedFirearmId,
   });
 
   @override
@@ -43,46 +58,224 @@ class _ScoreCalculatorDialog extends StatefulWidget {
 }
 
 class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
-  // Map to store count of rounds for each score (10-0)
-  final Map<int, int> _scoreCounts = {
-    10: 0,
-    9: 0,
-    8: 0,
-    7: 0,
-    6: 0,
-    5: 0,
-    4: 0,
-    3: 0,
-    2: 0,
-    1: 0,
-    0: 0,
-  };
-
-  // X count (separate from score counts, doesn't affect total rounds)
+  // List of score zones (with string scores like "X", "10", "V", etc.)
+  List<String> _scoreZones = [];
+  
+  // Map to store count of rounds for each score zone
+  Map<String, int> _scoreZoneCounts = {};
+  
+  // Separate X/tie-breaker count
+  String? _xZoneLabel; // The label for X count (could be "X", "V", etc.)
   int _xCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTargetZones();
+  }
+
+  /// Load target zones from the TargetInfo based on selected event
+  void _loadTargetZones() {
+    try {
+      // Try to get target info from the selected event
+      final targetInfo = _getTargetInfoForEvent();
+      
+      if (targetInfo != null && targetInfo.zones.isNotEmpty) {
+        // Sort zones by score (descending)
+        final sortedZones = List.from(targetInfo.zones);
+        sortedZones.sort((a, b) {
+          // Handle X/V as highest score
+          if (a.score.toUpperCase() == 'X' || a.score.toUpperCase() == 'V') return -1;
+          if (b.score.toUpperCase() == 'X' || b.score.toUpperCase() == 'V') return 1;
+          
+          // Try to parse as numbers
+          final aNum = int.tryParse(a.score);
+          final bNum = int.tryParse(b.score);
+          
+          if (aNum != null && bNum != null) {
+            return bNum.compareTo(aNum); // Descending order
+          }
+          
+          return a.score.compareTo(b.score);
+        });
+        
+        // Check if first zone is X or V (tie-breaker)
+        final firstScore = sortedZones.first.score.toUpperCase();
+        if (firstScore == 'X' || firstScore == 'V') {
+          _xZoneLabel = sortedZones.first.score;
+          _scoreZones = sortedZones.skip(1).map((z) => z.score as String).toList();
+        } else {
+          _xZoneLabel = null;
+          _scoreZones = sortedZones.map((z) => z.score as String).toList();
+        }
+        
+        // Add '0' at the bottom if it's not already in the zones (for missed shots)
+        if (!_scoreZones.contains('0')) {
+          _scoreZones.add('0');
+        }
+      } else {
+        // Use default zones (10 to 0)
+        _xZoneLabel = 'X';
+        _scoreZones = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
+      }
+    } catch (e) {
+      debugPrint('Error loading target zones: $e');
+      // Fall back to default
+      _xZoneLabel = 'X';
+      _scoreZones = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
+    }
+    
+    // Initialize score counts
+    _scoreZoneCounts = {for (var zone in _scoreZones) zone: 0};
+  }
+
+  /// Get TargetInfo for the selected event
+  TargetInfo? _getTargetInfoForEvent() {
+    if (widget.selectedPractice == null || widget.selectedPractice!.isEmpty ||
+        widget.selectedFirearmId == null || widget.selectedFirearmId!.isEmpty) {
+      return null;
+    }
+
+    try {
+      // Check if boxes are open
+      if (!Hive.isBoxOpen('events') || !Hive.isBoxOpen('target_info')) {
+        return null;
+      }
+      
+      final eventBox = Hive.box<Event>('events');
+      final targetInfoBox = Hive.box<TargetInfo>('target_info');
+      
+      print('\n========== SCORE CALCULATOR TARGET DEBUG ==========');
+      print('Looking for event: "${widget.selectedPractice}"');
+      print('Firearm code: "${widget.selectedFirearmId}"');
+      
+      // Find the event by matching the practice name to event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == widget.selectedPractice) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      
+      if (matchedEvent == null) {
+        print('✗ Event not found!');
+        print('==================================================\n');
+        return null;
+      }
+      
+      print('✓ Found event: "${matchedEvent.name}" (${matchedEvent.eventNumber})');
+
+      // Get the firearm ID from the code
+      final firearmId = DropdownValues.getFirearmIdByCode(widget.selectedFirearmId!);
+      
+      if (firearmId == null) {
+        print('✗ Firearm ID not found for code: ${widget.selectedFirearmId}');
+        print('==================================================\n');
+        return null;
+      }
+      
+      print('✓ Firearm ID: $firearmId');
+
+      // Create a Firearm object to get the correct content (with overrides)
+      final firearm = Firearm(
+        id: firearmId,
+        code: widget.selectedFirearmId!,
+        gunType: '',
+      );
+
+      // Get the content for this firearm (applies overrides automatically)
+      final content = matchedEvent.getContentForFirearm(firearm);
+      
+      print('Content has ${content.targets.length} target(s)');
+      
+      // Check if we have targets
+      if (content.targets.isEmpty) {
+        print('✗ No targets found in content');
+        print('==================================================\n');
+        return null;
+      }
+      
+      // Get the first target and check both title and text fields
+      final firstTarget = content.targets.first;
+      print('\n--- Target Fields Debug ---');
+      print('  target.title: ${firstTarget.title == null ? "NULL" : "\"${firstTarget.title}\""}');
+      print('  target.text: ${firstTarget.text == null ? "NULL" : "\"${firstTarget.text}\""}');
+      print('  target.link: ${firstTarget.link == null ? "NULL" : "\"${firstTarget.link}\""}');
+      print('  target.qtyNeeded: ${firstTarget.qtyNeeded}');
+      
+      // Try to get target name from title first, then text
+      String? targetName = firstTarget.title ?? firstTarget.text;
+      
+      if (targetName == null || targetName.isEmpty) {
+        print('✗ Both target.title and target.text are null/empty');
+        print('==================================================\n');
+        return null;
+      }
+      
+      print('\n--- Using Target Name ---');
+      print('  Target name to search: "$targetName"');
+      print('  (from: ${firstTarget.title != null ? "title" : "text"})');
+      print('\nSearching for matching TargetInfo...');
+      print('Total TargetInfo entries: ${targetInfoBox.length}');
+      
+      // Find matching TargetInfo
+      TargetInfo? foundMatch;
+      for (final targetInfo in targetInfoBox.values) {
+        if (targetInfo.targetName == targetName) {
+          foundMatch = targetInfo;
+          break;
+        }
+      }
+      
+      if (foundMatch != null) {
+        print('\n✓ MATCH FOUND!');
+        print('  targetName: "${foundMatch.targetName}"');
+        print('  zones: ${foundMatch.zones.length}');
+        print('  Zone scores: ${foundMatch.zones.map((z) => z.score).join(", ")}');
+      } else {
+        print('\n✗ NO MATCH FOUND!');
+        print('Looking for: "$targetName"');
+        print('\nAvailable target_info names:');
+        for (var ti in targetInfoBox.values.take(15)) {
+          print('  - "${ti.targetName}"');
+        }
+        if (targetInfoBox.length > 15) {
+          print('  ... and ${targetInfoBox.length - 15} more');
+        }
+      }
+      
+      print('==================================================\n');
+      return foundMatch;
+    } catch (e) {
+      debugPrint('Error getting TargetInfo for event: $e');
+      return null;
+    }
+  }
 
   int get _totalScore {
     int total = 0;
-    _scoreCounts.forEach((score, count) {
-      total += score * count;
+    _scoreZoneCounts.forEach((scoreStr, count) {
+      final scoreValue = int.tryParse(scoreStr) ?? 0;
+      total += scoreValue * count;
     });
     return total;
   }
 
   int get _totalRoundsCounted {
-    return _scoreCounts.values.fold(0, (sum, count) => sum + count);
+    return _scoreZoneCounts.values.fold(0, (sum, count) => sum + count);
   }
 
-  void _incrementScore(int score) {
+  void _incrementScore(String score) {
     setState(() {
-      _scoreCounts[score] = _scoreCounts[score]! + 1;
+      _scoreZoneCounts[score] = (_scoreZoneCounts[score] ?? 0) + 1;
     });
   }
 
-  void _decrementScore(int score) {
+  void _decrementScore(String score) {
     setState(() {
-      if (_scoreCounts[score]! > 0) {
-        _scoreCounts[score] = _scoreCounts[score]! - 1;
+      if ((_scoreZoneCounts[score] ?? 0) > 0) {
+        _scoreZoneCounts[score] = _scoreZoneCounts[score]! - 1;
       }
     });
   }
@@ -227,114 +420,116 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                   children: [
 
                     // X Counter (separate from score) - at the top
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[850] : Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _xCount > 0
-                              ? primaryColor.withValues(alpha: 0.5)
-                              : primaryColor.withValues(alpha: 0.2),
-                          width: 2,
+                    if (_xZoneLabel != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          // X label
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'X',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[850] : Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _xCount > 0
+                                ? primaryColor.withValues(alpha: 0.5)
+                                : primaryColor.withValues(alpha: 0.2),
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // X label
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _xZoneLabel!,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
+                            const SizedBox(width: 8),
 
-                          // Decrement button
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, size: 22),
-                            color: _xCount > 0 ? primaryColor : Colors.grey,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
+                            // Decrement button
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, size: 22),
+                              color: _xCount > 0 ? primaryColor : Colors.grey,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              onPressed: _xCount > 0 ? _decrementX : null,
                             ),
-                            onPressed: _xCount > 0 ? _decrementX : null,
-                          ),
 
-                          // Count display
-                          SizedBox(
-                            width: 40,
-                            child: Text(
-                              _xCount.toString(),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: _xCount > 0
-                                    ? primaryColor
-                                    : Colors.grey,
+                            // Count display
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                _xCount.toString(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: _xCount > 0
+                                      ? primaryColor
+                                      : Colors.grey,
+                                ),
                               ),
                             ),
-                          ),
 
-                          // Increment button
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline, size: 22),
-                            color: primaryColor,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
-                            ),
-                            onPressed: _incrementX,
-                          ),
-
-                          const SizedBox(width: 4),
-
-                          // Info text - flexible to prevent overflow
-                          Flexible(
-                            child: Text(
-                              'Tie-breaker',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                                fontStyle: FontStyle.italic,
+                            // Increment button
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, size: 22),
+                              color: primaryColor,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              onPressed: _incrementX,
                             ),
-                          ),
-                        ],
+
+                            const SizedBox(width: 4),
+
+                            // Info text - flexible to prevent overflow
+                            Flexible(
+                              child: Text(
+                                'Tie-breaker',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark ? Colors.white60 : Colors.black54,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
                     const SizedBox(height: 8),
 
-                    // Score List (10 to 0)
+                    // Score List (dynamic zones)
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: 11,
+                      itemCount: _scoreZones.length,
                       itemBuilder: (context, index) {
-                        final score = 10 - index;
-                        final count = _scoreCounts[score]!;
+                        final scoreStr = _scoreZones[index];
+                        final count = _scoreZoneCounts[scoreStr] ?? 0;
+                        final scoreValue = int.tryParse(scoreStr) ?? 0;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -363,7 +558,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    score.toString(),
+                                    scoreStr,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -384,7 +579,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                   minHeight: 40,
                                 ),
                                 onPressed: count > 0
-                                    ? () => _decrementScore(score)
+                                    ? () => _decrementScore(scoreStr)
                                     : null,
                               ),
 
@@ -413,7 +608,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                   minWidth: 40,
                                   minHeight: 40,
                                 ),
-                                onPressed: () => _incrementScore(score),
+                                onPressed: () => _incrementScore(scoreStr),
                               ),
 
                               const Spacer(),
@@ -423,7 +618,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                 Padding(
                                   padding: const EdgeInsets.only(right: 4),
                                   child: Text(
-                                    '= ${score * count}',
+                                    '= ${scoreValue * count}',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -574,12 +769,21 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                         }
 
                         // Return the calculated score, X count, and score breakdown
+                        // Convert string scores to int scores for compatibility
+                        final intScoreCounts = <int, int>{};
+                        _scoreZoneCounts.forEach((scoreStr, count) {
+                          final scoreValue = int.tryParse(scoreStr);
+                          if (scoreValue != null) {
+                            intScoreCounts[scoreValue] = count;
+                          }
+                        });
+                        
                         if (!mounted) return;
                         Navigator.of(context).pop(
                           ScoreCalculatorResult(
                             score: _totalScore,
                             xCount: _xCount,
-                            scoreCounts: Map<int, int>.from(_scoreCounts),
+                            scoreCounts: intScoreCounts,
                           ),
                         );
                       },

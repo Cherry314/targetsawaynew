@@ -10,6 +10,7 @@ import '../models/hive/position.dart';
 import '../models/hive/ready_position.dart';
 import '../models/hive/practice.dart';
 import '../models/hive/sighters.dart';
+import '../models/hive/target_info.dart';
 import '../data/firearm_table.dart';
 import '../utils/import_data.dart';
 import '../widgets/app_drawer.dart';
@@ -50,7 +51,7 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
                       if (mounted) {
                         final message = results.containsKey('error')
                             ? 'Import failed'
-                            : 'Imported ${results['events'] ?? 0} events and ${results['firearms'] ?? 0} firearms';
+                            : 'Imported ${results['events'] ?? 0} events, ${results['firearms'] ?? 0} firearms, and ${results['targets'] ?? 0} targets';
                         scaffoldMessenger.showSnackBar(
                           SnackBar(
                             content: Text(message),
@@ -768,10 +769,47 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
   List<InlineSpan> _formatTargetsRich(List<Target> targets, {TextStyle? baseStyle}) {
     if (targets.isEmpty) return [];
 
+    // DEBUG: Get target_info box for comparison
+    final targetInfoBox = Hive.box<TargetInfo>('target_info');
+    
+    print('\n========== TARGET DEBUG ==========');
+    print('Total targets in event: ${targets.length}');
+    print('Total targets in target_info box: ${targetInfoBox.length}');
+    
     final List<InlineSpan> spans = [];
     for (int i = 0; i < targets.length; i++) {
       final target = targets[i];
       String text = target.text ?? target.title ?? '';
+      
+      // DEBUG: Print target from event
+      print('\n--- Target #${i + 1} from Event ---');
+      print('  target.text: "${target.text}"');
+      print('  target.title: "${target.title}"');
+      print('  Combined text: "$text"');
+      
+      // DEBUG: Try to find matching target_info
+      final matchingTargets = targetInfoBox.values.where((ti) {
+        final nameMatch = ti.targetName.toLowerCase() == text.toLowerCase();
+        return nameMatch;
+      }).toList();
+      
+      if (matchingTargets.isNotEmpty) {
+        print('  ✓ FOUND MATCH in target_info:');
+        for (var match in matchingTargets) {
+          print('    - targetName: "${match.targetName}"');
+          print('    - zones count: ${match.zones.length}');
+        }
+      } else {
+        print('  ✗ NO MATCH FOUND in target_info');
+        print('  Available target_info names:');
+        for (var ti in targetInfoBox.values.take(10)) {
+          print('    - "${ti.targetName}"');
+        }
+        if (targetInfoBox.length > 10) {
+          print('    ... and ${targetInfoBox.length - 10} more');
+        }
+      }
+      
       if (target.qtyNeeded != null) text += ' : Qty: ${target.qtyNeeded}';
 
       spans.addAll(_processRichText(text, baseStyle: baseStyle));
@@ -780,6 +818,8 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
         spans.add(const TextSpan(text: ', '));
       }
     }
+    
+    print('==================================\n');
     return spans;
   }
 

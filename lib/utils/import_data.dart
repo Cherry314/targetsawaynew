@@ -29,6 +29,8 @@ import '../models/hive/range_command.dart';
 import '../models/hive/tie.dart';
 import '../models/hive/procedural_penalty.dart';
 import '../models/hive/classification.dart';
+import '../models/hive/target_zone.dart';
+import '../models/hive/target_info.dart';
 
 class DataImporter {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -36,6 +38,7 @@ class DataImporter {
   // Collection names (must match FirestoreService)
   static const String eventsCollection = 'events';
   static const String firearmsCollection = 'firearms';
+  static const String targetInfoCollection = 'target_info';
 
   /// Import all data from Firestore into Hive
   /// This will DELETE all existing Hive data and replace it with Firestore data
@@ -54,6 +57,10 @@ class DataImporter {
       // Step 3: Import events
       final eventCount = await _importEvents();
       results['events'] = eventCount;
+
+      // Step 4: Import target zone data
+      final targetCount = await _importTargetZones();
+      results['targets'] = targetCount;
     } catch (e) {
       results['error'] = -1;
       debugPrint('Error during import: $e');
@@ -63,7 +70,7 @@ class DataImporter {
     return results;
   }
 
-  /// Clear all Hive data (events and firearms)
+  /// Clear all Hive data (events, firearms, and target zones)
   Future<void> _clearAllHiveData() async {
     // Clear events box
     final eventBox = Hive.box<Event>('events');
@@ -72,6 +79,10 @@ class DataImporter {
     // Clear firearms box
     final firearmBox = Hive.box<Firearm>('firearms_hive');
     await firearmBox.clear();
+
+    // Clear target info box
+    final targetInfoBox = Hive.box<TargetInfo>('target_info');
+    await targetInfoBox.clear();
   }
 
   /// Import all firearms from Firestore
@@ -110,6 +121,27 @@ class DataImporter {
         importedCount++;
       } catch (e) {
         debugPrint('Error importing event with doc ID ${doc.id}: $e');
+      }
+    }
+
+    return importedCount;
+  }
+
+  /// Import all target zones from Firestore
+  /// Returns the number of targets imported
+  Future<int> _importTargetZones() async {
+    final targetInfoBox = Hive.box<TargetInfo>('target_info');
+    final firestoreTargets = await _firestore.collection(targetInfoCollection).get();
+
+    int importedCount = 0;
+
+    for (final doc in firestoreTargets.docs) {
+      try {
+        final targetInfo = _mapToTargetInfo(doc.data());
+        await targetInfoBox.add(targetInfo);
+        importedCount++;
+      } catch (e) {
+        debugPrint('Error importing target zone with doc ID ${doc.id}: $e');
       }
     }
 
@@ -516,5 +548,31 @@ class DataImporter {
       title: data['title'] as String?,
       text: data['text'] as String?,
     );
+  }
+
+  /// Convert Firestore map to TargetInfo object
+  TargetInfo _mapToTargetInfo(Map<String, dynamic> data) {
+    return TargetInfo(
+      targetName: data['targetName'] as String,
+      imageLocation: data['imageLocation'] as String?,
+      notes: data['notes'] as String?,
+      zones: _mapToTargetZones(data['zones'] as List<dynamic>? ?? []),
+    );
+  }
+
+  /// Convert Firestore list to TargetZone objects
+  List<TargetZone> _mapToTargetZones(List<dynamic> zoneList) {
+    return zoneList.map((zoneData) {
+      if (zoneData is Map<String, dynamic>) {
+        return TargetZone(
+          score: zoneData['score'] as String,
+          min: zoneData['min'] != null ? (zoneData['min'] as num).toDouble() : null,
+          max: zoneData['max'] != null ? (zoneData['max'] as num).toDouble() : null,
+          rot: zoneData['rot'] as String?,
+          notes: zoneData['notes'] as String?,
+        );
+      }
+      throw Exception('Invalid zone data format');
+    }).toList();
   }
 }
