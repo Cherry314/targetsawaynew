@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hive/hive.dart';
+import 'package:provider/provider.dart';
 import '../models/hive/event.dart';
 import '../models/hive/firearm.dart';
 import '../models/hive/target.dart';
@@ -12,8 +13,8 @@ import '../models/hive/practice.dart';
 import '../models/hive/sighters.dart';
 import '../models/hive/target_info.dart';
 import '../data/firearm_table.dart';
-import '../utils/import_data.dart';
 import '../widgets/app_drawer.dart';
+import '../main.dart';
 
 class EventPickerScreen extends StatefulWidget {
   const EventPickerScreen({super.key});
@@ -30,95 +31,176 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
   Widget build(BuildContext context) {
     final eventBox = Hive.box<Event>('events');
     final events = eventBox.values.toList();
+    
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final primaryColor = themeProvider.primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'event_picker'),
-      appBar: AppBar(
-        title: const Text("Event"),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    final scaffoldMessenger = ScaffoldMessenger.of(context);
-                    try {
-                      final importer = DataImporter();
-                      final results = await importer.importAllData();
-                      if (mounted) {
-                        final message = results.containsKey('error')
-                            ? 'Import failed'
-                            : 'Imported ${results['events'] ?? 0} events, ${results['firearms'] ?? 0} firearms, and ${results['targets'] ?? 0} targets';
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(message),
-                            backgroundColor: results.containsKey('error') ? Colors.red : Colors.green,
-                          ),
-                        );
-                        setState(() {});
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        scaffoldMessenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Firebase not configured. Please set up Firebase in firebase_options.dart'),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: 4),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('Load Data from Firebase'),
-                ),
-               
-
-                // Event Picker Button
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    alignment: Alignment.centerLeft,
-                  ),
-                  onPressed: () => _showEventPicker(context, events),
-                  child: Text(
-                    selectedEvent != null
-                        ? '${selectedEvent!.name} (${selectedEvent!.eventNumber})'
-                        : 'Select Event',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // Firearm Picker Button
-                if (selectedEvent != null)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      alignment: Alignment.centerLeft,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) {
+          return;
+        }
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+        drawer: const AppDrawer(currentRoute: 'event_picker'),
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text(
+            'Event Browser',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [primaryColor, primaryColor.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Event Picker Button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[850] : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    onPressed: () => _showFirearmPicker(context, selectedEvent!.applicableFirearmIds),
-                    child: Text(
-                      selectedFirearmId != null
-                          ? () {
-                        final firearmInfo = firearmMasterTable.firstWhere(
-                              (f) => f.id == selectedFirearmId,
-                          orElse: () => FirearmInfo(id: selectedFirearmId!, code: 'Unknown', gunType: 'Unknown'),
-                        );
-                        return '${firearmInfo.code} (${firearmInfo.gunType})';
-                      }()
-                          : 'Select Firearm',
-                      style: const TextStyle(fontSize: 16),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 60),
+                        alignment: Alignment.centerLeft,
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => _showEventPicker(context, events),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.event, color: primaryColor, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              selectedEvent != null
+                                  ? '${selectedEvent!.name} (${selectedEvent!.eventNumber})'
+                                  : 'Select Event',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios, 
+                            color: primaryColor, 
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
-                const SizedBox(height: 20),
-                if (selectedEvent != null && selectedFirearmId != null)
-                  _buildEventData(selectedEvent!, selectedFirearmId!),
-              ],
+                  const SizedBox(height: 16),
+
+                  // Firearm Picker Button
+                  if (selectedEvent != null)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[850] : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 60),
+                          alignment: Alignment.centerLeft,
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => _showFirearmPicker(context, selectedEvent!.applicableFirearmIds),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.gps_fixed, color: primaryColor, size: 24),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                selectedFirearmId != null
+                                    ? () {
+                                  final firearmInfo = firearmMasterTable.firstWhere(
+                                        (f) => f.id == selectedFirearmId,
+                                    orElse: () => FirearmInfo(id: selectedFirearmId!, code: 'Unknown', gunType: 'Unknown'),
+                                  );
+                                  return '${firearmInfo.code} (${firearmInfo.gunType})';
+                                }()
+                                    : 'Select Firearm',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios, 
+                              color: primaryColor, 
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 20),
+                  if (selectedEvent != null && selectedFirearmId != null)
+                    _buildEventData(selectedEvent!, selectedFirearmId!),
+                ],
+              ),
             ),
           ),
         ),

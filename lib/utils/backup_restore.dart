@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/score_entry.dart';
 import '../models/firearm_entry.dart';
 import '../models/membership_card_entry.dart';
+import '../models/appointment_entry.dart';
 
 class BackupRestore {
   /// Backup app data (Hive as JSON + SharedPrefs + optionally images)
@@ -23,6 +24,7 @@ class BackupRestore {
       'scores': Hive.box<ScoreEntry>('scores'),
       'firearms': Hive.box<FirearmEntry>('firearms'),
       'membership_cards': Hive.box<MembershipCardEntry>('membership_cards'),
+      'appointments': Hive.box<AppointmentEntry>('appointments'),
     };
 
     for (var entry in hiveBoxes.entries) {
@@ -32,6 +34,7 @@ class BackupRestore {
         if (e is ScoreEntry) return e.toJson();
         if (e is FirearmEntry) return e.toJson();
         if (e is MembershipCardEntry) return e.toJson();
+        if (e is AppointmentEntry) return e.toJson();
         return {};
       }).toList();
 
@@ -138,7 +141,7 @@ class BackupRestore {
 
   /// Restore Hive boxes & SharedPreferences safely
   static Future<void> _restoreHiveAndPrefs(Directory appDir) async {
-    const boxNames = ['scores', 'firearms', 'membership_cards'];
+    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments'];
 
     for (var boxName in boxNames) {
       final file = File('${appDir.path}/data/$boxName.json');
@@ -153,8 +156,12 @@ class BackupRestore {
         box = Hive.box<ScoreEntry>(boxName);
       } else if (boxName == 'firearms') {
         box = Hive.box<FirearmEntry>(boxName);
-      } else {
+      } else if (boxName == 'membership_cards') {
         box = Hive.box<MembershipCardEntry>(boxName);
+      } else if (boxName == 'appointments') {
+        box = Hive.box<AppointmentEntry>(boxName);
+      } else {
+        continue; // Skip unknown boxes
       }
 
       await box.clear();
@@ -172,6 +179,8 @@ class BackupRestore {
         } else if (boxName == 'membership_cards') {
           _updateMembershipImagePaths(map, appDir);
           box.add(MembershipCardEntry.fromJson(map));
+        } else if (boxName == 'appointments') {
+          box.add(AppointmentEntry.fromJson(map));
         }
       }
     }

@@ -4,6 +4,9 @@ import 'package:hive/hive.dart';
 import '../models/hive/event.dart';
 
 class DropdownValues {
+  // Freestyle constant - always available at the top of the list
+  static const String freestyle = 'Freestyle';
+  
   // Internal list for user-selected favorite practices (without 'All')
   // Starts empty - users should select favorites from the full events list
   static List<String> _favoritePractices = [];
@@ -19,20 +22,20 @@ class DropdownValues {
     assert(!_favoritePractices.contains('All'),
     'Internal error: _favoritePractices contains "All"');
 
-    // Only add empty string if list is empty, otherwise return just the favorites
+    // Always return Freestyle at the top, then favorites or empty string
     if (_favoritePractices.isEmpty) {
-      return [''];
+      return [freestyle, ''];
     }
     
-    final result = [..._favoritePractices];
+    final result = [freestyle, ..._favoritePractices];
     debugPrint('  Returning: $result');
     return result;
   }
 
-  // Setter to update favorite practices (removes 'All' if present)
+  // Setter to update favorite practices (removes 'All' and 'Freestyle' if present)
   static set practices(List<String> value) {
-    // Filter out 'All' and remove any duplicates
-    final filtered = value.where((p) => p != 'All').toSet().toList();
+    // Filter out 'All' and 'Freestyle' (it's always added by getter) and remove any duplicates
+    final filtered = value.where((p) => p != 'All' && p != freestyle).toSet().toList();
     debugPrint('DEBUG DropdownValues.practices setter:');
     debugPrint('  Input: $value');
     debugPrint('  Filtered: $filtered');

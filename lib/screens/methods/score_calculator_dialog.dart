@@ -356,32 +356,39 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: widget.totalRounds != null 
+                      ? MainAxisAlignment.spaceBetween 
+                      : MainAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Rounds',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.black87,
+                    // Show "Total Rounds" only if totalRounds is provided
+                    if (widget.totalRounds != null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Rounds',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.totalRounds?.toString() ?? 'N/A',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.totalRounds.toString(),
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    // Always show "Counted"
                     Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: widget.totalRounds != null 
+                          ? CrossAxisAlignment.end 
+                          : CrossAxisAlignment.center,
                       children: [
                         Text(
                           'Counted',
@@ -397,11 +404,13 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: allRoundsAccountedFor
-                                ? Colors.green
-                                : (_totalRoundsCounted > (widget.totalRounds ?? 0)
-                                    ? Colors.red
-                                    : primaryColor),
+                            color: widget.totalRounds != null
+                                ? (allRoundsAccountedFor
+                                    ? Colors.green
+                                    : (_totalRoundsCounted > widget.totalRounds!
+                                        ? Colors.red
+                                        : primaryColor))
+                                : primaryColor,
                           ),
                         ),
                       ],

@@ -62,4 +62,32 @@ class AppointmentEntry extends HiveObject {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
+
+  /// Convert to JSON
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'description': description,
+    'dateTime': dateTime.toIso8601String(),
+    'notifyOneDay': notifyOneDay,
+    'notifyOneWeek': notifyOneWeek,
+    'oneDayNotificationId': oneDayNotificationId,
+    'oneWeekNotificationId': oneWeekNotificationId,
+    'linkedScoreId': linkedScoreId,
+    'isScoreEntry': isScoreEntry,
+  };
+
+  /// Create from JSON
+  factory AppointmentEntry.fromJson(Map<String, dynamic> json) => AppointmentEntry(
+    id: json['id'],
+    title: json['title'],
+    description: json['description'],
+    dateTime: DateTime.parse(json['dateTime']),
+    notifyOneDay: json['notifyOneDay'] ?? false,
+    notifyOneWeek: json['notifyOneWeek'] ?? false,
+    oneDayNotificationId: json['oneDayNotificationId'],
+    oneWeekNotificationId: json['oneWeekNotificationId'],
+    linkedScoreId: json['linkedScoreId'],
+    isScoreEntry: json['isScoreEntry'] ?? false,
+  );
 }

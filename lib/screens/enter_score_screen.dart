@@ -423,6 +423,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   /// Check if firearm is eligible for a given practice
   bool _isFirearmEligibleForPractice(String practiceOrEvent, String firearmCode) {
+    // Freestyle allows any firearm
+    if (practiceOrEvent == DropdownValues.freestyle) {
+      return true;
+    }
+    
     // If either is empty, no validation needed
     if (practiceOrEvent.isEmpty || firearmCode.isEmpty) {
       return true;
@@ -476,6 +481,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     debugPrint('=== _getMaxScoreForSelectedEvent called ===');
     debugPrint('selectedPractice: $selectedPractice');
     debugPrint('selectedFirearmId: $selectedFirearmId');
+    
+    // Return null if Freestyle is selected (no max score for freestyle)
+    if (selectedPractice == DropdownValues.freestyle) {
+      debugPrint('Freestyle selected - no max score');
+      return null;
+    }
     
     // Return null if either practice or firearmId not selected
     if (selectedPractice == null || selectedPractice!.isEmpty ||
@@ -542,6 +553,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   /// Get the total rounds for the selected event/practice and firearm
   int? _getTotalRoundsForSelectedEvent() {
+    // Return null if Freestyle is selected (no total rounds for freestyle)
+    if (selectedPractice == DropdownValues.freestyle) {
+      return null;
+    }
+    
     // Return null if either practice or firearmId not selected
     if (selectedPractice == null || selectedPractice!.isEmpty ||
         selectedFirearmId == null || selectedFirearmId!.isEmpty) {

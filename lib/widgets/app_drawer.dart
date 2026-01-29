@@ -96,7 +96,7 @@ class AppDrawer extends StatelessWidget {
           _buildDrawerItem(
             context: context,
             icon: Icons.event,
-            title: 'Event Picker',
+            title: 'Event Conditions',
             route: 'event_picker',
             primaryColor: primaryColor,
           ),

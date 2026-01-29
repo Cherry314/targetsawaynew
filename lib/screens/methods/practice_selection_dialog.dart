@@ -133,6 +133,31 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            // Freestyle - Always available and non-removable
+            CheckboxListTile(
+              title: Row(
+                children: [
+                  const Expanded(child: Text('Freestyle')),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Icon(
+                      Icons.stars,
+                      size: 16,
+                      color: Colors.amber[700],
+                    ),
+                  ),
+                ],
+              ),
+              subtitle: const Text(
+                'Always available - Default scoring',
+                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+              ),
+              value: true,
+              onChanged: null, // Disabled - always selected
+              dense: true,
+            ),
+            const Divider(thickness: 2),
+            
             // Custom practices section
             if (customPractices.isNotEmpty) ...[
               ...customPractices.map((practice) {

@@ -24,17 +24,19 @@ Enter Score Screen
 This is where you record your shooting sessions.
 
 How to use:
-• Select the Date of your session
-• Choose your Practice type (configure favorites via the settings icon)
+• Select the Date of your session, you can back-date if desired.
+• Choose your Practice type (configure favorites via the settings icon to the side.)
 • Select your firearm's Caliber and Firearm ID
+• Once you have selected a practice and Firearm ID, you can see the Event Conditions by tapping the Event Conditions icon at the top right corner.
+• You can enter your score, and any X's directly, or use the custom calculator by tapping the Icon at the top right of the Score & Detail section.
 • Enter your Score (required)
-• Optionally add Firearm details, Competition info, or Notes
+• Optionally add Firearm details, Competition info, or Notes. If you record any extra details, It will highlight the item.
 • Capture a Target photo if desired
 • Tap "Save Entry" to store your session
 
 Tips:
-• Your last selections are remembered for quick entry
-• Swipe left to edit or right to delete entries in History
+• Your last selections are remembered for quick entry next time.
+• you can see all your entries in the History screen
 • All saved entries automatically appear in your Calendar
 ''';
 
@@ -46,7 +48,7 @@ View and manage all your shooting session history.
 How to use:
 • Use the filters at the top to narrow results by Practice, Caliber, or Firearm
 • Scroll through your entries sorted by date (newest first)
-• Tap any entry to view the full-size target image (if captured)
+• Tap any entry to view the full-size target image (if captured), and specific zone scores if you used the custom calculator.
 • Swipe left on an entry to delete it
 • Swipe right on an entry to edit it
 
