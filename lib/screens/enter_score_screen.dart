@@ -734,6 +734,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // PreNotes Card (if prenotes exists and is not empty)
+            if (selectedPractice != null && selectedPractice!.isNotEmpty && selectedPractice != DropdownValues.freestyle)
+              ..._buildPreNotesCard(context, primaryColor, isDark),
+            
             // Session Details Card
             _buildSectionCard(
               context: context,
@@ -853,19 +857,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                               
                               // Show dialog after setState if needed
                               if (needsDialog && mounted) {
-                                await showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Firearm Not Eligible'),
-                                    content: const Text('The firearm you have selected is not eligible for this event. It has been cleared.'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('OK'),
-                                      ),
-                                    ],
-                                  ),
-                                );
+                                await _showEligibleFirearmsDialog(v);
                               }
                               
                               if (v.isNotEmpty) {
@@ -1449,6 +1441,245 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       ),
     ),
     );
+  }
+
+  /// Show dialog with eligible firearms for the selected event
+  Future<void> _showEligibleFirearmsDialog(String eventName) async {
+    try {
+      // Get the event from Hive
+      if (!Hive.isBoxOpen('events')) return;
+      
+      final eventBox = Hive.box<Event>('events');
+      Event? matchedEvent;
+      
+      for (final event in eventBox.values) {
+        if (event.name == eventName) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      
+      if (matchedEvent == null) return;
+      
+      // Get eligible firearm IDs
+      final eligibleIds = matchedEvent.applicableFirearmIds;
+      
+      // Map IDs to FirearmInfo objects
+      final eligibleFirearms = eligibleIds.map((id) {
+        return DropdownValues.masterFirearmTable.firstWhere(
+          (f) => f.id == id,
+          orElse: () => FirearmInfo(id: id, code: 'Unknown ID: $id', gunType: ''),
+        );
+      }).toList();
+      
+      // Get favorite firearm IDs for comparison
+      final favoriteIds = DropdownValues.favoriteFirearmIdsList;
+      
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final primaryColor = themeProvider.primaryColor;
+      
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Firearm Not Eligible'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'The firearm you selected is not eligible for this event.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Eligible firearms:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: eligibleFirearms.length,
+                      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade300),
+                      itemBuilder: (context, index) {
+                        final firearm = eligibleFirearms[index];
+                        final isFavorite = favoriteIds.contains(firearm.id);
+                        
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: isFavorite ? () {
+                              // Set the firearm and close dialog
+                              setState(() {
+                                selectedFirearmId = firearm.code;
+                              });
+                              _saveSelection('lastFirearmId', firearm.code);
+                              Navigator.pop(context);
+                            } : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Row(
+                                children: [
+                                  if (isFavorite)
+                                    Icon(
+                                      Icons.star,
+                                      color: primaryColor,
+                                      size: 18,
+                                    )
+                                  else
+                                    Icon(
+                                      Icons.star_border,
+                                      color: Colors.grey.shade400,
+                                      size: 18,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          firearm.code,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: isFavorite ? FontWeight.bold : FontWeight.normal,
+                                            color: isFavorite ? primaryColor : (isDark ? Colors.white : Colors.black87),
+                                          ),
+                                        ),
+                                        if (firearm.gunType.isNotEmpty)
+                                          Text(
+                                            firearm.gunType,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isFavorite)
+                                    Icon(
+                                      Icons.touch_app,
+                                      color: primaryColor.withValues(alpha: 0.5),
+                                      size: 16,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.star, color: primaryColor, size: 16),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Starred firearms are in your favorites - tap to select',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error showing eligible firearms dialog: $e');
+    }
+  }
+
+  /// Build PreNotes card if prenotes exists for the selected event
+  List<Widget> _buildPreNotesCard(BuildContext context, Color primaryColor, bool isDark) {
+    try {
+      // Check if events box is open
+      if (!Hive.isBoxOpen('events')) {
+        return [];
+      }
+      
+      final eventBox = Hive.box<Event>('events');
+      
+      // Find the event by matching the practice name to event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == selectedPractice) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      
+      // If no event found or no prenotes, return empty
+      if (matchedEvent == null || matchedEvent.prenotes == null) {
+        return [];
+      }
+      
+      final prenotes = matchedEvent.prenotes!;
+      
+      // Check if prenotes has content
+      final hasTitle = prenotes.title != null && prenotes.title!.isNotEmpty;
+      final hasText = prenotes.text != null && prenotes.text!.isNotEmpty;
+      
+      if (!hasTitle && !hasText) {
+        return [];
+      }
+      
+      // Build the prenotes card
+      return [
+        _buildSectionCard(
+          context: context,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasTitle) ...[
+                Text(
+                  prenotes.title!,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (hasText)
+                Text(
+                  prenotes.text!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ];
+    } catch (e) {
+      debugPrint('Error building prenotes card: $e');
+      return [];
+    }
   }
 
   Widget _buildActionButton({

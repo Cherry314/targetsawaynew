@@ -372,6 +372,40 @@ class _EventPickerScreenState extends State<EventPickerScreen> {
             const Divider(),
             const SizedBox(height: 16),
 
+            // PreNotes (if exists)
+            if (event.prenotes != null && 
+                ((event.prenotes!.title != null && event.prenotes!.title!.isNotEmpty) ||
+                 (event.prenotes!.text != null && event.prenotes!.text!.isNotEmpty))) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (event.prenotes!.title != null && event.prenotes!.title!.isNotEmpty) ...[
+                      Text(
+                        event.prenotes!.title!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (event.prenotes!.text != null && event.prenotes!.text!.isNotEmpty)
+                      Text(
+                        event.prenotes!.text!,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Targets
             if (content.targets.isNotEmpty) ...[

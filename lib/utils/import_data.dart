@@ -31,6 +31,7 @@ import '../models/hive/procedural_penalty.dart';
 import '../models/hive/classification.dart';
 import '../models/hive/target_zone.dart';
 import '../models/hive/target_info.dart';
+import '../models/hive/prenotes.dart';
 
 class DataImporter {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -165,8 +166,20 @@ class DataImporter {
       eventNumber: data['eventNumber'] as int,
       name: data['name'] as String,
       applicableFirearmIds: List<int>.from(data['applicableFirearmIds'] ?? []),
+      prenotes: data['prenotes'] != null
+          ? _mapToPreNotes(data['prenotes'] as Map<String, dynamic>)
+          : null,
       baseContent: _mapToEventContent(data['baseContent'] as Map<String, dynamic>? ?? {}),
       overrides: _mapToEventOverrides(data['overrides'] as List<dynamic>? ?? []),
+    );
+  }
+
+  /// Convert Firestore map to PreNotes object
+  PreNotes? _mapToPreNotes(Map<String, dynamic>? data) {
+    if (data == null) return null;
+    return PreNotes(
+      title: data['title'] as String?,
+      text: data['text'] as String?,
     );
   }
 

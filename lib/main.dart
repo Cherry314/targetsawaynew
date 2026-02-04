@@ -46,6 +46,7 @@ import 'models/hive/practice_stage.dart';
 import 'models/hive/zone.dart';
 import 'models/hive/target_zone.dart';
 import 'models/hive/target_info.dart';
+import 'models/hive/prenotes.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
@@ -107,6 +108,7 @@ void main() async {
   Hive.registerAdapter(ZoneAdapter()); // typeId:130
   Hive.registerAdapter(TargetZoneAdapter()); // typeId:131
   Hive.registerAdapter(TargetInfoAdapter()); // typeId:132
+  Hive.registerAdapter(PreNotesAdapter()); // typeId:36
 
   // Open all boxes once at startup
   await Hive.openBox<ScoreEntry>('scores');

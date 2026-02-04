@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 import 'event_content.dart';
 import 'event_override.dart';
 import 'firearm.dart';
+import 'prenotes.dart';
 
 part 'event.g.dart';
 
@@ -17,6 +18,10 @@ class Event extends HiveObject {
   @HiveField(2)
   List<int> applicableFirearmIds;
 
+  /// Pre-notes displayed before the target information
+  @HiveField(5)
+  PreNotes? prenotes;
+
   /// Base instructions/content for the event
   @HiveField(3)
   EventContent baseContent;
@@ -29,6 +34,7 @@ class Event extends HiveObject {
     required this.eventNumber,
     required this.name,
     required this.applicableFirearmIds,
+    this.prenotes,
     required this.baseContent,
     required this.overrides,
   });
