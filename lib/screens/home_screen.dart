@@ -61,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen>
               content: const Text(
                 'A new version of the shooting rules and target data is available. '
                 'Would you like to download it now?\n\n'
-                'This will update your event rules, firearms, and target data.',
+                'This will update your event rules and target data.',
               ),
               actions: [
                 TextButton(
@@ -124,7 +124,6 @@ class _HomeScreenState extends State<HomeScreen>
         Navigator.of(context).pop();
 
         final eventCount = results['events'] ?? 0;
-        final firearmCount = results['firearms'] ?? 0;
         final targetCount = results['targets'] ?? 0;
 
         // Show success notification
@@ -142,7 +141,6 @@ class _HomeScreenState extends State<HomeScreen>
               content: Text(
                 'Successfully downloaded:\n'
                 '• $eventCount events\n'
-                '• $firearmCount firearms\n'
                 '• $targetCount targets\n\n'
                 'Your data is now up to date!',
               ),
