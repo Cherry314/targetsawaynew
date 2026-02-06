@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/score_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
@@ -34,6 +35,43 @@ class StatsScreenState extends State<StatsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadFavoritesFromPrefs();
+  }
+
+  Future<void> _loadFavoritesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load favorite practices from SharedPreferences
+    final favoritePractices = prefs.getStringList('favoritePractices');
+    if (favoritePractices != null && favoritePractices.isNotEmpty) {
+      // Clean and filter the data (remove 'All' if it exists)
+      final cleanedPractices = favoritePractices
+          .where((p) => p != 'All')
+          .toList();
+      // The setter will automatically filter out 'All' and 'Freestyle' if present
+      DropdownValues.practices = cleanedPractices;
+    }
+
+    // Load favorite calibers from SharedPreferences
+    final favoriteCalibers = prefs.getStringList('favoriteCalibers');
+    if (favoriteCalibers != null && favoriteCalibers.isNotEmpty) {
+      DropdownValues.calibers = favoriteCalibers;
+    }
+
+    // Load favorite firearm IDs from SharedPreferences
+    final favoriteFirearmIds = prefs.getStringList('favoriteFirearmIds');
+    if (favoriteFirearmIds != null && favoriteFirearmIds.isNotEmpty) {
+      DropdownValues.favoriteFirearmIds = favoriteFirearmIds
+          .map((id) => int.tryParse(id))
+          .where((id) => id != null)
+          .cast<int>()
+          .toList();
+    }
+    
+    // Update UI after loading favorites
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -576,7 +614,7 @@ class StatsScreenState extends State<StatsScreen> {
               children: [
                 // Header
                 Container(
-                  width: 100,
+                  width: 55,
                   height: 48,
                   decoration: BoxDecoration(
                     color: primaryColor.withValues(alpha: 0.1),
@@ -597,7 +635,7 @@ class StatsScreenState extends State<StatsScreen> {
                 // Data rows
                 ...zones.map((zone) {
                   return Container(
-                    width: 100,
+                    width: 55,
                     height: 48,
                     decoration: BoxDecoration(
                       border: Border(bottom: BorderSide(color: borderColor)),
@@ -617,7 +655,7 @@ class StatsScreenState extends State<StatsScreen> {
                 }),
                 // Total row
                 Container(
-                  width: 100,
+                  width: 55,
                   height: 48,
                   decoration: BoxDecoration(
                     color: primaryColor.withValues(alpha: 0.05),
@@ -694,7 +732,7 @@ class StatsScreenState extends State<StatsScreen> {
         children: [
           // Header
           Container(
-            width: 120,
+            width: 90,
             height: 48,
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.1),
@@ -721,7 +759,7 @@ class StatsScreenState extends State<StatsScreen> {
             final displayText = hits > 0 ? '$hits ($percentage%)' : '-';
             
             return Container(
-              width: 120,
+              width: 90,
               height: 48,
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: borderColor)),
@@ -741,7 +779,7 @@ class StatsScreenState extends State<StatsScreen> {
           }),
           // Total row
           Container(
-            width: 120,
+            width: 90,
             height: 48,
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.05),
@@ -781,7 +819,7 @@ class StatsScreenState extends State<StatsScreen> {
         children: [
           // Header
           Container(
-            width: 120,
+            width: 90,
             height: 48,
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.15),
@@ -808,7 +846,7 @@ class StatsScreenState extends State<StatsScreen> {
             final displayText = hits > 0 ? '$hits ($percentage%)' : '-';
             
             return Container(
-              width: 120,
+              width: 90,
               height: 48,
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: borderColor)),
@@ -828,7 +866,7 @@ class StatsScreenState extends State<StatsScreen> {
           }),
           // Total row
           Container(
-            width: 120,
+            width: 90,
             height: 48,
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.1),

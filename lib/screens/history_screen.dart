@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/score_entry.dart';
 import '../utils/date_utils.dart';
 import '../data/dropdown_values.dart';
@@ -24,6 +25,48 @@ class HistoryScreenState extends State<HistoryScreen> {
   String selectedPractice = 'All';
   String selectedCaliber = 'All';
   String selectedFirearmId = 'All';
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadFavoritesFromPrefs();
+  }
+  
+  Future<void> _loadFavoritesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load favorite practices from SharedPreferences
+    final favoritePractices = prefs.getStringList('favoritePractices');
+    if (favoritePractices != null && favoritePractices.isNotEmpty) {
+      // Clean and filter the data (remove 'All' if it exists)
+      final cleanedPractices = favoritePractices
+          .where((p) => p != 'All')
+          .toList();
+      // The setter will automatically filter out 'All' and 'Freestyle' if present
+      DropdownValues.practices = cleanedPractices;
+    }
+
+    // Load favorite calibers from SharedPreferences
+    final favoriteCalibers = prefs.getStringList('favoriteCalibers');
+    if (favoriteCalibers != null && favoriteCalibers.isNotEmpty) {
+      DropdownValues.calibers = favoriteCalibers;
+    }
+
+    // Load favorite firearm IDs from SharedPreferences
+    final favoriteFirearmIds = prefs.getStringList('favoriteFirearmIds');
+    if (favoriteFirearmIds != null && favoriteFirearmIds.isNotEmpty) {
+      DropdownValues.favoriteFirearmIds = favoriteFirearmIds
+          .map((id) => int.tryParse(id))
+          .where((id) => id != null)
+          .cast<int>()
+          .toList();
+    }
+    
+    // Update UI after loading favorites
+    if (mounted) {
+      setState(() {});
+    }
+  }
   
   // Get filter lists with "All" option
   List<String> get practiceFilterList {
