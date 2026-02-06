@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/score_entry.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
@@ -28,6 +29,48 @@ class ProgressScreenState extends State<ProgressScreen> {
   List<ScoreEntry> filteredEntries = [];
   int? selectedLineChartIndex;
   int? selectedBarChartIndex;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadFavoritesFromPrefs();
+  }
+  
+  Future<void> _loadFavoritesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load favorite practices from SharedPreferences
+    final favoritePractices = prefs.getStringList('favoritePractices');
+    if (favoritePractices != null && favoritePractices.isNotEmpty) {
+      // Clean and filter the data (remove 'All' if it exists)
+      final cleanedPractices = favoritePractices
+          .where((p) => p != 'All')
+          .toList();
+      // The setter will automatically filter out 'All' and add empty string at the top
+      DropdownValues.practices = cleanedPractices;
+    }
+
+    // Load favorite calibers from SharedPreferences
+    final favoriteCalibers = prefs.getStringList('favoriteCalibers');
+    if (favoriteCalibers != null && favoriteCalibers.isNotEmpty) {
+      DropdownValues.calibers = favoriteCalibers;
+    }
+
+    // Load favorite firearm IDs from SharedPreferences
+    final favoriteFirearmIds = prefs.getStringList('favoriteFirearmIds');
+    if (favoriteFirearmIds != null && favoriteFirearmIds.isNotEmpty) {
+      DropdownValues.favoriteFirearmIds = favoriteFirearmIds
+          .map((id) => int.tryParse(id))
+          .where((id) => id != null)
+          .cast<int>()
+          .toList();
+    }
+    
+    // Update UI after loading favorites
+    if (mounted) {
+      setState(() {});
+    }
+  }
   
   // Get filter lists with "All" option and favorites
   List<String> get practiceFilterList {
@@ -149,6 +192,7 @@ class ProgressScreenState extends State<ProgressScreen> {
             ),
             child: Column(
               children: [
+                // First Row: Filters label + Practice dropdown
                 Row(
                   children: [
                     Container(
@@ -168,18 +212,21 @@ class ProgressScreenState extends State<ProgressScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: _buildPracticeDropdown(primaryColor, isDark)),
                   ],
                 ),
                 const SizedBox(height: 12),
+                // Second Row: Caliber (33%) + FirearmID (66%)
                 Row(
                   children: [
                     Expanded(
-                        child: _buildPracticeDropdown(primaryColor, isDark)),
-                    const SizedBox(width: 8),
-                    Expanded(
+                        flex: 1,
                         child: _buildCaliberDropdown(primaryColor, isDark)),
                     const SizedBox(width: 8),
                     Expanded(
+                        flex: 2,
                         child: _buildFirearmDropdown(primaryColor, isDark)),
                   ],
                 ),
@@ -331,7 +378,7 @@ class ProgressScreenState extends State<ProgressScreen> {
           ))
           .toList(),
       onChanged: (v) {
-        setState(() => selectedPractice = v);
+        setState(() => selectedPractice = (v == 'All') ? null : v);
         _filterEntries();
       },
     );
@@ -373,7 +420,7 @@ class ProgressScreenState extends State<ProgressScreen> {
           ))
           .toList(),
       onChanged: (v) {
-        setState(() => selectedCaliber = v);
+        setState(() => selectedCaliber = (v == 'All') ? null : v);
         _filterEntries();
       },
     );
@@ -415,7 +462,7 @@ class ProgressScreenState extends State<ProgressScreen> {
           ))
           .toList(),
       onChanged: (v) {
-        setState(() => selectedFirearmId = v);
+        setState(() => selectedFirearmId = (v == 'All') ? null : v);
         _filterEntries();
       },
     );

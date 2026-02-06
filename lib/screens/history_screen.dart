@@ -111,6 +111,7 @@ class HistoryScreenState extends State<HistoryScreen> {
             ),
             child: Column(
               children: [
+                // First Row: Filters label + Practice dropdown
                 Row(
                   children: [
                     Container(
@@ -130,11 +131,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
+                    const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedPractice,
@@ -162,8 +159,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                                 color: primaryColor, width: 2),
                           ),
                           filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors
-                              .grey[50],
+                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
                         ),
                         items: practiceFilterList
                             .map((p) =>
@@ -176,8 +172,14 @@ class HistoryScreenState extends State<HistoryScreen> {
                         onChanged: (v) => setState(() => selectedPractice = v!),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Second Row: Caliber (33%) + FirearmID (66%)
+                Row(
+                  children: [
                     Expanded(
+                      flex: 1,
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedCaliber,
                         isDense: true,
@@ -204,8 +206,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                                 color: primaryColor, width: 2),
                           ),
                           filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors
-                              .grey[50],
+                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
                         ),
                         items: caliberFilterList
                             .map((c) =>
@@ -220,6 +221,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
+                      flex: 2,
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedFirearmId,
                         isDense: true,
@@ -246,8 +248,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                                 color: primaryColor, width: 2),
                           ),
                           filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors
-                              .grey[50],
+                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
                         ),
                         items: firearmIdFilterList
                             .map((f) =>
@@ -430,23 +431,6 @@ class HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-                label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          Expanded(child: Text(value)),
-        ],
       ),
     );
   }
