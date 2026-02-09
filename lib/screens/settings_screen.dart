@@ -11,6 +11,8 @@ import '../utils/storage_usage.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
+import '../models/rounds_counter_entry.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -228,6 +230,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     onChanged: (val) {
                       if (val != null) imageQualityProvider.setQuality(val);
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            // Rounds Counter Section
+            _buildSectionCard(
+              title: 'Rounds Counter',
+              context: context,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable Rounds Counter'),
+                  subtitle: const Text('Track rounds fired for each score entry'),
+                  trailing: Switch(
+                    value: Provider.of<RoundsCounterProvider>(context).enabled,
+                    onChanged: (val) async {
+                      if (!val) {
+                        // Show warning dialog when turning off
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Disable Rounds Counter?'),
+                            content: const Text(
+                              'Turning off the Rounds counter will stop any rounds being counted until it is turned back on. '
+                              'You CANNOT retrieve rounds historically.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Turn Off'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          Provider.of<RoundsCounterProvider>(context, listen: false)
+                              .setEnabled(false);
+                        }
+                      } else {
+                        Provider.of<RoundsCounterProvider>(context, listen: false)
+                            .setEnabled(true);
+                      }
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Total Rounds Recorded'),
+                  trailing: ValueListenableBuilder(
+                    valueListenable: Hive.box<RoundsCounterEntry>('rounds_counter').listenable(),
+                    builder: (context, Box<RoundsCounterEntry> box, _) {
+                      final totalRounds = box.values.fold<int>(
+                        0,
+                        (sum, entry) => sum + entry.rounds,
+                      );
+                      return Text(
+                        '$totalRounds',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      );
                     },
                   ),
                 ),

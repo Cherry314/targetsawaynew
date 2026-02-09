@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../models/score_entry.dart';
 import '../models/firearm_entry.dart';
+import '../models/rounds_counter_entry.dart';
 import '../models/hive/event.dart';
 import '../models/hive/firearm.dart';
 import '../data/dropdown_values.dart';
@@ -309,99 +310,207 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       return;
     }
 
+    // Check if rounds counter is enabled
+    final roundsCounterEnabled = Provider.of<RoundsCounterProvider>(context, listen: false).enabled;
+
+    // Calculate rounds from score breakdown
+    int? roundsUsed;
+    if (_scoreBreakdown != null) {
+      roundsUsed = (_scoreBreakdown![10] ?? 0) +
+          (_scoreBreakdown![9] ?? 0) +
+          (_scoreBreakdown![8] ?? 0) +
+          (_scoreBreakdown![7] ?? 0) +
+          (_scoreBreakdown![6] ?? 0) +
+          (_scoreBreakdown![5] ?? 0) +
+          (_scoreBreakdown![4] ?? 0) +
+          (_scoreBreakdown![3] ?? 0) +
+          (_scoreBreakdown![2] ?? 0) +
+          (_scoreBreakdown![1] ?? 0) +
+          (_scoreBreakdown![0] ?? 0);
+    }
+
+    // Controllers for rounds counter dialog
+    final sightersController = TextEditingController();
+    final roundsNotesController = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Confirm Save"),
-        content: Text(
-            widget.openedFromCalendar
-                ? "Do you want to save this entry and return to the Calendar?"
-                : "Do you want to save this entry?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final box = Hive.box<ScoreEntry>('scores');
-              final compIsTrue = compIdController.text.isNotEmpty ||
-                  compResultController.text.isNotEmpty;
-
-              final newEntry = ScoreEntry(
-                id: widget.editEntry?.id ??
-                    DateTime
-                        .now()
-                        .millisecondsSinceEpoch
-                        .toString(),
-                date: selectedDate,
-                score: int.parse(scoreController.text),
-                practice: selectedPractice!,
-                caliber: selectedCaliber!,
-                firearmId: selectedFirearmId ?? '',
-                firearm: firearmController.text,
-                notes: notesController.text,
-                comp: compIsTrue,
-                compId: compIdController.text,
-                compResult: compResultController.text,
-                targetFilePath: targetImage?.path,
-                thumbnailFilePath: thumbnailImage?.path,
-                targetCaptured: targetImage != null,
-                x: xController.text.isNotEmpty ? int.tryParse(xController.text) : null,
-                // Score breakdown from calculator (if available)
-                scoreX: _scoreBreakdown != null && xController.text.isNotEmpty 
-                    ? int.tryParse(xController.text) 
-                    : null,
-                score10: _scoreBreakdown?[10],
-                score9: _scoreBreakdown?[9],
-                score8: _scoreBreakdown?[8],
-                score7: _scoreBreakdown?[7],
-                score6: _scoreBreakdown?[6],
-                score5: _scoreBreakdown?[5],
-                score4: _scoreBreakdown?[4],
-                score3: _scoreBreakdown?[3],
-                score2: _scoreBreakdown?[2],
-                score1: _scoreBreakdown?[1],
-                score0: _scoreBreakdown?[0],
-              );
-
-              await box.put(newEntry.id, newEntry);
-
-              // Save the selections for next time
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('lastPractice', selectedPractice!);
-              await prefs.setString('lastCaliber', selectedCaliber!);
-              await prefs.setString('lastFirearmId', selectedFirearmId!);
-              if (firearmController.text.isNotEmpty) {
-                await prefs.setString('lastFirearm', firearmController.text);
-              }
-
-              // Create calendar entry for this score
-              await CalendarScoreService().createOrUpdateScoreAppointment(
-                  newEntry);
-
-              if (!mounted) return;
-
-              Navigator.pop(context); // close dialog
-
-              if (widget.openedFromCalendar) {
-                // Return to calendar screen
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/calendar', (route) => false);
-              } else {
-                // Clear form and stay on screen for next entry
-                _resetFormForNextEntry();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Score saved! Ready for next entry.'),
-                    duration: Duration(seconds: 2),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text("Confirm Save"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.openedFromCalendar
+                        ? "Do you want to save this entry and return to the Calendar?"
+                        : "Do you want to save this entry?",
                   ),
-                );
-              }
-            },
-            child: const Text("Confirm Save"),
-          ),
-        ],
+                  if (roundsCounterEnabled) ...[
+                    const SizedBox(height: 20),
+                    if (roundsUsed != null) ...[
+                      Text(
+                        'Rounds to be recorded: $roundsUsed',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const Text(
+                      'Were any Sighters used?',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: sightersController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Sighters',
+                        hintText: 'Enter number of sighters',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Any notes regarding Rounds used?',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: roundsNotesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes',
+                        hintText: 'Enter any notes about rounds',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final box = Hive.box<ScoreEntry>('scores');
+                  final compIsTrue = compIdController.text.isNotEmpty ||
+                      compResultController.text.isNotEmpty;
+
+                  final newEntry = ScoreEntry(
+                    id: widget.editEntry?.id ??
+                        DateTime
+                            .now()
+                            .millisecondsSinceEpoch
+                            .toString(),
+                    date: selectedDate,
+                    score: int.parse(scoreController.text),
+                    practice: selectedPractice!,
+                    caliber: selectedCaliber!,
+                    firearmId: selectedFirearmId ?? '',
+                    firearm: firearmController.text,
+                    notes: notesController.text,
+                    comp: compIsTrue,
+                    compId: compIdController.text,
+                    compResult: compResultController.text,
+                    targetFilePath: targetImage?.path,
+                    thumbnailFilePath: thumbnailImage?.path,
+                    targetCaptured: targetImage != null,
+                    x: xController.text.isNotEmpty ? int.tryParse(xController.text) : null,
+                    // Score breakdown from calculator (if available)
+                    scoreX: _scoreBreakdown != null && xController.text.isNotEmpty
+                        ? int.tryParse(xController.text)
+                        : null,
+                    score10: _scoreBreakdown?[10],
+                    score9: _scoreBreakdown?[9],
+                    score8: _scoreBreakdown?[8],
+                    score7: _scoreBreakdown?[7],
+                    score6: _scoreBreakdown?[6],
+                    score5: _scoreBreakdown?[5],
+                    score4: _scoreBreakdown?[4],
+                    score3: _scoreBreakdown?[3],
+                    score2: _scoreBreakdown?[2],
+                    score1: _scoreBreakdown?[1],
+                    score0: _scoreBreakdown?[0],
+                  );
+
+                  await box.put(newEntry.id, newEntry);
+
+                  // Create rounds counter entries if enabled
+                  if (roundsCounterEnabled && roundsUsed != null && roundsUsed > 0) {
+                    final roundsBox = Hive.box<RoundsCounterEntry>('rounds_counter');
+
+                    // Create entry for practice rounds
+                    final practiceEntry = RoundsCounterEntry(
+                      date: selectedDate,
+                      rounds: roundsUsed,
+                      reason: 'Practice',
+                      notes: roundsNotesController.text.isNotEmpty
+                          ? roundsNotesController.text
+                          : null,
+                    );
+                    await roundsBox.add(practiceEntry);
+
+                    // Create entry for sighters if any
+                    final sightersCount = int.tryParse(sightersController.text) ?? 0;
+                    if (sightersCount > 0) {
+                      final sightersEntry = RoundsCounterEntry(
+                        date: selectedDate,
+                        rounds: sightersCount,
+                        reason: 'Sighters',
+                        notes: null,
+                      );
+                      await roundsBox.add(sightersEntry);
+                    }
+                  }
+
+                  // Save the selections for next time
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('lastPractice', selectedPractice!);
+                  await prefs.setString('lastCaliber', selectedCaliber!);
+                  await prefs.setString('lastFirearmId', selectedFirearmId!);
+                  if (firearmController.text.isNotEmpty) {
+                    await prefs.setString('lastFirearm', firearmController.text);
+                  }
+
+                  // Create calendar entry for this score
+                  await CalendarScoreService().createOrUpdateScoreAppointment(
+                      newEntry);
+
+                  if (!mounted) return;
+
+                  Navigator.pop(context); // close dialog
+
+                  if (widget.openedFromCalendar) {
+                    // Return to calendar screen
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/calendar', (route) => false);
+                  } else {
+                    // Clear form and stay on screen for next entry
+                    _resetFormForNextEntry();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Score saved! Ready for next entry.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text("Confirm Save"),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

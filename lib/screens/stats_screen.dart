@@ -718,6 +718,8 @@ class StatsScreenState extends State<StatsScreen> {
     };
     
     final totalHits = entryZoneTotals.values.fold<int>(0, (sum, hits) => sum + hits);
+    // Calculate total excluding X for percentage calculations
+    final totalHitsExcludingX = totalHits - (entryZoneTotals['X'] ?? 0);
 
     return Container(
       decoration: BoxDecoration(
@@ -753,10 +755,18 @@ class StatsScreenState extends State<StatsScreen> {
           // Data rows
           ...zones.map((zone) {
             final hits = entryZoneTotals[zone] ?? 0;
-            final percentage = totalHits > 0 
-                ? ((hits / totalHits) * 100).toStringAsFixed(1)
-                : '0.0';
-            final displayText = hits > 0 ? '$hits ($percentage%)' : '-';
+            
+            // X zone shows just the count, no percentage
+            // Other zones show count with percentage (calculated excluding X)
+            String displayText;
+            if (zone == 'X') {
+              displayText = hits > 0 ? hits.toString() : '-';
+            } else {
+              final percentage = totalHitsExcludingX > 0
+                  ? ((hits / totalHitsExcludingX) * 100).toStringAsFixed(1)
+                  : '0.0';
+              displayText = hits > 0 ? '$hits ($percentage%)' : '-';
+            }
             
             return Container(
               width: 90,
@@ -802,6 +812,9 @@ class StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildTotalColumn(Map<String, int> zoneTotals, int totalHits, List<String> zones, Color primaryColor, bool isDark, Color borderColor) {
+    // Calculate total excluding X for percentage calculations
+    final totalHitsExcludingX = totalHits - (zoneTotals['X'] ?? 0);
+    
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -840,10 +853,18 @@ class StatsScreenState extends State<StatsScreen> {
           // Data rows
           ...zones.map((zone) {
             final hits = zoneTotals[zone] ?? 0;
-            final percentage = totalHits > 0 
-                ? ((hits / totalHits) * 100).toStringAsFixed(1)
-                : '0.0';
-            final displayText = hits > 0 ? '$hits ($percentage%)' : '-';
+            
+            // X zone shows just the count, no percentage
+            // Other zones show count with percentage (calculated excluding X)
+            String displayText;
+            if (zone == 'X') {
+              displayText = hits > 0 ? hits.toString() : '-';
+            } else {
+              final percentage = totalHitsExcludingX > 0
+                  ? ((hits / totalHitsExcludingX) * 100).toStringAsFixed(1)
+                  : '0.0';
+              displayText = hits > 0 ? '$hits ($percentage%)' : '-';
+            }
             
             return Container(
               width: 90,

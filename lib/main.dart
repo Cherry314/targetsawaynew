@@ -10,6 +10,7 @@ import 'models/score_entry.dart';
 import 'models/firearm_entry.dart';
 import 'models/membership_card_entry.dart';
 import 'models/appointment_entry.dart';
+import 'models/rounds_counter_entry.dart';
 import 'services/notification_service.dart';
 
 // Hive model imports
@@ -74,6 +75,7 @@ void main() async {
   Hive.registerAdapter(FirearmEntryAdapter()); // typeId:2
   Hive.registerAdapter(MembershipCardEntryAdapter()); // typeId:3
   Hive.registerAdapter(AppointmentEntryAdapter()); // typeId:4
+  Hive.registerAdapter(RoundsCounterEntryAdapter()); // typeId:5
 
   // Register Hive adapters for Event system
   Hive.registerAdapter(EventAdapter()); // typeId:100
@@ -116,6 +118,7 @@ void main() async {
   await Hive.openBox<FirearmEntry>('firearms');
   await Hive.openBox<MembershipCardEntry>('membership_cards');
   await Hive.openBox<AppointmentEntry>('appointments');
+  await Hive.openBox<RoundsCounterEntry>('rounds_counter');
 
   // Open boxes for Event system
   await Hive.openBox<Event>('events');
@@ -270,6 +273,30 @@ class AnimationsProvider extends ChangeNotifier {
   }
 }
 
+// RoundsCounterProvider manages whether rounds counter is enabled
+class RoundsCounterProvider extends ChangeNotifier {
+  bool _enabled = true; // Default to enabled
+  bool get enabled => _enabled;
+
+  RoundsCounterProvider() {
+    _loadPreference();
+  }
+
+  Future<void> _loadPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    _enabled = prefs.getBool('roundsCounterEnabled') ?? true;
+    notifyListeners();
+  }
+
+  Future<void> setEnabled(bool value) async {
+    _enabled = value;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('roundsCounterEnabled', value);
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -280,6 +307,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ImageQualityProvider()),
         ChangeNotifierProvider(create: (_) => AnimationsProvider()),
+        ChangeNotifierProvider(create: (_) => RoundsCounterProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(

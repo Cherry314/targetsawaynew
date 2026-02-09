@@ -20,6 +20,7 @@ class EventAdapter extends TypeAdapter<Event> {
       eventNumber: fields[0] as int,
       name: fields[1] as String,
       applicableFirearmIds: (fields[2] as List).cast<int>(),
+      prenotes: fields[5] as PreNotes?,
       baseContent: fields[3] as EventContent,
       overrides: (fields[4] as List).cast<EventOverride>(),
     );
@@ -28,13 +29,15 @@ class EventAdapter extends TypeAdapter<Event> {
   @override
   void write(BinaryWriter writer, Event obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.eventNumber)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
       ..write(obj.applicableFirearmIds)
+      ..writeByte(5)
+      ..write(obj.prenotes)
       ..writeByte(3)
       ..write(obj.baseContent)
       ..writeByte(4)

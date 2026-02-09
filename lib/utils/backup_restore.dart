@@ -11,6 +11,7 @@ import '../models/score_entry.dart';
 import '../models/firearm_entry.dart';
 import '../models/membership_card_entry.dart';
 import '../models/appointment_entry.dart';
+import '../models/rounds_counter_entry.dart';
 
 class BackupRestore {
   /// Backup app data (Hive as JSON + SharedPrefs + optionally images)
@@ -25,6 +26,7 @@ class BackupRestore {
       'firearms': Hive.box<FirearmEntry>('firearms'),
       'membership_cards': Hive.box<MembershipCardEntry>('membership_cards'),
       'appointments': Hive.box<AppointmentEntry>('appointments'),
+      'rounds_counter': Hive.box<RoundsCounterEntry>('rounds_counter'),
     };
 
     for (var entry in hiveBoxes.entries) {
@@ -35,6 +37,7 @@ class BackupRestore {
         if (e is FirearmEntry) return e.toJson();
         if (e is MembershipCardEntry) return e.toJson();
         if (e is AppointmentEntry) return e.toJson();
+        if (e is RoundsCounterEntry) return e.toJson();
         return {};
       }).toList();
 
@@ -141,7 +144,7 @@ class BackupRestore {
 
   /// Restore Hive boxes & SharedPreferences safely
   static Future<void> _restoreHiveAndPrefs(Directory appDir) async {
-    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments'];
+    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments', 'rounds_counter'];
 
     for (var boxName in boxNames) {
       final file = File('${appDir.path}/data/$boxName.json');
@@ -160,6 +163,8 @@ class BackupRestore {
         box = Hive.box<MembershipCardEntry>(boxName);
       } else if (boxName == 'appointments') {
         box = Hive.box<AppointmentEntry>(boxName);
+      } else if (boxName == 'rounds_counter') {
+        box = Hive.box<RoundsCounterEntry>(boxName);
       } else {
         continue; // Skip unknown boxes
       }
@@ -181,6 +186,8 @@ class BackupRestore {
           box.add(MembershipCardEntry.fromJson(map));
         } else if (boxName == 'appointments') {
           box.add(AppointmentEntry.fromJson(map));
+        } else if (boxName == 'rounds_counter') {
+          box.add(RoundsCounterEntry.fromJson(map));
         }
       }
     }

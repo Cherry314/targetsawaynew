@@ -27,13 +27,14 @@ class FirearmEntryAdapter extends TypeAdapter<FirearmEntry> {
       imagePath: fields[7] as String?,
       thumbnailPath: fields[8] as String?,
       nickname: fields[9] as String?,
+      myFirearmID: fields[10] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, FirearmEntry obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class FirearmEntryAdapter extends TypeAdapter<FirearmEntry> {
       ..writeByte(8)
       ..write(obj.thumbnailPath)
       ..writeByte(9)
-      ..write(obj.nickname);
+      ..write(obj.nickname)
+      ..writeByte(10)
+      ..write(obj.myFirearmID);
   }
 
   @override
