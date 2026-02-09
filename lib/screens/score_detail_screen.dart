@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../models/score_entry.dart';
@@ -382,7 +383,7 @@ class ScoreDetailScreen extends StatelessWidget {
                     _buildInfoRow(Icons.tag, 'Firearm ID', entry.firearmId, primaryColor, isDark),
                     if (entry.firearm != null && entry.firearm!.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      _buildInfoRow(Icons.info_outline, 'Firearm', entry.firearm!, primaryColor, isDark),
+                      _buildInfoRow(FontAwesomeIcons.gun, 'Firearm', entry.firearm!, primaryColor, isDark),
                     ],
                     if (roundsUsed != null || totalRounds != null) ...[
                       const SizedBox(height: 12),

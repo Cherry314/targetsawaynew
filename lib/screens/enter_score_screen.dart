@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../models/score_entry.dart';
+import '../models/firearm_entry.dart';
 import '../models/hive/event.dart';
 import '../models/hive/firearm.dart';
 import '../data/dropdown_values.dart';
@@ -54,6 +55,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   String? previousPractice; // Track previous selection for reverting
   String? selectedCaliber;
   String? selectedFirearmId;
+
+  // Personal firearm selection
+  String? selectedPersonalFirearmId; // ID of selected personal firearm from FirearmEntry
+  bool get _showManualFirearmFields => selectedPersonalFirearmId == null || selectedPersonalFirearmId == 'manual';
 
   File? targetImage;
   File? thumbnailImage;
@@ -292,6 +297,18 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       return;
     }
 
+    // Validate required fields are set
+    if (selectedCaliber == null || selectedCaliber!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a Caliber")));
+      return;
+    }
+    if (selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a Firearm ID")));
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -321,7 +338,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                 score: int.parse(scoreController.text),
                 practice: selectedPractice!,
                 caliber: selectedCaliber!,
-                firearmId: selectedFirearmId!,
+                firearmId: selectedFirearmId ?? '',
                 firearm: firearmController.text,
                 notes: notesController.text,
                 comp: compIsTrue,
@@ -955,206 +972,302 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   ),
                   const SizedBox(height: 20),
 
-// Caliber + Firearm ID row
-                  Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              key: ValueKey('caliber_$selectedCaliber'),
-                              value: selectedCaliber,
-                              isDense: true,
-                              isExpanded: true,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                              items: DropdownValues.calibers
-                                  .map((c) =>
-                                  DropdownMenuItem(
-                                    value: c,
-                                    child: Text(
-                                      c.isEmpty ? 'Please select a Favorite' : c,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontStyle: c.isEmpty ? FontStyle.italic : FontStyle.normal,
-                                        color: c.isEmpty ? Colors.grey : null,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ))
-                                  .toList(),
-                              onChanged: (v) {
-                                setState(() => selectedCaliber = v);
-                                if (v != null) _saveSelection('lastCaliber', v);
-                              },
-                              decoration: InputDecoration(
-                                labelText: "Caliber",
-                                labelStyle: const TextStyle(fontSize: 13),
-                                prefixIcon: Icon(
-                                    Icons.straighten, color: primaryColor,
-                                    size: 20),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                      color: Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                      color: primaryColor, width: 2),
-                                ),
-                                filled: true,
-                                fillColor: isDark ? Colors.grey[800] : Colors
-                                    .grey[50],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              icon: Icon(Icons.favorite, color: primaryColor, size: 20),
-                              tooltip: "Manage Favorite Calibers",
-                              onPressed: () async {
-                                await showCaliberSelectionDialog(
-                                  context: context,
-                                  onSelectionChanged: () {
-                                    setState(() {
-                                      final currentCalibers = DropdownValues.calibers;
-                                      if (!currentCalibers.contains(selectedCaliber)) {
-                                        selectedCaliber = currentCalibers.first;
-                                      }
-                                    });
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              key: ValueKey('firearm_$selectedFirearmId'),
-                              value: selectedFirearmId,
-                              isDense: true,
-                              isExpanded: true,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                              items: DropdownValues.firearmIds
-                                  .map((id) =>
-                                  DropdownMenuItem(
-                                    value: id,
-                                    child: Text(
-                                      id.isEmpty ? 'Please select a Favorite' : id,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontStyle: id.isEmpty ? FontStyle.italic : FontStyle.normal,
-                                        color: id.isEmpty ? Colors.grey : null,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ))
-                                  .toList(),
-                              onChanged: (v) async {
-                                if (v != null && v.isNotEmpty) {
-                                  // Check if firearm is eligible for current practice
-                                  if (selectedPractice != null && selectedPractice!.isNotEmpty) {
-                                    if (!_isFirearmEligibleForPractice(selectedPractice!, v)) {
-                                      // Show dialog and don't change selection
-                                      await showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Firearm Not Eligible'),
-                                          content: const Text('That firearm is not eligible for this event.'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: const Text('OK'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      return; // Don't change the selection
-                                    }
-                                  }
-                                  
-                                  // Valid selection
-                                  setState(() => selectedFirearmId = v);
-                                  _saveSelection('lastFirearmId', v);
-                                } else {
-                                  setState(() => selectedFirearmId = v);
-                                }
-                              },
-                              decoration: InputDecoration(
-                                labelText: "Firearm ID",
-                                labelStyle: const TextStyle(fontSize: 13),
-                                prefixIcon: Icon(
-                                    Icons.tag, color: primaryColor, size: 20),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                      color: Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                      color: primaryColor, width: 2),
-                                ),
-                                filled: true,
-                                fillColor: isDark ? Colors.grey[800] : Colors
-                                    .grey[50],
-                              ),
-                            ),
-                          ),
+                  // Select Firearm Dropdown
+                  ValueListenableBuilder(
+                    valueListenable: Hive.box<FirearmEntry>('firearms').listenable(),
+                    builder: (context, Box<FirearmEntry> box, _) {
+                      final personalFirearms = box.values.toList();
 
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                      return DropdownButtonFormField<String>(
+                        value: selectedPersonalFirearmId ?? 'manual',
+                        isDense: true,
+                        isExpanded: true,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
-                        child: IconButton(
-                          icon: Icon(Icons.favorite, color: primaryColor, size: 20),
-                          tooltip: "Select Favorite Firearms",
-                          onPressed: () async {
-                            await showFirearmSelectionDialog(
-                              context: context,
-                              onSelectionChanged: () {
-                                setState(() {
-                                  final currentFirearmIds = DropdownValues.firearmIds;
-                                  if (!currentFirearmIds.contains(selectedFirearmId)) {
-                                    selectedFirearmId = currentFirearmIds.first;
-                                  }
-                                });
-                              },
+                        items: [
+                          DropdownMenuItem(
+                            value: 'manual',
+                            child: Text(
+                              'Enter Manually',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                          ...personalFirearms.map((firearm) {
+                            return DropdownMenuItem(
+                              value: firearm.id,
+                              child: Text(
+                                firearm.nickname ?? 'Unnamed',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
-                          },
+                          }),
+                        ],
+                        onChanged: (v) {
+                          setState(() {
+                            selectedPersonalFirearmId = v == 'manual' ? null : v;
+
+                            if (v != null && v != 'manual') {
+                              // Auto-populate from personal firearm
+                              final selectedFirearm = personalFirearms.firstWhere(
+                                (f) => f.id == v,
+                                orElse: () => throw Exception('Firearm not found'),
+                              );
+
+                              // Populate caliber
+                              selectedCaliber = selectedFirearm.caliber.isNotEmpty
+                                  ? selectedFirearm.caliber
+                                  : selectedCaliber;
+
+                              // Populate Firearm ID from personal firearm's myFirearmID
+                              selectedFirearmId = selectedFirearm.myFirearmID;
+
+                              // Populate firearm name (nickname) in the firearm controller
+                              if (selectedFirearm.nickname?.isNotEmpty == true) {
+                                firearmController.text = selectedFirearm.nickname!;
+                              }
+                            }
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: "Select Firearm",
+                          labelStyle: const TextStyle(fontSize: 13),
+                          prefixIcon: Icon(
+                              Icons.person, color: primaryColor, size: 20),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: primaryColor, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
 
-                    ],
+                  // Caliber + Firearm ID row (shown only when "Enter Manually" is selected)
+                  Visibility(
+                    visible: _showManualFirearmFields,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                key: ValueKey('caliber_$selectedCaliber'),
+                                value: selectedCaliber,
+                                isDense: true,
+                                isExpanded: true,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                                items: DropdownValues.calibers
+                                    .map((c) =>
+                                    DropdownMenuItem(
+                                      value: c,
+                                      child: Text(
+                                        c.isEmpty ? 'Please select a Favorite' : c,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontStyle: c.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                          color: c.isEmpty ? Colors.grey : null,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ))
+                                    .toList(),
+                                onChanged: (v) {
+                                  setState(() => selectedCaliber = v);
+                                  if (v != null) _saveSelection('lastCaliber', v);
+                                },
+                                decoration: InputDecoration(
+                                  labelText: "Caliber",
+                                  labelStyle: const TextStyle(fontSize: 13),
+                                  prefixIcon: Icon(
+                                      Icons.straighten, color: primaryColor,
+                                      size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                        color: Colors.grey.shade300),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                        color: primaryColor, width: 2),
+                                  ),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.grey[800] : Colors
+                                      .grey[50],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: IconButton(
+                                icon: Icon(Icons.favorite, color: primaryColor, size: 20),
+                                tooltip: "Manage Favorite Calibers",
+                                onPressed: () async {
+                                  await showCaliberSelectionDialog(
+                                    context: context,
+                                    onSelectionChanged: () {
+                                      setState(() {
+                                        final currentCalibers = DropdownValues.calibers;
+                                        if (!currentCalibers.contains(selectedCaliber)) {
+                                          selectedCaliber = currentCalibers.first;
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                key: ValueKey('firearm_$selectedFirearmId'),
+                                value: selectedFirearmId,
+                                isDense: true,
+                                isExpanded: true,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                                items: DropdownValues.firearmIds
+                                    .map((id) =>
+                                    DropdownMenuItem(
+                                      value: id,
+                                      child: Text(
+                                        id.isEmpty ? 'Please select a Favorite' : id,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontStyle: id.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                          color: id.isEmpty ? Colors.grey : null,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ))
+                                    .toList(),
+                                onChanged: (v) async {
+                                  if (v != null && v.isNotEmpty) {
+                                    // Check if firearm is eligible for current practice
+                                    if (selectedPractice != null && selectedPractice!.isNotEmpty) {
+                                      if (!_isFirearmEligibleForPractice(selectedPractice!, v)) {
+                                        // Show dialog and don't change selection
+                                        await showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Firearm Not Eligible'),
+                                            content: const Text('That firearm is not eligible for this event.'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        return; // Don't change the selection
+                                      }
+                                    }
+
+                                    // Valid selection
+                                    setState(() => selectedFirearmId = v);
+                                    _saveSelection('lastFirearmId', v);
+                                  } else {
+                                    setState(() => selectedFirearmId = v);
+                                  }
+                                },
+                                decoration: InputDecoration(
+                                  labelText: "Firearm ID",
+                                  labelStyle: const TextStyle(fontSize: 13),
+                                  prefixIcon: Icon(
+                                      Icons.tag, color: primaryColor, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                        color: Colors.grey.shade300),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                        color: primaryColor, width: 2),
+                                  ),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.grey[800] : Colors
+                                      .grey[50],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: IconButton(
+                                icon: Icon(Icons.favorite, color: primaryColor, size: 20),
+                                tooltip: "Select Favorite Firearms",
+                                onPressed: () async {
+                                  await showFirearmSelectionDialog(
+                                    context: context,
+                                    onSelectionChanged: () {
+                                      setState(() {
+                                        final currentFirearmIds = DropdownValues.firearmIds;
+                                        if (!currentFirearmIds.contains(selectedFirearmId)) {
+                                          selectedFirearmId = currentFirearmIds.first;
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1323,55 +1436,21 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Action Buttons Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildActionButton(
-                        context: context,
-                        icon: FontAwesomeIcons.gun,
-                        label: "Firearm",
-                        isActive: firearmController.text.isNotEmpty,
-                        primaryColor: primaryColor,
-                        onPressed: () {
-                          showFirearmDialog(
-                            context: context,
-                            firearmController: firearmController,
-                            onSelectId: (id) =>
-                                setState(() => selectedFirearmId = id),
-                            saveSelection: _saveSelection,
-                          );
-                        },
-                      ),
-                      _buildActionButton(
-                        context: context,
-                        icon: Icons.emoji_events,
-                        label: "Competition",
-                        isActive: compIdController.text.isNotEmpty ||
-                            compResultController.text.isNotEmpty,
-                        primaryColor: primaryColor,
-                        onPressed: () {
-                          showCompetitionDialog(
-                            context: context,
-                            compIdController: compIdController,
-                            compResultController: compResultController,
-                          );
-                        },
-                      ),
-                      _buildActionButton(
-                        context: context,
-                        icon: Icons.note,
-                        label: "Notes",
-                        isActive: notesController.text.isNotEmpty,
-                        primaryColor: primaryColor,
-                        onPressed: () {
-                          showNotesDialog(
-                            context: context,
-                            notesController: notesController,
-                          );
-                        },
-                      ),
-                    ],
+                  // Notes Button (Full Width)
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildGradientButton(
+                      label: "Notes",
+                      icon: Icons.note,
+                      onPressed: () {
+                        showNotesDialog(
+                          context: context,
+                          notesController: notesController,
+                        );
+                      },
+                      primaryColor: primaryColor,
+                      isOutlined: notesController.text.isEmpty,
+                    ),
                   ),
                 ],
               ),

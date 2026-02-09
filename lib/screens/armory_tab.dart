@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/firearm_entry.dart';
 import 'package:provider/provider.dart';
 import '../../main.dart';
+import '../../data/dropdown_values.dart';
 import 'armory_tab_full_screen.dart';
 
 
@@ -35,6 +36,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
     TextEditingController(text: entry?.make ?? '');
     final TextEditingController modelController =
     TextEditingController(text: entry?.model ?? '');
+    String? selectedMyFirearmID = entry?.myFirearmID;
     final TextEditingController caliberController =
     TextEditingController(text: entry?.caliber ?? '');
     final TextEditingController scopeController =
@@ -58,13 +60,59 @@ class _ArmoryTabState extends State<ArmoryTab> {
         content: SingleChildScrollView(
           child: Column(
             children: [
-              _buildTextField(nicknameController, 'Nickname'),
+              _buildTextField(nicknameController, 'Nickname *'),
               const SizedBox(height: 8),
               _buildTextField(makeController, 'Make'),
               const SizedBox(height: 8),
               _buildTextField(modelController, 'Model'),
               const SizedBox(height: 8),
-              _buildTextField(caliberController, 'Caliber'),
+              // Firearm ID Dropdown
+              StatefulBuilder(
+                builder: (context, setState) {
+                  return DropdownButtonFormField<String>(
+                    value: selectedMyFirearmID,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Firearm ID *',
+                      labelStyle: TextStyle(color: primaryColor),
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: bgColor.withAlpha((0.05 * 255).round()),
+                    ),
+                    dropdownColor: bgColor,
+                    style: TextStyle(color: primaryColor),
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text(
+                          'Select a Firearm ID...',
+                          style: TextStyle(color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      ...DropdownValues.masterFirearmTable.map((firearm) {
+                        return DropdownMenuItem<String>(
+                          value: firearm.code,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Text(
+                              firearm.code,
+                              style: TextStyle(color: primaryColor),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedMyFirearmID = value;
+                      });
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(caliberController, 'Caliber *'),
               const SizedBox(height: 8),
               _buildTextField(scopeController, 'Scope Size (optional)'),
               const SizedBox(height: 8),
@@ -111,7 +159,25 @@ class _ArmoryTabState extends State<ArmoryTab> {
           ),
           TextButton(
             onPressed: () {
-              if (nicknameController.text.trim().isEmpty) return;
+              // Validate required fields
+              if (nicknameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Nickname is required')),
+                );
+                return;
+              }
+              if (caliberController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Caliber is required')),
+                );
+                return;
+              }
+              if (selectedMyFirearmID == null || selectedMyFirearmID!.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Firearm ID is required')),
+                );
+                return;
+              }
 
               final newEntry = FirearmEntry(
                 id: entry?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -127,6 +193,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
                     ? null
                     : notesController.text.trim(),
                 imagePath: imageFile?.path,
+                myFirearmID: selectedMyFirearmID,
               );
 
               _firearmBox.put(newEntry.id, newEntry);

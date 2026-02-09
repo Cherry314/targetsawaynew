@@ -35,6 +35,9 @@ class FirearmEntry extends HiveObject {
   @HiveField(9)
   String? nickname;
 
+  @HiveField(10)
+  String? myFirearmID;
+
   FirearmEntry({
     required this.id,
     required this.make,
@@ -46,6 +49,7 @@ class FirearmEntry extends HiveObject {
     this.imagePath,
     this.thumbnailPath,
     this.nickname,
+    this.myFirearmID,
   });
 
   /// Convert to JSON
@@ -60,6 +64,7 @@ class FirearmEntry extends HiveObject {
     'imagePath': imagePath,
     'thumbnailPath': thumbnailPath,
     'nickname': nickname,
+    'myFirearmID': myFirearmID,
   };
 
   /// Create from JSON
@@ -74,5 +79,6 @@ class FirearmEntry extends HiveObject {
     imagePath: json['imagePath'],
     thumbnailPath: json['thumbnailPath'],
     nickname: json['nickname'],
+    myFirearmID: json['myFirearmID'],
   );
 }
