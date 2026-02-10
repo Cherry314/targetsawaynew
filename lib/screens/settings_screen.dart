@@ -8,6 +8,7 @@ import 'dart:io';
 import '../main.dart';
 import '../utils/backup_restore.dart';
 import '../utils/storage_usage.dart';
+import '../utils/import_data.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
@@ -354,6 +355,148 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ],
+              ],
+            ),
+
+            // Data Sync Section
+            _buildSectionCard(
+              title: 'Event Data',
+              context: context,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Download Event Data'),
+                  subtitle: const Text('Download the latest shooting rules and target data from the server'),
+                  trailing: Icon(Icons.cloud_download, color: Theme.of(context).primaryColor),
+                  onTap: () async {
+                    // Show confirmation dialog
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Row(
+                          children: [
+                            Icon(Icons.cloud_download, color: Colors.blue),
+                            SizedBox(width: 10),
+                            Text('Download Event Data'),
+                          ],
+                        ),
+                        content: const Text(
+                          'This will download the latest shooting rules and event data from the server.\n\n'
+                          'All existing event data will be replaced. Your scores and personal data will not be affected.\n\n'
+                          'Continue?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Download'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed != true) return;
+
+                    try {
+                      // Show loading
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => const Center(
+                            child: Card(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 16),
+                                    Text('Downloading event data...'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Import the data
+                      final dataImporter = DataImporter();
+                      final results = await dataImporter.importAllData();
+
+                      // Close loading
+                      if (context.mounted) Navigator.pop(context);
+
+                      final eventCount = results['events'] ?? 0;
+                      final targetCount = results['targets'] ?? 0;
+                      final firearmCount = results['firearms'] ?? 0;
+
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green),
+                                SizedBox(width: 10),
+                                Text('Download Complete'),
+                              ],
+                            ),
+                            content: Text(
+                              'Successfully downloaded:\n'
+                              '• $eventCount events\n'
+                              '• $firearmCount firearms\n'
+                              '• $targetCount targets\n\n'
+                              'Your event data is now up to date!',
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Close loading if still open
+                      if (context.mounted) Navigator.pop(context);
+
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.red),
+                                SizedBox(width: 10),
+                                Text('Download Failed'),
+                              ],
+                            ),
+                            content: Text(
+                              'Failed to download event data:\n\n$e\n\n'
+                              'Please check your internet connection and try again.',
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
               ],
             ),
 

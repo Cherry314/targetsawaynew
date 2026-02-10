@@ -88,6 +88,13 @@ class AppDrawer extends StatelessWidget {
           ),
           _buildDrawerItem(
             context: context,
+            icon: Icons.track_changes,
+            title: 'Rounds Manager',
+            route: 'rounds_manager',
+            primaryColor: primaryColor,
+          ),
+          _buildDrawerItem(
+            context: context,
             icon: Icons.calendar_today,
             title: 'Calendar',
             route: 'calendar',

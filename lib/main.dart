@@ -58,6 +58,7 @@ import 'screens/personal_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/event_picker_screen.dart';
 import 'screens/stats_screen.dart';
+import 'screens/rounds_manager_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -360,6 +361,7 @@ class MyApp extends StatelessWidget {
             '/personal': (context) => const PersonalScreen(),
             '/event_picker': (context) => const EventPickerScreen(),
             '/settings': (context) => const SettingsScreen(),
+            '/rounds_manager': (context) => const RoundsManagerScreen(),
           },
         ),
       ),

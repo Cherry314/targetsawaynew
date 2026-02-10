@@ -604,56 +604,43 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
 /// Get the max score for the selected event/practice and firearm
   int? _getMaxScoreForSelectedEvent() {
-    debugPrint('=== _getMaxScoreForSelectedEvent called ===');
-    debugPrint('selectedPractice: $selectedPractice');
-    debugPrint('selectedFirearmId: $selectedFirearmId');
-    
     // Return null if Freestyle is selected (no max score for freestyle)
     if (selectedPractice == DropdownValues.freestyle) {
-      debugPrint('Freestyle selected - no max score');
       return null;
     }
     
     // Return null if either practice or firearmId not selected
     if (selectedPractice == null || selectedPractice!.isEmpty ||
         selectedFirearmId == null || selectedFirearmId!.isEmpty) {
-      debugPrint('One or both selections are empty');
       return null;
     }
 
     try {
       // Check if events box is open
       if (!Hive.isBoxOpen('events')) {
-        debugPrint('Events box is not open');
         return null;
       }
       
       // Open the events box
       final eventBox = Hive.box<Event>('events');
-      debugPrint('Events box has ${eventBox.length} events');
       
       // Find the event by matching the practice name to event name
       Event? matchedEvent;
       for (final event in eventBox.values) {
-        debugPrint('Checking event: ${event.name}');
         if (event.name == selectedPractice) {
           matchedEvent = event;
-          debugPrint('Found matching event!');
           break;
         }
       }
       
       if (matchedEvent == null) {
-        debugPrint('No matching event found for practice: $selectedPractice');
         return null;
       }
 
       // Get the firearm ID from the code
       final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
-      debugPrint('Firearm ID for code $selectedFirearmId: $firearmId');
       
       if (firearmId == null) {
-        debugPrint('Could not find firearm ID for code: $selectedFirearmId');
         return null;
       }
 
@@ -666,13 +653,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
       // Get the content for this firearm (applies overrides automatically)
       final content = matchedEvent.getContentForFirearm(firearm);
-      debugPrint('Course of fire max score: ${content.courseOfFire.maxScore}');
 
       // Return the max score from courseOfFire
       return content.courseOfFire.maxScore;
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('Error getting max score: $e');
-      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -794,6 +779,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     final isDark = Theme
         .of(context)
         .brightness == Brightness.dark;
+    
+    // Cache these values so they're only calculated once per build
+    final maxScore = _getMaxScoreForSelectedEvent();
+    final totalRounds = _getTotalRoundsForSelectedEvent();
 
     // Cache the practices list at state level - only rebuild if list changes
     final practicesList = DropdownValues.practices;
@@ -1132,13 +1121,18 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                 orElse: () => throw Exception('Firearm not found'),
                               );
 
-                              // Populate caliber
-                              selectedCaliber = selectedFirearm.caliber.isNotEmpty
-                                  ? selectedFirearm.caliber
-                                  : selectedCaliber;
+                              // Populate caliber (only if not empty)
+                              if (selectedFirearm.caliber.isNotEmpty) {
+                                selectedCaliber = selectedFirearm.caliber;
+                              }
 
                               // Populate Firearm ID from personal firearm's myFirearmID
-                              selectedFirearmId = selectedFirearm.myFirearmID;
+                              // IMPORTANT: Only update if myFirearmID has a value
+                              // If it's null/empty, keep the current selectedFirearmId
+                              if (selectedFirearm.myFirearmID != null && 
+                                  selectedFirearm.myFirearmID!.isNotEmpty) {
+                                selectedFirearmId = selectedFirearm.myFirearmID;
+                              }
 
                               // Populate firearm name (nickname) in the firearm controller
                               if (selectedFirearm.nickname?.isNotEmpty == true) {
@@ -1412,10 +1406,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                         icon: Icon(Icons.calculate, color: primaryColor),
                         tooltip: "Score Calculator",
                         onPressed: () async {
-                          final totalRounds = _getTotalRoundsForSelectedEvent();
+                          final calcTotalRounds = _getTotalRoundsForSelectedEvent();
                           final result = await showScoreCalculatorDialog(
                             context: context,
-                            totalRounds: totalRounds,
+                            totalRounds: calcTotalRounds,
                             selectedPractice: selectedPractice,
                             selectedFirearmId: selectedFirearmId,
                           );
@@ -1436,7 +1430,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   const SizedBox(height: 20),
 
                   // Max Score Display (only if both practice and firearmId are selected)
-                  if (_getMaxScoreForSelectedEvent() != null) ...[
+                  if (maxScore != null) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       margin: const EdgeInsets.only(bottom: 16),
@@ -1466,7 +1460,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                             child: Align(
                               alignment: Alignment.centerRight,
                               child: Text(
-                                _getMaxScoreForSelectedEvent().toString(),
+                                maxScore.toString(),
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
