@@ -20,9 +20,6 @@ import '../widgets/app_drawer.dart';
 import '../services/calendar_score_service.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
-
-import 'methods/competition_dialog.dart';
-import 'methods/firearm_dialog.dart';
 import 'methods/notes_dialog.dart';
 import 'methods/practice_selection_dialog.dart';
 import 'methods/firearm_selection_dialog.dart';

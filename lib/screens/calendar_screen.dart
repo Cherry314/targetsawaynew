@@ -10,7 +10,6 @@ import '../widgets/appointment_dialog.dart';
 import '../main.dart';
 import '../services/calendar_score_service.dart';
 import '../models/score_entry.dart';
-import '../utils/date_utils.dart';
 import 'enter_score_screen.dart';
 import 'score_detail_screen.dart';
 import '../widgets/help_icon_button.dart';
