@@ -7,7 +7,7 @@ import '../utils/import_data.dart';
 class DataSyncService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final DataImporter _dataImporter = DataImporter();
-  
+
   static const String metadataCollection = 'metadata';
   static const String localVersionKey = 'local_data_version';
 
@@ -17,21 +17,17 @@ class DataSyncService {
     try {
       // Get the remote version from Firebase
       final remoteVersion = await _getRemoteVersion();
-      
+
       if (remoteVersion == null) {
-        print('No remote version found - first time setup may be needed');
         return false;
       }
-      
+
       // Get the local version from Hive
       final localVersion = await _getLocalVersion();
-      
-      print('Local version: $localVersion, Remote version: $remoteVersion');
-      
+
       // Check if remote is newer
       return remoteVersion > localVersion;
     } catch (e) {
-      print('Error checking for updates: $e');
       return false;
     }
   }
@@ -43,13 +39,12 @@ class DataSyncService {
           .collection(metadataCollection)
           .doc('data_version')
           .get();
-      
+
       if (doc.exists) {
         return doc.data()?['version'] as int?;
       }
       return null;
     } catch (e) {
-      print('Error getting remote version: $e');
       return null;
     }
   }
@@ -60,7 +55,6 @@ class DataSyncService {
       final box = await Hive.openBox('app_metadata');
       return box.get(localVersionKey, defaultValue: 0);
     } catch (e) {
-      print('Error getting local version: $e');
       return 0;
     }
   }
@@ -70,9 +64,8 @@ class DataSyncService {
     try {
       final box = await Hive.openBox('app_metadata');
       await box.put(localVersionKey, version);
-      print('Local version updated to: $version');
     } catch (e) {
-      print('Error saving local version: $e');
+      // Silently handle error
     }
   }
 
@@ -83,17 +76,15 @@ class DataSyncService {
     try {
       // Use the existing DataImporter to download all data
       final results = await _dataImporter.importAllData();
-      
+
       // Update local version to match remote
       final remoteVersion = await _getRemoteVersion();
       if (remoteVersion != null) {
         await _saveLocalVersion(remoteVersion);
       }
-      
-      print('Successfully downloaded and updated data');
+
       return results;
     } catch (e) {
-      print('Error downloading data: $e');
       rethrow;
     }
   }

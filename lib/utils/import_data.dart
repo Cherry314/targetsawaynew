@@ -32,6 +32,7 @@ import '../models/hive/classification.dart';
 import '../models/hive/target_zone.dart';
 import '../models/hive/target_info.dart';
 import '../models/hive/prenotes.dart';
+import '../models/hive/club.dart';
 
 class DataImporter {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -40,6 +41,7 @@ class DataImporter {
   static const String eventsCollection = 'events';
   static const String firearmsCollection = 'firearms';
   static const String targetInfoCollection = 'target_info';
+  static const String clubsCollection = 'clubs';
 
   /// Import all data from Firestore into Hive
   /// This will DELETE all existing Hive data and replace it with Firestore data
@@ -62,9 +64,12 @@ class DataImporter {
       // Step 4: Import target zone data
       final targetCount = await _importTargetZones();
       results['targets'] = targetCount;
+
+      // Step 5: Import clubs data
+      final clubCount = await _importClubs();
+      results['clubs'] = clubCount;
     } catch (e) {
       results['error'] = -1;
-      debugPrint('Error during import: $e');
       rethrow;
     }
 
@@ -84,6 +89,10 @@ class DataImporter {
     // Clear target info box
     final targetInfoBox = Hive.box<TargetInfo>('target_info');
     await targetInfoBox.clear();
+
+    // Clear clubs box
+    final clubsBox = Hive.box<Club>('clubs');
+    await clubsBox.clear();
   }
 
   /// Import all firearms from Firestore
@@ -100,7 +109,7 @@ class DataImporter {
         await firearmBox.put(firearm.id, firearm);
         importedCount++;
       } catch (e) {
-        debugPrint('Error importing firearm with doc ID ${doc.id}: $e');
+        // Skip invalid firearm
       }
     }
 
@@ -121,7 +130,7 @@ class DataImporter {
         await eventBox.put(event.eventNumber, event);
         importedCount++;
       } catch (e) {
-        debugPrint('Error importing event with doc ID ${doc.id}: $e');
+        // Skip invalid event
       }
     }
 
@@ -142,7 +151,28 @@ class DataImporter {
         await targetInfoBox.add(targetInfo);
         importedCount++;
       } catch (e) {
-        debugPrint('Error importing target zone with doc ID ${doc.id}: $e');
+        // Skip invalid target zone
+      }
+    }
+
+    return importedCount;
+  }
+
+  /// Import all clubs from Firestore
+  /// Returns the number of clubs imported
+  Future<int> _importClubs() async {
+    final clubsBox = Hive.box<Club>('clubs');
+    final firestoreClubs = await _firestore.collection(clubsCollection).get();
+
+    int importedCount = 0;
+
+    for (final doc in firestoreClubs.docs) {
+      try {
+        final club = _mapToClub(doc.data());
+        await clubsBox.add(club);
+        importedCount++;
+      } catch (e) {
+        // Skip invalid club
       }
     }
 
@@ -215,15 +245,6 @@ class DataImporter {
       changingPosition: _mapToChangingPosition(data['changingPosition'] as Map<String, dynamic>?),
     );
 
-    // Debug output
-    debugPrint('EventContent Debug:');
-    debugPrint('  Targets: ${content.targets.length}');
-    debugPrint('  Sights: ${content.sights.length}');
-    debugPrint('  Positions: ${content.positions.length}');
-    debugPrint('  ReadyPositions: ${content.readyPositions.length}');
-    debugPrint('  Sighters: ${content.sighters?.length ?? 0}');
-    debugPrint('  Practices: ${content.practices.length}');
-
     return content;
   }
 
@@ -282,9 +303,8 @@ class DataImporter {
     }).toList();
   }
 
-  /// Convert Firestore list to targets to see what's being read
+  /// Convert Firestore list to targets
   List<Target> _mapToTargets(List<dynamic> targets) {
-    debugPrint('Raw targets data from Firebase: $targets');
     return targets.map((targetData) {
       if (targetData is Map<String, dynamic>) {
         return Target(
@@ -587,5 +607,12 @@ class DataImporter {
       }
       throw Exception('Invalid zone data format');
     }).toList();
+  }
+
+  /// Convert Firestore map to Club object
+  Club _mapToClub(Map<String, dynamic> data) {
+    return Club(
+      clubname: data['clubname'] as String,
+    );
   }
 }

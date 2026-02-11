@@ -119,7 +119,6 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
         _scoreZones = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
       }
     } catch (e) {
-      debugPrint('Error loading target zones: $e');
       // Fall back to default
       _xZoneLabel = 'X';
       _scoreZones = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
@@ -144,11 +143,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
       
       final eventBox = Hive.box<Event>('events');
       final targetInfoBox = Hive.box<TargetInfo>('target_info');
-      
-      print('\n========== SCORE CALCULATOR TARGET DEBUG ==========');
-      print('Looking for event: "${widget.selectedPractice}"');
-      print('Firearm code: "${widget.selectedFirearmId}"');
-      
+
       // Find the event by matching the practice name to event name
       Event? matchedEvent;
       for (final event in eventBox.values) {
@@ -157,25 +152,17 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
           break;
         }
       }
-      
+
       if (matchedEvent == null) {
-        print('✗ Event not found!');
-        print('==================================================\n');
         return null;
       }
-      
-      print('✓ Found event: "${matchedEvent.name}" (${matchedEvent.eventNumber})');
 
       // Get the firearm ID from the code
       final firearmId = DropdownValues.getFirearmIdByCode(widget.selectedFirearmId!);
-      
+
       if (firearmId == null) {
-        print('✗ Firearm ID not found for code: ${widget.selectedFirearmId}');
-        print('==================================================\n');
         return null;
       }
-      
-      print('✓ Firearm ID: $firearmId');
 
       // Create a Firearm object to get the correct content (with overrides)
       final firearm = Firearm(
@@ -186,39 +173,22 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
 
       // Get the content for this firearm (applies overrides automatically)
       final content = matchedEvent.getContentForFirearm(firearm);
-      
-      print('Content has ${content.targets.length} target(s)');
-      
+
       // Check if we have targets
       if (content.targets.isEmpty) {
-        print('✗ No targets found in content');
-        print('==================================================\n');
         return null;
       }
-      
+
       // Get the first target and check both title and text fields
       final firstTarget = content.targets.first;
-      print('\n--- Target Fields Debug ---');
-      print('  target.title: ${firstTarget.title == null ? "NULL" : "\"${firstTarget.title}\""}');
-      print('  target.text: ${firstTarget.text == null ? "NULL" : "\"${firstTarget.text}\""}');
-      print('  target.link: ${firstTarget.link == null ? "NULL" : "\"${firstTarget.link}\""}');
-      print('  target.qtyNeeded: ${firstTarget.qtyNeeded}');
-      
+
       // Try to get target name from title first, then text
       String? targetName = firstTarget.title ?? firstTarget.text;
-      
+
       if (targetName == null || targetName.isEmpty) {
-        print('✗ Both target.title and target.text are null/empty');
-        print('==================================================\n');
         return null;
       }
-      
-      print('\n--- Using Target Name ---');
-      print('  Target name to search: "$targetName"');
-      print('  (from: ${firstTarget.title != null ? "title" : "text"})');
-      print('\nSearching for matching TargetInfo...');
-      print('Total TargetInfo entries: ${targetInfoBox.length}');
-      
+
       // Find matching TargetInfo
       TargetInfo? foundMatch;
       for (final targetInfo in targetInfoBox.values) {
@@ -227,28 +197,9 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
           break;
         }
       }
-      
-      if (foundMatch != null) {
-        print('\n✓ MATCH FOUND!');
-        print('  targetName: "${foundMatch.targetName}"');
-        print('  zones: ${foundMatch.zones.length}');
-        print('  Zone scores: ${foundMatch.zones.map((z) => z.score).join(", ")}');
-      } else {
-        print('\n✗ NO MATCH FOUND!');
-        print('Looking for: "$targetName"');
-        print('\nAvailable target_info names:');
-        for (var ti in targetInfoBox.values.take(15)) {
-          print('  - "${ti.targetName}"');
-        }
-        if (targetInfoBox.length > 15) {
-          print('  ... and ${targetInfoBox.length - 15} more');
-        }
-      }
-      
-      print('==================================================\n');
+
       return foundMatch;
     } catch (e) {
-      debugPrint('Error getting TargetInfo for event: $e');
       return null;
     }
   }

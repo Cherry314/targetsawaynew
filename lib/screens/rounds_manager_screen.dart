@@ -242,6 +242,7 @@ class RoundsManagerScreen extends StatelessWidget {
     required BuildContext context,
   }) {
     final hasNotes = entry.notes != null && entry.notes!.isNotEmpty;
+    final hasEvent = entry.event != null && entry.event!.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -296,6 +297,24 @@ class RoundsManagerScreen extends StatelessWidget {
                 ),
               ),
             ),
+            // Event icon (only if event exists)
+            if (hasEvent)
+              IconButton(
+                icon: Icon(
+                  Icons.track_changes,
+                  color: primaryColor,
+                  size: 20,
+                ),
+                onPressed: () {
+                  _showEventDialog(context, entry);
+                },
+                tooltip: 'View Event',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
+              ),
             // Notes icon (only if notes exist)
             if (hasNotes)
               IconButton(
@@ -391,6 +410,78 @@ class RoundsManagerScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showEventDialog(BuildContext context, RoundsCounterEntry entry) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.track_changes, color: primaryColor),
+            const SizedBox(width: 8),
+            const Text('Event / Practice'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Date: ${DateFormat('dd MMMM yyyy').format(entry.date)}',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Rounds: ${entry.rounds}',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            Text(
+              'Reason: ${entry.reason}',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              'Event/Practice:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              entry.event ?? '',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Separate screen for manual entry
@@ -459,9 +550,9 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
 
       final rounds = int.tryParse(roundsText);
       
-      if (rounds == null || rounds <= 0) {
+      if (rounds == null || rounds == 0) {
         setState(() {
-          errorMessage = 'Please enter a valid number of rounds';
+          errorMessage = 'Please enter a valid number of rounds (positive or negative)';
           isLoading = false;
         });
         return;
@@ -594,12 +685,12 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                 // Rounds Field
                 TextField(
                   controller: roundsController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(signed: true),
                   decoration: InputDecoration(
                     labelText: 'Rounds',
                     prefixIcon: Icon(Icons.track_changes, color: primaryColor),
                     border: const OutlineInputBorder(),
-                    hintText: 'Enter number of rounds',
+                    hintText: 'Enter number of rounds (use - for deduction)',
                   ),
                   onChanged: (value) {
                     if (errorMessage != null) {

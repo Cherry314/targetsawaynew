@@ -8,7 +8,8 @@ import 'dart:io';
 import '../main.dart';
 import '../utils/backup_restore.dart';
 import '../utils/storage_usage.dart';
-import '../utils/import_data.dart';
+import '../services/auth_service.dart';
+import '../models/user_profile.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
@@ -27,6 +28,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController folderController = TextEditingController();
   bool includeImages = true;
   bool showStorageResults = false;
+  final AuthService _authService = AuthService();
+  UserProfile? _userProfile;
+  bool _loadingProfile = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final profile = await _authService.getUserProfile(user.uid);
+        setState(() {
+          _userProfile = profile;
+          _loadingProfile = false;
+        });
+      } else {
+        setState(() {
+          _loadingProfile = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _loadingProfile = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -127,6 +158,258 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+            // Account Section
+            if (_userProfile != null)
+              _buildSectionCard(
+                title: 'Account',
+                context: context,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      child: Text(
+                        _userProfile!.firstName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      _userProfile!.fullName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(_userProfile!.email),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.sports),
+                    title: const Text('Clubs'),
+                    subtitle: Text(_userProfile!.clubs.join(', ')),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Logout'),
+                          content: const Text('Are you sure you want to logout?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Logout'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        await _authService.signOut();
+                        if (mounted) {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login',
+                            (route) => false,
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.delete_forever, color: Colors.red),
+                    title: const Text(
+                      'Delete Account',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () async {
+                      // Show confirmation dialog
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Delete Account'),
+                          content: const Text(
+                            'This action cannot be undone. All your data will be permanently deleted.\n\nAre you sure you want to delete your account?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        // Show password re-authentication dialog
+                        final passwordController = TextEditingController();
+                        final reauthed = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Confirm Identity'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Please enter your password to confirm account deletion:',
+                                ),
+                                const SizedBox(height: 16),
+                                TextField(
+                                  controller: passwordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Password',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  passwordController.dispose();
+                                  Navigator.pop(context, false);
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  try {
+                                    await _authService.reauthenticate(
+                                      passwordController.text,
+                                    );
+                                    passwordController.dispose();
+                                    Navigator.pop(context, true);
+                                  } catch (e) {
+                                    passwordController.dispose();
+                                    Navigator.pop(context, false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Confirm'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (reauthed == true) {
+                          try {
+                            await _authService.deleteAccount();
+                            if (mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/login',
+                                (route) => false,
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error deleting account: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+
+            // Security Section
+            if (_userProfile != null)
+              _buildSectionCard(
+                title: 'Security',
+                context: context,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.pin),
+                    title: const Text('Change Passcode'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.pushNamed(context, '/passcode_setup');
+                    },
+                  ),
+                  const Divider(height: 1),
+                  FutureBuilder<bool>(
+                    future: _authService.isBiometricAvailable(),
+                    builder: (context, snapshot) {
+                      if (snapshot.data == true) {
+                        return FutureBuilder<bool>(
+                          future: _authService.isBiometricEnabled(),
+                          builder: (context, enabledSnapshot) {
+                            final isEnabled = enabledSnapshot.data ?? false;
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.fingerprint),
+                              title: const Text('Biometric Authentication'),
+                              trailing: Switch(
+                                value: isEnabled,
+                                onChanged: (value) async {
+                                  if (value) {
+                                    final authenticated =
+                                        await _authService.authenticateWithBiometrics();
+                                    if (authenticated) {
+                                      await _authService.setBiometricEnabled(true);
+                                      setState(() {});
+                                    }
+                                  } else {
+                                    await _authService.setBiometricEnabled(false);
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ],
+              ),
+
             // Appearance Section
             _buildSectionCard(
               title: 'Appearance',
@@ -355,148 +638,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ],
-              ],
-            ),
-
-            // Data Sync Section
-            _buildSectionCard(
-              title: 'Event Data',
-              context: context,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Download Event Data'),
-                  subtitle: const Text('Download the latest shooting rules and target data from the server'),
-                  trailing: Icon(Icons.cloud_download, color: Theme.of(context).primaryColor),
-                  onTap: () async {
-                    // Show confirmation dialog
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Row(
-                          children: [
-                            Icon(Icons.cloud_download, color: Colors.blue),
-                            SizedBox(width: 10),
-                            Text('Download Event Data'),
-                          ],
-                        ),
-                        content: const Text(
-                          'This will download the latest shooting rules and event data from the server.\n\n'
-                          'All existing event data will be replaced. Your scores and personal data will not be affected.\n\n'
-                          'Continue?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Download'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed != true) return;
-
-                    try {
-                      // Show loading
-                      if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (_) => const Center(
-                            child: Card(
-                              child: Padding(
-                                padding: EdgeInsets.all(20.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text('Downloading event data...'),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Import the data
-                      final dataImporter = DataImporter();
-                      final results = await dataImporter.importAllData();
-
-                      // Close loading
-                      if (context.mounted) Navigator.pop(context);
-
-                      final eventCount = results['events'] ?? 0;
-                      final targetCount = results['targets'] ?? 0;
-                      final firearmCount = results['firearms'] ?? 0;
-
-                      if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.green),
-                                SizedBox(width: 10),
-                                Text('Download Complete'),
-                              ],
-                            ),
-                            content: Text(
-                              'Successfully downloaded:\n'
-                              '• $eventCount events\n'
-                              '• $firearmCount firearms\n'
-                              '• $targetCount targets\n\n'
-                              'Your event data is now up to date!',
-                            ),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      // Close loading if still open
-                      if (context.mounted) Navigator.pop(context);
-
-                      if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Row(
-                              children: [
-                                Icon(Icons.error, color: Colors.red),
-                                SizedBox(width: 10),
-                                Text('Download Failed'),
-                              ],
-                            ),
-                            content: Text(
-                              'Failed to download event data:\n\n$e\n\n'
-                              'Please check your internet connection and try again.',
-                            ),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
               ],
             ),
 

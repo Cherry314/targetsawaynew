@@ -48,6 +48,7 @@ import 'models/hive/zone.dart';
 import 'models/hive/target_zone.dart';
 import 'models/hive/target_info.dart';
 import 'models/hive/prenotes.dart';
+import 'models/hive/club.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
@@ -59,6 +60,13 @@ import 'screens/calendar_screen.dart';
 import 'screens/event_picker_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/rounds_manager_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/registration_screen.dart';
+import 'screens/auth/security_setup_screen.dart';
+import 'screens/auth/passcode_setup_screen.dart';
+import 'screens/auth/app_unlock_screen.dart';
+import 'services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +121,7 @@ void main() async {
   Hive.registerAdapter(TargetZoneAdapter()); // typeId:131
   Hive.registerAdapter(TargetInfoAdapter()); // typeId:132
   Hive.registerAdapter(PreNotesAdapter()); // typeId:36
+  Hive.registerAdapter(ClubAdapter()); // typeId:133
 
   // Open all boxes once at startup
   await Hive.openBox<ScoreEntry>('scores');
@@ -125,6 +134,7 @@ void main() async {
   await Hive.openBox<Event>('events');
   await Hive.openBox<Firearm>('firearms_hive');
   await Hive.openBox<TargetInfo>('target_info'); // Target zone scoring database
+  await Hive.openBox<Club>('clubs'); // Clubs database
 
   // Initialize notification service
   await NotificationService().initialize();
@@ -345,8 +355,49 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
-          initialRoute: '/home',
+          home: StreamBuilder<firebase_auth.User?>(
+            stream: AuthService().authStateChanges,
+            builder: (context, snapshot) {
+              // Show loading while checking auth state
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Scaffold(
+                  backgroundColor: themeProvider.themeMode == ThemeMode.dark
+                      ? Colors.grey[900]
+                      : Colors.grey[50],
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.gps_fixed,
+                          size: 80,
+                          color: themeProvider.primaryColor,
+                        ),
+                        const SizedBox(height: 24),
+                        CircularProgressIndicator(
+                          color: themeProvider.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // User is logged in
+              if (snapshot.hasData) {
+                return const AppUnlockScreen();
+              }
+
+              // User is not logged in
+              return const LoginScreen();
+            },
+          ),
           routes: {
+            '/login': (context) => const LoginScreen(),
+            '/register': (context) => const RegistrationScreen(),
+            '/security_setup': (context) => const SecuritySetupScreen(),
+            '/passcode_setup': (context) => const PasscodeSetupScreen(),
+            '/app_unlock': (context) => const AppUnlockScreen(),
             '/home': (context) => const HomeScreen(),
             '/enter_score': (context) =>
                 EnterScoreScreen(

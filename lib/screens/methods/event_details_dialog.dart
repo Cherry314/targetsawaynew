@@ -83,7 +83,6 @@ Future<void> showEventDetailsDialog({
       ),
     );
   } catch (e) {
-    debugPrint('Error showing event details dialog: $e');
     // Don't show dialog on error
     return;
   }

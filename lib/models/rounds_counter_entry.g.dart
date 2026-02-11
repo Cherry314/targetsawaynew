@@ -21,13 +21,14 @@ class RoundsCounterEntryAdapter extends TypeAdapter<RoundsCounterEntry> {
       rounds: fields[1] as int,
       reason: fields[2] as String,
       notes: fields[3] as String?,
+      event: fields[4] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, RoundsCounterEntry obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class RoundsCounterEntryAdapter extends TypeAdapter<RoundsCounterEntry> {
       ..writeByte(2)
       ..write(obj.reason)
       ..writeByte(3)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(4)
+      ..write(obj.event);
   }
 
   @override

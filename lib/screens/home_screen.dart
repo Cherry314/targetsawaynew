@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen>
     )
       ..repeat();
     
-    // Check for data updates when the app launches
+    // Check for data updates from Firestore
     _checkForDataUpdates();
   }
 
@@ -86,7 +86,6 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
     } catch (e) {
-      print('Error checking for updates: $e');
       // Silently fail - don't interrupt user experience
     }
   }
@@ -125,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen>
 
         final eventCount = results['events'] ?? 0;
         final targetCount = results['targets'] ?? 0;
+        final clubCount = results['clubs'] ?? 0;
 
         // Show success notification
         showDialog(
@@ -141,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen>
               content: Text(
                 'Successfully downloaded:\n'
                 '• $eventCount events\n'
-                '• $targetCount targets\n\n'
+                '• $targetCount targets\n'
+                '• $clubCount clubs\n\n'
                 'Your data is now up to date!',
               ),
               actions: [

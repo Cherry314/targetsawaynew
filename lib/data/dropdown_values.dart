@@ -14,32 +14,18 @@ class DropdownValues {
   // Getter that returns favorites, or empty string if no favorites
   // Returns a new list each time to prevent external modifications
   static List<String> get practices {
-    debugPrint('DEBUG practices getter called');
-    debugPrint('  _favoritePractices: $_favoritePractices');
-    debugPrint('  Contains All? ${_favoritePractices.contains('All')}');
-
-    // Debug: Ensure _favoritePractices doesn't contain 'All'
-    assert(!_favoritePractices.contains('All'),
-    'Internal error: _favoritePractices contains "All"');
-
     // Always return Freestyle at the top, then favorites or empty string
     if (_favoritePractices.isEmpty) {
       return [freestyle, ''];
     }
-    
-    final result = [freestyle, ..._favoritePractices];
-    debugPrint('  Returning: $result');
-    return result;
+
+    return [freestyle, ..._favoritePractices];
   }
 
   // Setter to update favorite practices (removes 'All' and 'Freestyle' if present)
   static set practices(List<String> value) {
     // Filter out 'All' and 'Freestyle' (it's always added by getter) and remove any duplicates
     final filtered = value.where((p) => p != 'All' && p != freestyle).toSet().toList();
-    debugPrint('DEBUG DropdownValues.practices setter:');
-    debugPrint('  Input: $value');
-    debugPrint('  Filtered: $filtered');
-    debugPrint('  Stack: ${StackTrace.current}');
     _favoritePractices = filtered;
   }
 
@@ -186,14 +172,13 @@ class DropdownValues {
         
         // If box is empty, use default list
         if (eventBox.isEmpty) {
-          debugPrint('Events box is empty, using default master practices');
           return List.from(_defaultMasterPractices);
         }
-        
+
         // Extract event names from Hive in insertion order
         final eventNames = <String>[];
         final seenNames = <String>{};
-        
+
         for (final event in eventBox.values) {
           // Only add if not already seen (removes duplicates while preserving order)
           if (!seenNames.contains(event.name)) {
@@ -201,17 +186,14 @@ class DropdownValues {
             seenNames.add(event.name);
           }
         }
-        
-        debugPrint('Loaded ${eventNames.length} master practices from Hive');
+
         return eventNames;
       } else {
         // Box not open yet, use default list
-        debugPrint('Events box not open, using default master practices');
         return List.from(_defaultMasterPractices);
       }
     } catch (e) {
       // If any error occurs, fall back to default list
-      debugPrint('Error loading master practices from Hive: $e');
       return List.from(_defaultMasterPractices);
     }
   }

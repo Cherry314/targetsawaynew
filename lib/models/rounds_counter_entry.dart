@@ -17,11 +17,15 @@ class RoundsCounterEntry extends HiveObject {
   @HiveField(3)
   String? notes;
 
+  @HiveField(4)
+  String? event;
+
   RoundsCounterEntry({
     required this.date,
     required this.rounds,
     required this.reason,
     this.notes,
+    this.event,
   });
 
   /// Convert to JSON
@@ -30,6 +34,7 @@ class RoundsCounterEntry extends HiveObject {
     'rounds': rounds,
     'reason': reason,
     'notes': notes,
+    'event': event,
   };
 
   /// Create from JSON
@@ -38,5 +43,6 @@ class RoundsCounterEntry extends HiveObject {
     rounds: json['rounds'],
     reason: json['reason'],
     notes: json['notes'],
+    event: json['event'],
   );
 }

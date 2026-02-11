@@ -455,6 +455,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       notes: roundsNotesController.text.isNotEmpty
                           ? roundsNotesController.text
                           : null,
+                      event: selectedPractice?.isNotEmpty == true ? selectedPractice : null,
                     );
                     await roundsBox.add(practiceEntry);
 
@@ -466,6 +467,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                         rounds: sightersCount,
                         reason: 'Sighters',
                         notes: null,
+                        event: selectedPractice?.isNotEmpty == true ? selectedPractice : null,
                       );
                       await roundsBox.add(sightersEntry);
                     }
@@ -585,16 +587,9 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
       // Check if the firearm ID is in the applicable list
       final isEligible = matchedEvent.applicableFirearmIds.contains(firearmId);
-      
-      debugPrint('Firearm eligibility check:');
-      debugPrint('  Event: $practiceOrEvent');
-      debugPrint('  Firearm Code: $firearmCode (ID: $firearmId)');
-      debugPrint('  Applicable IDs: ${matchedEvent.applicableFirearmIds}');
-      debugPrint('  Is Eligible: $isEligible');
-      
+
       return isEligible;
     } catch (e) {
-      debugPrint('Error checking firearm eligibility: $e');
       return true; // Allow on error
     }
   }
@@ -654,7 +649,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       // Return the max score from courseOfFire
       return content.courseOfFire.maxScore;
     } catch (e) {
-      debugPrint('Error getting max score: $e');
       return null;
     }
   }
@@ -713,7 +707,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       // Return the total rounds from courseOfFire
       return content.courseOfFire.totalRounds;
     } catch (e) {
-      debugPrint('Error getting total rounds: $e');
       return null;
     }
   }
@@ -958,7 +951,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                 if (selectedFirearmId != null && selectedFirearmId!.isNotEmpty) {
                                   if (!_isFirearmEligibleForPractice(v, selectedFirearmId!)) {
                                     // Clear firearm selection if not eligible
-                                    debugPrint('Clearing firearm selection - not eligible for new practice');
                                     selectedFirearmId = DropdownValues.firearmIds.isNotEmpty 
                                         ? DropdownValues.firearmIds.first 
                                         : '';
@@ -1787,7 +1779,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         ),
       );
     } catch (e) {
-      debugPrint('Error showing eligible firearms dialog: $e');
+      // Silently handle error
     }
   }
 
@@ -1856,7 +1848,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         ),
       ];
     } catch (e) {
-      debugPrint('Error building prenotes card: $e');
       return [];
     }
   }
