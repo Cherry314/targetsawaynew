@@ -60,6 +60,7 @@ import 'screens/calendar_screen.dart';
 import 'screens/event_picker_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/rounds_manager_screen.dart';
+import 'screens/comps/comp_portal.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/registration_screen.dart';
 import 'screens/auth/security_setup_screen.dart';
@@ -413,6 +414,7 @@ class MyApp extends StatelessWidget {
             '/event_picker': (context) => const EventPickerScreen(),
             '/settings': (context) => const SettingsScreen(),
             '/rounds_manager': (context) => const RoundsManagerScreen(),
+            '/comps': (context) => const CompPortalScreen(),
           },
         ),
       ),
