@@ -1,5 +1,5 @@
 // lib/screens/comps/run_competition/manual_entry_dialog.dart
-// Dialog for manually entering shooter scores for non-app users
+// Dialog for adding manual entry shooters (name only initially)
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,15 +21,11 @@ class ManualEntryDialog extends StatefulWidget {
 class _ManualEntryDialogState extends State<ManualEntryDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _scoreController = TextEditingController();
-  final _xCountController = TextEditingController();
   bool isSubmitting = false;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _scoreController.dispose();
-    _xCountController.dispose();
     super.dispose();
   }
 
@@ -45,9 +41,10 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
     try {
       final entry = {
         'name': _nameController.text.trim(),
-        'score': int.parse(_scoreController.text.trim()),
-        'xCount': int.tryParse(_xCountController.text.trim()) ?? 0,
-        'submittedAt': DateTime.now(),
+        'score': null,
+        'xCount': null,
+        'submitted': false,
+        'addedAt': DateTime.now(),
       };
 
       // Add to manualEntries array in the competition document
@@ -60,12 +57,6 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Manual entry added successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -93,7 +84,7 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
         children: [
           Icon(Icons.person_add, color: primaryColor),
           const SizedBox(width: 8),
-          const Text('Manual Entry'),
+          const Text('Add Shooter'),
         ],
       ),
       content: Form(
@@ -110,7 +101,7 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Use this form to enter scores for shooters who are not using the app.',
+                  'Enter the name of the shooter. You can add their score later.',
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? Colors.white70 : Colors.black54,
@@ -129,49 +120,6 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter a name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Score field
-              TextFormField(
-                controller: _scoreController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Score',
-                  prefixIcon: Icon(Icons.military_tech, color: primaryColor),
-                  border: const OutlineInputBorder(),
-                  hintText: 'Enter total score',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a score';
-                  }
-                  final score = int.tryParse(value);
-                  if (score == null || score < 0) {
-                    return 'Please enter a valid score';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // X count field
-              TextFormField(
-                controller: _xCountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'X Count (Optional)',
-                  prefixIcon: Icon(Icons.gps_fixed, color: primaryColor),
-                  border: const OutlineInputBorder(),
-                  hintText: 'Number of X shots',
-                ),
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    final xCount = int.tryParse(value);
-                    if (xCount == null || xCount < 0) {
-                      return 'Please enter a valid number';
-                    }
                   }
                   return null;
                 },
@@ -196,8 +144,8 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
                     color: Colors.white,
                   ),
                 )
-              : const Icon(Icons.save),
-          label: Text(isSubmitting ? 'Saving...' : 'Add Entry'),
+              : const Icon(Icons.add),
+          label: Text(isSubmitting ? 'Adding...' : 'Add Shooter'),
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
             foregroundColor: Colors.white,

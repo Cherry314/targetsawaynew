@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import '../../../main.dart';
 import 'manual_entry_dialog.dart';
+import 'enter_score_dialog.dart';
 
 // Timeout duration for abandoned competitions (3 hours)
 const Duration _competitionTimeout = Duration(hours: 3);
@@ -30,10 +32,11 @@ class CompetitionRunnerScreen extends StatefulWidget {
 }
 
 class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
-  late String competitionId;
+  String? competitionId;
   bool isLoading = true;
   String? qrData;
   Timer? _heartbeatTimer;
+  bool entriesClosed = false;
 
   @override
   void initState() {
@@ -70,18 +73,25 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
 
   /// Delete competition immediately when app closes
   Future<void> _deleteCompetition() async {
+    if (competitionId == null) {
+      debugPrint('Cannot delete competition: competitionId is null');
+      return;
+    }
     try {
       await FirebaseFirestore.instance
           .collection('competitions')
           .doc(competitionId)
           .delete();
+      debugPrint('Competition $competitionId deleted successfully');
     } catch (e) {
-      // Silently handle - competition will be cleaned up by timeout anyway
+      debugPrint('Error deleting competition: $e');
+      // Competition will be cleaned up by timeout anyway
     }
   }
 
   /// Extend competition expiration (heartbeat)
   Future<void> _extendTimeout() async {
+    if (competitionId == null) return;
     try {
       await FirebaseFirestore.instance
           .collection('competitions')
@@ -108,6 +118,23 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     const uuid = Uuid();
     competitionId = uuid.v4();
 
+    // Get current user
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      setState(() {
+        isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: User not authenticated. Please log in again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     // Create competition in Firebase
     try {
       final now = DateTime.now();
@@ -116,10 +143,12 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           .doc(competitionId)
           .set({
         'eventName': widget.eventName,
+        'createdBy': currentUser.uid,
         'createdAt': now,
         'status': 'active',
         'participants': [],
         'manualEntries': [],
+        'entriesClosed': false,
         'expiresAt': now.add(_competitionTimeout),
         'lastActiveAt': now,
       });
@@ -144,6 +173,72 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _closeEntries() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Close Entries?'),
+          ],
+        ),
+        content: const Text(
+          'This will close the competition to new entries. The QR code will be removed and no new shooters will be able to join.\n\nAre you sure?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close Entries'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (competitionId == null) return;
+      try {
+        await FirebaseFirestore.instance
+            .collection('competitions')
+            .doc(competitionId)
+            .update({
+          'entriesClosed': true,
+        });
+
+        setState(() {
+          entriesClosed = true;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Entries closed. No new shooters can join.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error closing entries: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -180,7 +275,72 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         ],
       ),
     );
+
+    if (shouldLeave == true) {
+      // Delete competition before leaving
+      await _deleteCompetition();
+    }
+
     return shouldLeave ?? false;
+  }
+
+  /// Combine and sort all entries by score (highest first), then X count (highest first)
+  List<Map<String, dynamic>> _getSortedLeaderboard(
+    List<Map<String, dynamic>>? participants,
+    List<Map<String, dynamic>>? manualEntries,
+  ) {
+    final allEntries = <Map<String, dynamic>>[];
+
+    // Add app participants
+    if (participants != null) {
+      for (final p in participants) {
+        allEntries.add({
+          'name': p['name'] ?? 'Unknown',
+          'score': p['score'] as int?,
+          'xCount': p['xCount'] as int? ?? 0,
+          'submitted': p['submitted'] == true,
+          'isManual': false,
+        });
+      }
+    }
+
+    // Add manual entries
+    if (manualEntries != null) {
+      for (final e in manualEntries) {
+        allEntries.add({
+          'name': e['name'] ?? 'Unknown',
+          'score': e['score'] as int?,
+          'xCount': e['xCount'] as int? ?? 0,
+          'submitted': e['submitted'] == true || e['score'] != null,
+          'isManual': true,
+        });
+      }
+    }
+
+    // Sort by score (highest first), then by X count (highest first)
+    // Entries without scores go at the bottom
+    allEntries.sort((a, b) {
+      final aScore = a['score'] as int?;
+      final bScore = b['score'] as int?;
+      final aXCount = a['xCount'] as int? ?? 0;
+      final bXCount = b['xCount'] as int? ?? 0;
+
+      // If both have scores, sort by score descending, then X count descending
+      if (aScore != null && bScore != null) {
+        final scoreCompare = bScore.compareTo(aScore);
+        if (scoreCompare != 0) return scoreCompare;
+        return bXCount.compareTo(aXCount);
+      }
+
+      // If only one has a score, that one comes first
+      if (aScore != null) return -1;
+      if (bScore != null) return 1;
+
+      // Neither has a score - maintain original order (by name)
+      return (a['name'] as String).compareTo(b['name'] as String);
+    });
+
+    return allEntries;
   }
 
   @override
@@ -217,7 +377,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               icon: const Icon(Icons.copy),
               tooltip: 'Copy Competition ID',
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: competitionId));
+                if (competitionId == null) return;
+                Clipboard.setData(ClipboardData(text: competitionId!));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Competition ID copied to clipboard'),
@@ -228,58 +389,115 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             ),
           ],
         ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('competitions')
-                  .doc(competitionId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final competitionData =
-                    snapshot.data?.data() as Map<String, dynamic>?;
-                final participants = (competitionData?['participants']
-                        as List<dynamic>?)
-                    ?.cast<Map<String, dynamic>>();
-                final manualEntries = (competitionData?['manualEntries']
-                        as List<dynamic>?)
-                    ?.cast<Map<String, dynamic>>();
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('competitions')
+                    .doc(competitionId!)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final competitionData =
+                      snapshot.data?.data() as Map<String, dynamic>?;
+                  final participants = (competitionData?['participants']
+                          as List<dynamic>?)
+                      ?.cast<Map<String, dynamic>>();
+                  final manualEntries = (competitionData?['manualEntries']
+                          as List<dynamic>?)
+                      ?.cast<Map<String, dynamic>>();
+                  final isEntriesClosed =
+                      competitionData?['entriesClosed'] == true;
 
-                return SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                  // Get sorted leaderboard
+                  final leaderboard = _getSortedLeaderboard(
+                    participants,
+                    manualEntries,
+                  );
+
+                  // Calculate stats
+                  final totalParticipants =
+                      (participants?.length ?? 0) + (manualEntries?.length ?? 0);
+                  final submittedScores = leaderboard
+                      .where((e) => e['submitted'] == true)
+                      .length;
+
+                  return SafeArea(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Event Info Card
-                        _buildEventInfoCard(primaryColor, isDark),
-                        const SizedBox(height: 20),
-                        // QR Code Section
-                        _buildQRCodeSection(primaryColor, isDark),
-                        const SizedBox(height: 20),
-                        // Participant Stats
-                        _buildStatsCard(
-                            participants?.length ?? 0,
-                            manualEntries?.length ?? 0,
-                            primaryColor,
-                            isDark),
-                        const SizedBox(height: 20),
-                        // Manual Entry Button
-                        _buildManualEntryButton(primaryColor),
-                        const SizedBox(height: 20),
-                        // Participants List
-                        if (participants != null && participants.isNotEmpty)
-                          _buildParticipantsList(
-                              participants, primaryColor, isDark),
-                        if (manualEntries != null && manualEntries.isNotEmpty)
-                          _buildManualEntriesList(
-                              manualEntries, primaryColor, isDark),
+                        // Scrollable content
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Event Info Card
+                                _buildEventInfoCard(primaryColor, isDark),
+                                const SizedBox(height: 20),
+
+                                // QR Code Section (only if entries not closed)
+                                if (!isEntriesClosed) ...[
+                                  _buildQRCodeSection(primaryColor, isDark),
+                                  const SizedBox(height: 20),
+                                ],
+
+                                // Stats Card
+                                _buildStatsCard(
+                                  totalParticipants,
+                                  submittedScores,
+                                  primaryColor,
+                                  isDark,
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Leaderboard (always show, sorted by score)
+                                if (leaderboard.isNotEmpty) ...[
+                                  _buildLeaderboard(leaderboard, primaryColor, isDark),
+                                  const SizedBox(height: 20),
+                                ],
+                                // Bottom padding for scrollable area
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Buttons fixed at bottom
+                        if (!isEntriesClosed)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.grey[850] : Colors.white,
+                              border: Border(
+                                top: BorderSide(
+                                  color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: totalParticipants == 0
+                                // Full width when no participants
+                                ? SizedBox(
+                                    width: double.infinity,
+                                    child: _buildManualEntryButton(primaryColor),
+                                  )
+                                // 50/50 split when we have participants
+                                : Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildManualEntryButton(primaryColor),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildCloseEntriesButton(),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
       ),
     );
   }
@@ -304,12 +522,12 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.emoji_events,
-            size: 48,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 12),
+          // const Icon(
+          //   Icons.emoji_events,
+          //   size: 48,
+          //   color: Colors.white,
+          // ),
+          // const SizedBox(height: 12),
           Text(
             widget.eventName,
             style: const TextStyle(
@@ -320,34 +538,34 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Active',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Container(
+          //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          //   decoration: BoxDecoration(
+          //     color: Colors.white.withValues(alpha: 0.2),
+          //     borderRadius: BorderRadius.circular(20),
+          //   ),
+          //   // child: Row(
+          //   //   mainAxisSize: MainAxisSize.min,
+          //   //   children: [
+          //   //     Container(
+          //   //       width: 8,
+          //   //       height: 8,
+          //   //       decoration: const BoxDecoration(
+          //   //         color: Colors.green,
+          //   //         shape: BoxShape.circle,
+          //   //       ),
+          //   //     ),
+          //   //     const SizedBox(width: 8),
+          //   //     // const Text(
+          //   //     //   'Active',
+          //   //     //   style: TextStyle(
+          //   //     //     color: Colors.white,
+          //   //     //     fontWeight: FontWeight.w600,
+          //   //     //   ),
+          //   //     // ),
+          //   //   ],
+          //   // ),
+          // ),
         ],
       ),
     );
@@ -377,16 +595,16 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               color: isDark ? Colors.white : Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Shooters can scan this QR code to join the competition',
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.white70 : Colors.black54,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
+          // Text(
+          //   'Shooters can scan this QR code to join the competition',
+          //   style: TextStyle(
+          //     fontSize: 14,
+          //     color: isDark ? Colors.white70 : Colors.black54,
+          //   ),
+          //   textAlign: TextAlign.center,
+          // ),
+          // const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -398,14 +616,14 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               ),
             ),
             child: QrImageView(
-              data: qrData ?? competitionId,
+              data: qrData ?? competitionId ?? '',
               version: QrVersions.auto,
               size: 200,
               backgroundColor: Colors.white,
               foregroundColor: primaryColor,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             'Competition ID:',
             style: TextStyle(
@@ -415,9 +633,11 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           ),
           const SizedBox(height: 4),
           SelectableText(
-            competitionId.substring(0, 8) + '...',
+            competitionId != null
+                ? competitionId!.substring(0, 8)
+                : '...',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
               color: primaryColor,
               fontFamily: 'monospace',
@@ -429,7 +649,11 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
   }
 
   Widget _buildStatsCard(
-      int appParticipants, int manualParticipants, Color primaryColor, bool isDark) {
+    int totalParticipants,
+    int submittedScores,
+    Color primaryColor,
+    bool isDark,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -448,8 +672,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           Expanded(
             child: _buildStatItem(
               Icons.people,
-              appParticipants.toString(),
-              'App Users',
+              totalParticipants.toString(),
+              'Total Shooters',
               primaryColor,
               isDark,
             ),
@@ -461,10 +685,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           ),
           Expanded(
             child: _buildStatItem(
-              Icons.edit,
-              manualParticipants.toString(),
-              'Manual Entries',
-              primaryColor,
+              Icons.check_circle,
+              submittedScores.toString(),
+              'Scores Submitted',
+              Colors.green,
               isDark,
             ),
           ),
@@ -477,12 +701,12 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     IconData icon,
     String value,
     String label,
-    Color primaryColor,
+    Color color,
     bool isDark,
   ) {
     return Column(
       children: [
-        Icon(icon, color: primaryColor, size: 28),
+        Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
         Text(
           value,
@@ -503,78 +727,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     );
   }
 
-  Widget _buildManualEntryButton(Color primaryColor) {
-    return ElevatedButton.icon(
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder: (context) => ManualEntryDialog(
-            competitionId: competitionId,
-          ),
-        );
-      },
-      icon: const Icon(Icons.person_add),
-      label: const Text(
-        'Add Manual Entry',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildParticipantsList(
-    List<Map<String, dynamic>> participants,
-    Color primaryColor,
-    bool isDark,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey[850] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'App Participants',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...participants.map((participant) {
-            return _buildParticipantRow(
-              participant['name'] ?? 'Unknown',
-              participant['score']?.toString() ?? '-',
-              participant['xCount']?.toString() ?? '-',
-              participant['submitted'] == true,
-              primaryColor,
-              isDark,
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildManualEntriesList(
+  Widget _buildLeaderboard(
     List<Map<String, dynamic>> entries,
     Color primaryColor,
     bool isDark,
@@ -595,21 +748,47 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Manual Entries',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
+          Row(
+            children: [
+              Icon(Icons.leaderboard, color: primaryColor, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Leaderboard',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Sorted by Score',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          ...entries.map((entry) {
-            return _buildParticipantRow(
-              entry['name'] ?? 'Unknown',
-              entry['score']?.toString() ?? '-',
-              entry['xCount']?.toString() ?? '-',
-              true,
+          ...entries.asMap().entries.map((mapEntry) {
+            final index = mapEntry.key;
+            final entry = mapEntry.value;
+            return _buildLeaderboardRow(
+              index + 1,
+              entry['name'] as String,
+              entry['score'] as int?,
+              entry['xCount'] as int? ?? 0,
+              entry['submitted'] as bool,
+              entry['isManual'] as bool,
               primaryColor,
               isDark,
             );
@@ -619,74 +798,119 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     );
   }
 
-  Widget _buildParticipantRow(
+  Widget _buildLeaderboardRow(
+    int rank,
     String name,
-    String score,
-    String xCount,
+    int? score,
+    int xCount,
     bool submitted,
+    bool isManual,
     Color primaryColor,
     bool isDark,
   ) {
+    Color rankColor;
+    IconData? rankIcon;
+
+    if (rank == 1) {
+      rankColor = Colors.amber;
+      rankIcon = Icons.emoji_events;
+    } else if (rank == 2) {
+      rankColor = Colors.grey.shade400;
+      rankIcon = Icons.emoji_events;
+    } else if (rank == 3) {
+      rankColor = Colors.brown.shade300;
+      rankIcon = Icons.emoji_events;
+    } else {
+      rankColor = isDark ? Colors.white54 : Colors.black54;
+      rankIcon = null;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey[800] : Colors.grey[100],
         borderRadius: BorderRadius.circular(8),
+        border: rank <= 3
+            ? Border.all(color: rankColor.withValues(alpha: 0.5), width: 1)
+            : null,
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.person,
-            color: primaryColor,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+          // Rank
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: rankColor.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: rankIcon != null
+                  ? Icon(rankIcon, color: rankColor, size: 18)
+                  : Text(
+                      rank.toString(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: rankColor,
+                      ),
+                    ),
             ),
           ),
-          if (submitted) ...[
+          const SizedBox(width: 12),
+          // Name and type indicator
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                if (isManual)
+                  Text(
+                    'Manual Entry',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white54 : Colors.black54,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Score display or action button
+          if (submitted && score != null) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                'Score: $score',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: primaryColor,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (xCount != '-' && xCount != '0')
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    score.toString(),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                  if (xCount > 0) ...[
+                    const SizedBox(width: 4),
                     Icon(
                       Icons.gps_fixed,
                       size: 14,
                       color: Colors.amber[700],
                     ),
-                    const SizedBox(width: 2),
                     Text(
-                      xCount,
+                      xCount.toString(),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -694,9 +918,38 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
+            ),
+          ] else if (isManual) ...[
+            // Enter Score button for manual entries without scores
+            ElevatedButton.icon(
+                                    onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => EnterScoreDialog(
+                            competitionId: competitionId!,
+                            shooterName: name,
+                            currentScore: score,
+                            currentXCount: xCount > 0 ? xCount : null,
+                          ),
+                        );
+                      },
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text(
+                'Enter Score',
+                style: TextStyle(fontSize: 12),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ] else ...[
+            // Waiting indicator for app users
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -713,6 +966,52 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildManualEntryButton(Color primaryColor) {
+    return ElevatedButton.icon(
+      onPressed: () {
+        if (competitionId == null) return;
+        showDialog(
+          context: context,
+          builder: (context) => ManualEntryDialog(
+            competitionId: competitionId!,
+          ),
+        );
+      },
+      icon: const Icon(Icons.person_add),
+      label: const Text(
+        'Add Shooter',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCloseEntriesButton() {
+    return ElevatedButton.icon(
+      onPressed: _closeEntries,
+      icon: const Icon(Icons.lock),
+      label: const Text(
+        'Close Entries',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red.shade400,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }
