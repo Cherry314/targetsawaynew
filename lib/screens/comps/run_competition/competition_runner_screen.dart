@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../../../main.dart';
 import 'manual_entry_dialog.dart';
 import 'enter_score_dialog.dart';
+import 'competition_results_screen.dart';
 
 // Timeout duration for abandoned competitions (3 hours)
 const Duration _competitionTimeout = Duration(hours: 3);
@@ -37,6 +38,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
   String? qrData;
   Timer? _heartbeatTimer;
   bool entriesClosed = false;
+  bool competitionEnded = false;
 
   @override
   void initState() {
@@ -300,6 +302,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           'xCount': p['xCount'] as int? ?? 0,
           'submitted': p['submitted'] == true,
           'isManual': false,
+          'breakdown': p['breakdown'] as Map<String, dynamic>?,
         });
       }
     }
@@ -313,6 +316,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           'xCount': e['xCount'] as int? ?? 0,
           'submitted': e['submitted'] == true || e['score'] != null,
           'isManual': true,
+          'breakdown': e['breakdown'] as Map<String, dynamic>?,
         });
       }
     }
@@ -462,7 +466,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                           ),
                         ),
                         // Buttons fixed at bottom
-                        if (!isEntriesClosed)
+                        if (!competitionEnded)
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -474,24 +478,11 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                                 ),
                               ),
                             ),
-                            child: totalParticipants == 0
-                                // Full width when no participants
-                                ? SizedBox(
-                                    width: double.infinity,
-                                    child: _buildManualEntryButton(primaryColor),
-                                  )
-                                // 50/50 split when we have participants
-                                : Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildManualEntryButton(primaryColor),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildCloseEntriesButton(),
-                                      ),
-                                    ],
-                                  ),
+                            child: _buildBottomButtons(
+                              totalParticipants,
+                              submittedScores,
+                              primaryColor,
+                            ),
                           ),
                       ],
                     ),
@@ -789,6 +780,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               entry['xCount'] as int? ?? 0,
               entry['submitted'] as bool,
               entry['isManual'] as bool,
+              entry['breakdown'] as Map<String, dynamic>?,
               primaryColor,
               isDark,
             );
@@ -805,6 +797,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     int xCount,
     bool submitted,
     bool isManual,
+    Map<String, dynamic>? breakdown,
     Color primaryColor,
     bool isDark,
   ) {
@@ -885,42 +878,106 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           ),
           // Score display or action button
           if (submitted && score != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.1),
+            if (!isManual && breakdown != null && breakdown.isNotEmpty)
+              // App user with breakdown - tappable
+              InkWell(
+                onTap: () {
+                  _showScoreBreakdownDialog(
+                    context,
+                    name,
+                    score,
+                    xCount,
+                    breakdown,
+                    primaryColor,
+                    isDark,
+                  );
+                },
                 borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    score.toString(),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.3),
+                      width: 1,
                     ),
                   ),
-                  if (xCount > 0) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.gps_fixed,
-                      size: 14,
-                      color: Colors.amber[700],
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        score.toString(),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                      if (xCount > 0) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.gps_fixed,
+                          size: 14,
+                          color: Colors.amber[700],
+                        ),
+                        Text(
+                          xCount.toString(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: primaryColor.withValues(alpha: 0.6),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              // Manual entry or no breakdown - not tappable
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      xCount.toString(),
+                      score.toString(),
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.amber[700],
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
                       ),
                     ),
+                    if (xCount > 0) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.gps_fixed,
+                        size: 14,
+                        color: Colors.amber[700],
+                      ),
+                      Text(
+                        xCount.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber[700],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
           ] else if (isManual) ...[
             // Enter Score button for manual entries without scores
             ElevatedButton.icon(
@@ -970,6 +1027,160 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     );
   }
 
+  void _showScoreBreakdownDialog(
+    BuildContext context,
+    String shooterName,
+    int totalScore,
+    int xCount,
+    Map<String, dynamic> breakdown,
+    Color primaryColor,
+    bool isDark,
+  ) {
+    // Convert string keys back to integers and sort by score value (descending)
+    final scoreEntries = breakdown.entries.map((e) {
+      final scoreValue = int.tryParse(e.key) ?? 0;
+      final count = e.value is int ? e.value : (e.value as num).toInt();
+      return MapEntry(scoreValue, count);
+    }).toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.analytics, color: primaryColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$shooterName - Score Breakdown',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Total score header
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Total: $totalScore',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                  if (xCount > 0) ...[
+                    const SizedBox(width: 12),
+                    Icon(Icons.gps_fixed, size: 18, color: Colors.amber[700]),
+                    const SizedBox(width: 4),
+                    Text(
+                      xCount.toString(),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Score Distribution:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Breakdown rows
+            ...scoreEntries.map((entry) {
+              final scoreValue = entry.key;
+              final count = entry.value;
+              final points = scoreValue * count;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    // Score zone badge
+                    Container(
+                      width: 36,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: _getScoreZoneColor(scoreValue),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Center(
+                        child: Text(
+                          scoreValue.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Count
+                    Text(
+                      '$count × $scoreValue = $points',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                    const Spacer(),
+                    // Progress bar
+                    Expanded(
+                      flex: 2,
+                      child: LinearProgressIndicator(
+                        value: count / scoreEntries.fold<int>(0, (sum, e) => sum + e.value as int),
+                        backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _getScoreZoneColor(scoreValue),
+                        ),
+                        minHeight: 6,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getScoreZoneColor(int score) {
+    if (score >= 10) return Colors.green.shade700;
+    if (score >= 8) return Colors.green.shade500;
+    if (score >= 6) return Colors.yellow.shade700;
+    if (score >= 4) return Colors.orange.shade600;
+    return Colors.red.shade500;
+  }
+
   Widget _buildManualEntryButton(Color primaryColor) {
     return ElevatedButton.icon(
       onPressed: () {
@@ -1014,5 +1225,200 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         ),
       ),
     );
+  }
+
+  /// Build bottom buttons based on current state
+  Widget _buildBottomButtons(
+    int totalParticipants,
+    int submittedScores,
+    Color primaryColor,
+  ) {
+    // All scores are in - show End Competition button
+    if (totalParticipants > 0 && submittedScores == totalParticipants) {
+      return SizedBox(
+        width: double.infinity,
+        child: _buildEndCompetitionButton(primaryColor),
+      );
+    }
+
+    // Entries not closed yet - show Add Shooter and Close Entries
+    if (!entriesClosed) {
+      if (totalParticipants == 0) {
+        return SizedBox(
+          width: double.infinity,
+          child: _buildManualEntryButton(primaryColor),
+        );
+      }
+      return Row(
+        children: [
+          Expanded(
+            child: _buildManualEntryButton(primaryColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildCloseEntriesButton(),
+          ),
+        ],
+      );
+    }
+
+    // Entries closed, but not all scores in - show Add Shooter only
+    return SizedBox(
+      width: double.infinity,
+      child: _buildManualEntryButton(primaryColor),
+    );
+  }
+
+  /// Build End Competition button
+  Widget _buildEndCompetitionButton(Color primaryColor) {
+    return ElevatedButton.icon(
+      onPressed: _endCompetition,
+      icon: const Icon(Icons.celebration),
+      label: const Text(
+        'End Competition & Show Results',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  /// End competition, send results to all participants, and show results
+  Future<void> _endCompetition() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.celebration, color: Colors.green),
+            SizedBox(width: 8),
+            Text('End Competition?'),
+          ],
+        ),
+        content: const Text(
+          'This will finalize the competition and send results to all participants.\n\n'
+          'The competition will be marked as completed and results will be saved to all shooters\' history.\n\n'
+          'Are you sure?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('End & Show Results'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || competitionId == null) return;
+
+    try {
+      // Get current competition data
+      final doc = await FirebaseFirestore.instance
+          .collection('competitions')
+          .doc(competitionId)
+          .get();
+
+      final data = doc.data();
+      if (data == null) return;
+
+      final participants = (data['participants'] as List<dynamic>?)
+              ?.cast<Map<String, dynamic>>() ??
+          [];
+      final manualEntries = (data['manualEntries'] as List<dynamic>?)
+              ?.cast<Map<String, dynamic>>() ??
+          [];
+
+      // Get sorted leaderboard
+      final leaderboard = _getSortedLeaderboard(participants, manualEntries);
+      final totalShooters = leaderboard.length;
+
+      // Update competition status and add results to each participant
+      final updatedParticipants = participants.map((p) {
+        final name = p['name'] as String;
+        // Find position in leaderboard
+        final position = leaderboard.indexWhere((e) => e['name'] == name) + 1;
+
+        return {
+          ...p,
+          'position': position,
+          'totalShooters': totalShooters,
+          'finalScore': p['score'],
+          'finalXCount': p['xCount'] ?? 0,
+        };
+      }).toList();
+
+      final updatedManualEntries = manualEntries.map((e) {
+        final name = e['name'] as String;
+        final position = leaderboard.indexWhere((entry) => entry['name'] == name) + 1;
+
+        return {
+          ...e,
+          'position': position,
+          'totalShooters': totalShooters,
+          'finalScore': e['score'],
+          'finalXCount': e['xCount'] ?? 0,
+        };
+      }).toList();
+
+      // Update competition as ended
+      await FirebaseFirestore.instance
+          .collection('competitions')
+          .doc(competitionId)
+          .update({
+        'status': 'completed',
+        'endedAt': FieldValue.serverTimestamp(),
+        'participants': updatedParticipants,
+        'manualEntries': updatedManualEntries,
+        'finalResults': leaderboard.map((e) => {
+          'name': e['name'],
+          'score': e['score'],
+          'xCount': e['xCount'],
+          'position': leaderboard.indexOf(e) + 1,
+        }).toList(),
+      });
+
+      setState(() {
+        competitionEnded = true;
+      });
+
+      // Cancel heartbeat timer
+      _heartbeatTimer?.cancel();
+
+      if (mounted) {
+        // Navigate to results screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CompetitionResultsScreen(
+              eventName: widget.eventName,
+              results: leaderboard,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error ending competition: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

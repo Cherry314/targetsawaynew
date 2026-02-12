@@ -7,6 +7,7 @@ import '../../main.dart';
 import '../../widgets/app_drawer.dart';
 import 'run_competition/event_selection_screen.dart';
 import 'join_competition/qr_scanner_screen.dart';
+import 'competition_history_screen.dart';
 
 class CompPortalScreen extends StatelessWidget {
   const CompPortalScreen({super.key});
@@ -110,6 +111,24 @@ class CompPortalScreen extends StatelessWidget {
                     );
                   },
                 ),
+                const SizedBox(height: 20),
+                // Competition History Card
+                _buildOptionCard(
+                  context: context,
+                  title: 'Competition History',
+                  subtitle: 'View your past competitions and results',
+                  icon: Icons.history,
+                  color: primaryColor,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CompetitionHistoryScreen(),
+                      ),
+                    );
+                  },
+                ),
                 const Spacer(),
                 // Info section
                 Container(
@@ -131,7 +150,8 @@ class CompPortalScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Runners create competitions and generate QR codes for shooters to join. '
-                        'Shooters scan the QR code to participate and submit their scores.',
+                        'Shooters scan the QR code to participate and submit their scores. '
+                        'View your competition history to see past results and positions.',
                         style: TextStyle(
                           fontSize: 14,
                           color: isDark ? Colors.white70 : Colors.black54,

@@ -11,6 +11,7 @@ import 'models/firearm_entry.dart';
 import 'models/membership_card_entry.dart';
 import 'models/appointment_entry.dart';
 import 'models/rounds_counter_entry.dart';
+import 'models/comp_history_entry.dart';
 import 'services/notification_service.dart';
 
 // Hive model imports
@@ -61,6 +62,7 @@ import 'screens/event_picker_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/rounds_manager_screen.dart';
 import 'screens/comps/comp_portal.dart';
+import 'screens/comps/competition_history_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/registration_screen.dart';
 import 'screens/auth/security_setup_screen.dart';
@@ -86,6 +88,7 @@ void main() async {
   Hive.registerAdapter(MembershipCardEntryAdapter()); // typeId:3
   Hive.registerAdapter(AppointmentEntryAdapter()); // typeId:4
   Hive.registerAdapter(RoundsCounterEntryAdapter()); // typeId:5
+  Hive.registerAdapter(CompHistoryEntryAdapter()); // typeId:134
 
   // Register Hive adapters for Event system
   Hive.registerAdapter(EventAdapter()); // typeId:100
@@ -130,6 +133,7 @@ void main() async {
   await Hive.openBox<MembershipCardEntry>('membership_cards');
   await Hive.openBox<AppointmentEntry>('appointments');
   await Hive.openBox<RoundsCounterEntry>('rounds_counter');
+  await Hive.openBox<CompHistoryEntry>('comp_history');
 
   // Open boxes for Event system
   await Hive.openBox<Event>('events');
@@ -415,6 +419,7 @@ class MyApp extends StatelessWidget {
             '/settings': (context) => const SettingsScreen(),
             '/rounds_manager': (context) => const RoundsManagerScreen(),
             '/comps': (context) => const CompPortalScreen(),
+            '/comp_history': (context) => const CompetitionHistoryScreen(),
           },
         ),
       ),

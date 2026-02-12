@@ -1,11 +1,14 @@
 // lib/screens/comps/join_competition/shooter_score_screen.dart
 // Screen for shooters to calculate and submit their scores
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../../main.dart';
-import '../../../models/score_entry.dart';
+import '../../../models/comp_history_entry.dart';
 import '../../methods/score_calculator_dialog.dart';
 
 class ShooterScoreScreen extends StatefulWidget {
@@ -30,12 +33,115 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
   Map<int, int>? scoreBreakdown;
   bool isSubmitting = false;
   bool hasSubmitted = false;
+  bool resultsReceived = false;
+  int finalPosition = 0;
+  int finalTotalShooters = 0;
+  int finalScore = 0;
+  int finalXCount = 0;
+  StreamSubscription<DocumentSnapshot>? _competitionSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCompetitionListener();
+  }
 
   @override
   void dispose() {
+    _competitionSubscription?.cancel();
     scoreController.dispose();
     xController.dispose();
     super.dispose();
+  }
+
+  /// Listen for competition completion and save results to Hive
+  void _startCompetitionListener() {
+    _competitionSubscription = FirebaseFirestore.instance
+        .collection('competitions')
+        .doc(widget.competitionId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      // Check if competition has ended
+      final status = data['status'] as String?;
+      if (status == 'completed' && !resultsReceived) {
+        _processCompetitionResults(data);
+      }
+    });
+  }
+
+  /// Process competition results and save to Hive
+  Future<void> _processCompetitionResults(Map<String, dynamic> data) async {
+    final participants = (data['participants'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
+
+    // Find this shooter in the participants
+    final shooterData = participants.firstWhere(
+      (p) => p['name'] == widget.shooterName,
+      orElse: () => {},
+    );
+
+    if (shooterData.isEmpty) return;
+
+    final score = shooterData['score'] as int? ?? 0;
+    final xCount = shooterData['xCount'] as int? ?? 0;
+    final position = shooterData['position'] as int? ?? 0;
+    final totalShooters = shooterData['totalShooters'] as int? ?? 0;
+
+    // Only save if we have valid data
+    if (position > 0 && totalShooters > 0) {
+      // Check if already saved to avoid duplicates
+      final box = Hive.box<CompHistoryEntry>('comp_history');
+      final alreadyExists = box.values.any((entry) =>
+          entry.event == widget.eventName &&
+          entry.date.isAfter(DateTime.now().subtract(const Duration(hours: 24))));
+
+      if (!alreadyExists) {
+        final entry = CompHistoryEntry(
+          date: DateTime.now(),
+          event: widget.eventName,
+          score: score,
+          xCount: xCount,
+          position: position,
+          totalShooters: totalShooters,
+        );
+
+        await box.add(entry);
+      }
+
+      if (mounted) {
+        setState(() {
+          resultsReceived = true;
+          finalPosition = position;
+          finalTotalShooters = totalShooters;
+          finalScore = score;
+          finalXCount = xCount;
+        });
+
+        // Show notification to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Competition ended! You placed ${position}${_getPositionSuffix(position)} of $totalShooters',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  String _getPositionSuffix(int position) {
+    if (position == 1) return 'st';
+    if (position == 2) return 'nd';
+    if (position == 3) return 'rd';
+    return 'th';
   }
 
   Future<void> _openScoreCalculator() async {
@@ -81,7 +187,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           .doc(widget.competitionId)
           .get();
 
-      final data = doc.data() as Map<String, dynamic>?;
+      final data = doc.data();
       final participants = (data?['participants'] as List<dynamic>?)
               ?.cast<Map<String, dynamic>>() ??
           [];
@@ -90,6 +196,13 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
       // Note: Using DateTime.now() instead of FieldValue.serverTimestamp()
       // because server timestamps can't be used inside array elements
       final now = DateTime.now();
+      
+      // Convert score breakdown to string keys for Firestore compatibility
+      // Firestore doesn't support integer keys in maps
+      final breakdownForFirestore = scoreBreakdown?.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+      
       final updatedParticipants = participants.map((p) {
         if (p['name'] == widget.shooterName) {
           return {
@@ -98,7 +211,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
             'xCount': xCount,
             'submitted': true,
             'submittedAt': now,
-            'breakdown': scoreBreakdown,
+            'breakdown': breakdownForFirestore,
           };
         }
         return p;
@@ -425,8 +538,14 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
 
                 const SizedBox(height: 20),
 
+                // Competition Results Card (shown when results received)
+                if (resultsReceived)
+                  _buildResultsCard(isDark, primaryColor),
+
+                const SizedBox(height: 20),
+
                 // Done Button
-                if (hasSubmitted)
+                if (hasSubmitted || resultsReceived)
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -442,6 +561,152 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildResultsCard(bool isDark, Color primaryColor) {
+    Color positionColor;
+    if (finalPosition == 1) {
+      positionColor = Colors.amber;
+    } else if (finalPosition == 2) {
+      positionColor = Colors.grey.shade400;
+    } else if (finalPosition == 3) {
+      positionColor = Colors.brown.shade300;
+    } else {
+      positionColor = Colors.green;
+    }
+
+    IconData positionIcon;
+    if (finalPosition <= 3) {
+      positionIcon = Icons.emoji_events;
+    } else {
+      positionIcon = Icons.check_circle;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            positionColor.withValues(alpha: 0.2),
+            positionColor.withValues(alpha: 0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: positionColor.withValues(alpha: 0.5),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            positionIcon,
+            size: 48,
+            color: positionColor,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Competition Complete!',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: positionColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${finalPosition}${_getPositionSuffix(finalPosition)} Place',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: positionColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'of $finalTotalShooters shooters',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Column(
+                children: [
+                  Text(
+                    finalScore.toString(),
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                  Text(
+                    'Score',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+              if (finalXCount > 0) ...[
+                const SizedBox(width: 32),
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.gps_fixed,
+                          size: 24,
+                          color: Colors.amber[700],
+                        ),
+                        Text(
+                          finalXCount.toString(),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'X Count',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Saved to Competition History',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white54 : Colors.black38,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
