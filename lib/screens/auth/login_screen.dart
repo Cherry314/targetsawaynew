@@ -103,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 // Title
                 Text(
-                  'Welcome Back',
+                  'Targets Away!',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,

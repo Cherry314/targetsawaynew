@@ -233,47 +233,52 @@ class CompetitionResultsScreen extends StatelessWidget {
     Map<String, dynamic>? third,
     bool isDark,
   ) {
-    return SizedBox(
-      height: 280,
+    return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 2nd place
           if (second != null)
-            _buildPodiumItem(
-              position: 2,
-              name: second['name'] as String,
-              score: second['score'] as int?,
-              xCount: second['xCount'] as int? ?? 0,
-              color: Colors.grey.shade400,
-              height: 200,
-              isDark: isDark,
+            Flexible(
+              child: _buildPodiumItem(
+                position: 2,
+                name: second['name'] as String,
+                score: second['score'] as int?,
+                xCount: second['xCount'] as int? ?? 0,
+                color: Colors.grey.shade400,
+                height: 200,
+                isDark: isDark,
+              ),
             ),
-          const SizedBox(width: 16),
+          if (second != null) const SizedBox(width: 16),
           // 1st place
           if (first != null)
-            _buildPodiumItem(
-              position: 1,
-              name: first['name'] as String,
-              score: first['score'] as int?,
-              xCount: first['xCount'] as int? ?? 0,
-              color: Colors.amber,
-              height: 250,
-              isDark: isDark,
-              isFirst: true,
+            Flexible(
+              child: _buildPodiumItem(
+                position: 1,
+                name: first['name'] as String,
+                score: first['score'] as int?,
+                xCount: first['xCount'] as int? ?? 0,
+                color: Colors.amber,
+                height: 250,
+                isDark: isDark,
+                isFirst: true,
+              ),
             ),
-          const SizedBox(width: 16),
+          if (first != null) const SizedBox(width: 16),
           // 3rd place
           if (third != null)
-            _buildPodiumItem(
-              position: 3,
-              name: third['name'] as String,
-              score: third['score'] as int?,
-              xCount: third['xCount'] as int? ?? 0,
-              color: Colors.brown.shade300,
-              height: 160,
-              isDark: isDark,
+            Flexible(
+              child: _buildPodiumItem(
+                position: 3,
+                name: third['name'] as String,
+                score: third['score'] as int?,
+                xCount: third['xCount'] as int? ?? 0,
+                color: Colors.brown.shade300,
+                height: 160,
+                isDark: isDark,
+              ),
             ),
         ],
       ),
@@ -291,87 +296,94 @@ class CompetitionResultsScreen extends StatelessWidget {
     bool isFirst = false,
   }) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Crown for 1st place
-        if (isFirst)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Icon(
-              Icons.emoji_events,
-              size: 40,
-              color: Colors.amber[700],
-            ),
-          ),
-        // Name card
-        Container(
-          width: 100,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey[800] : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        // Variable-height content at top
+        Expanded(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              if (score != null) ...[
-                Text(
-                  score.toString(),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+              // Crown for 1st place
+              if (isFirst)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Icon(
+                    Icons.emoji_events,
+                    size: 40,
+                    color: Colors.amber[700],
                   ),
                 ),
-                if (xCount > 0)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.gps_fixed,
-                        size: 12,
-                        color: Colors.amber[700],
+              // Name card
+              Container(
+                width: 100,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    if (score != null) ...[
                       Text(
-                        xCount.toString(),
+                        score.toString(),
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.amber[700],
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: color,
                         ),
                       ),
-                    ],
-                  ),
-              ] else
-                Text(
-                  '-',
-                  style: TextStyle(
-                    fontSize: 20,
-                    color: isDark ? Colors.white54 : Colors.black54,
-                  ),
+                      if (xCount > 0)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.gps_fixed,
+                              size: 12,
+                              color: Colors.amber[700],
+                            ),
+                            Text(
+                              xCount.toString(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.amber[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                    ] else
+                      Text(
+                        '-',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        // Position number
+        // Position number - fixed at bottom
         Container(
           width: 100,
           height: 40,
@@ -392,7 +404,7 @@ class CompetitionResultsScreen extends StatelessWidget {
             ),
           ),
         ),
-        // Podium base
+        // Podium base - fixed at bottom
         Container(
           width: 100,
           height: height,

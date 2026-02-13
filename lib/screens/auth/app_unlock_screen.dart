@@ -32,6 +32,12 @@ class _AppUnlockScreenState extends State<AppUnlockScreen> {
       final hasBiometric = await _authService.isBiometricEnabled();
       final hasPasscode = await _authService.hasPasscode();
       
+      // If no security is set up, auto-unlock and go to home
+      if (!hasBiometric && !hasPasscode) {
+        _unlockApp();
+        return;
+      }
+      
       // Get user name
       final user = _authService.currentUser;
       String name = 'User';
@@ -139,9 +145,8 @@ class _AppUnlockScreenState extends State<AppUnlockScreen> {
 
     if (confirmed == true) {
       await _authService.signOut();
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      }
+      // Don't navigate - let the StreamBuilder in main.dart handle it
+      // The auth state change will automatically show the LoginScreen
     }
   }
 

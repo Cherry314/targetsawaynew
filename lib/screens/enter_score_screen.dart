@@ -1100,36 +1100,43 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           }),
                         ],
                         onChanged: (v) {
-                          setState(() {
-                            selectedPersonalFirearmId = v == 'manual' ? null : v;
+                        setState(() {
+                          selectedPersonalFirearmId = v == 'manual' ? null : v;
 
-                            if (v != null && v != 'manual') {
-                              // Auto-populate from personal firearm
-                              final selectedFirearm = personalFirearms.firstWhere(
-                                (f) => f.id == v,
-                                orElse: () => throw Exception('Firearm not found'),
-                              );
+                          if (v != null && v != 'manual') {
+                            // Auto-populate from personal firearm
+                            final selectedFirearm = personalFirearms.firstWhere(
+                              (f) => f.id == v,
+                              orElse: () => throw Exception('Firearm not found'),
+                            );
 
-                              // Populate caliber (only if not empty)
-                              if (selectedFirearm.caliber.isNotEmpty) {
+                            // Populate caliber (only if not empty AND exists in dropdown)
+                            if (selectedFirearm.caliber.isNotEmpty) {
+                              final calibersList = DropdownValues.calibers;
+                              if (calibersList.contains(selectedFirearm.caliber)) {
                                 selectedCaliber = selectedFirearm.caliber;
                               }
+                              // If not in favorites, leave as-is (user needs to add to favorites first)
+                            }
 
-                              // Populate Firearm ID from personal firearm's myFirearmID
-                              // IMPORTANT: Only update if myFirearmID has a value
-                              // If it's null/empty, keep the current selectedFirearmId
-                              if (selectedFirearm.myFirearmID != null && 
-                                  selectedFirearm.myFirearmID!.isNotEmpty) {
+                            // Populate Firearm ID from personal firearm's myFirearmID
+                            // IMPORTANT: Only update if myFirearmID has a value AND exists in dropdown
+                            if (selectedFirearm.myFirearmID != null &&
+                                selectedFirearm.myFirearmID!.isNotEmpty) {
+                              final firearmIdsList = DropdownValues.firearmIds;
+                              if (firearmIdsList.contains(selectedFirearm.myFirearmID)) {
                                 selectedFirearmId = selectedFirearm.myFirearmID;
                               }
-
-                              // Populate firearm name (nickname) in the firearm controller
-                              if (selectedFirearm.nickname?.isNotEmpty == true) {
-                                firearmController.text = selectedFirearm.nickname!;
-                              }
+                              // If not in favorites, leave as-is (user needs to add to favorites first)
                             }
-                          });
-                        },
+
+                            // Populate firearm name (nickname) in the firearm controller
+                            if (selectedFirearm.nickname?.isNotEmpty == true) {
+                              firearmController.text = selectedFirearm.nickname!;
+                            }
+                          }
+                        });
+                      },
                         decoration: InputDecoration(
                           labelText: "Select Firearm",
                           labelStyle: const TextStyle(fontSize: 13),

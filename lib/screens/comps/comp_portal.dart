@@ -50,118 +50,81 @@ class CompPortalScreen extends StatelessWidget {
           ),
         ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                // Header
-                Text(
-                  'Choose Your Role',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Are you running a competition or taking part?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-                // Run Competition Card
-                _buildOptionCard(
-                  context: context,
-                  title: 'Run Competition',
-                  subtitle: 'Create and manage a new competition',
-                  icon: Icons.emoji_events,
-                  color: primaryColor,
-                  isDark: isDark,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EventSelectionScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                // Join Competition Card
-                _buildOptionCard(
-                  context: context,
-                  title: 'Join Competition',
-                  subtitle: 'Scan QR code to join an existing competition',
-                  icon: Icons.qr_code_scanner,
-                  color: primaryColor,
-                  isDark: isDark,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const QRScannerScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                // Competition History Card
-                _buildOptionCard(
-                  context: context,
-                  title: 'Competition History',
-                  subtitle: 'View your past competitions and results',
-                  icon: Icons.history,
-                  color: primaryColor,
-                  isDark: isDark,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CompetitionHistoryScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const Spacer(),
-                // Info section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[850] : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: primaryColor.withValues(alpha: 0.3),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  // Header
+                  Text(
+                    'What do you want to do?',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: primaryColor,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Runners create competitions and generate QR codes for shooters to join. '
-                        'Shooters scan the QR code to participate and submit their scores. '
-                        'View your competition history to see past results and positions.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white70 : Colors.black54,
+                  const SizedBox(height: 8),
+                  const SizedBox(height: 40),
+                  // Run Competition Card
+                  _buildOptionCard(
+                    context: context,
+                    title: 'Run Competition',
+                    subtitle: 'Create and manage a new competition',
+                    icon: Icons.emoji_events,
+                    color: primaryColor,
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EventSelectionScreen(),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  // Join Competition Card
+                  _buildOptionCard(
+                    context: context,
+                    title: 'Join Competition',
+                    subtitle: 'Scan QR code to join an existing competition',
+                    icon: Icons.qr_code_scanner,
+                    color: primaryColor,
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QRScannerScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Competition History Card
+                  _buildOptionCard(
+                    context: context,
+                    title: 'Competition History',
+                    subtitle: 'View your past competitions and results',
+                    icon: Icons.history,
+                    color: primaryColor,
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CompetitionHistoryScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),

@@ -12,6 +12,7 @@ import '../models/firearm_entry.dart';
 import '../models/membership_card_entry.dart';
 import '../models/appointment_entry.dart';
 import '../models/rounds_counter_entry.dart';
+import '../models/comp_history_entry.dart';
 
 class BackupRestore {
   /// Backup app data (Hive as JSON + SharedPrefs + optionally images)
@@ -27,6 +28,7 @@ class BackupRestore {
       'membership_cards': Hive.box<MembershipCardEntry>('membership_cards'),
       'appointments': Hive.box<AppointmentEntry>('appointments'),
       'rounds_counter': Hive.box<RoundsCounterEntry>('rounds_counter'),
+      'comp_history': Hive.box<CompHistoryEntry>('comp_history'),
     };
 
     for (var entry in hiveBoxes.entries) {
@@ -38,6 +40,7 @@ class BackupRestore {
         if (e is MembershipCardEntry) return e.toJson();
         if (e is AppointmentEntry) return e.toJson();
         if (e is RoundsCounterEntry) return e.toJson();
+        if (e is CompHistoryEntry) return e.toJson();
         return {};
       }).toList();
 
@@ -144,7 +147,7 @@ class BackupRestore {
 
   /// Restore Hive boxes & SharedPreferences safely
   static Future<void> _restoreHiveAndPrefs(Directory appDir) async {
-    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments', 'rounds_counter'];
+    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments', 'rounds_counter', 'comp_history'];
 
     for (var boxName in boxNames) {
       final file = File('${appDir.path}/data/$boxName.json');
@@ -165,6 +168,8 @@ class BackupRestore {
         box = Hive.box<AppointmentEntry>(boxName);
       } else if (boxName == 'rounds_counter') {
         box = Hive.box<RoundsCounterEntry>(boxName);
+      } else if (boxName == 'comp_history') {
+        box = Hive.box<CompHistoryEntry>(boxName);
       } else {
         continue; // Skip unknown boxes
       }
@@ -188,6 +193,8 @@ class BackupRestore {
           box.add(AppointmentEntry.fromJson(map));
         } else if (boxName == 'rounds_counter') {
           box.add(RoundsCounterEntry.fromJson(map));
+        } else if (boxName == 'comp_history') {
+          box.add(CompHistoryEntry.fromJson(map));
         }
       }
     }

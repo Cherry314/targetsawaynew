@@ -50,7 +50,7 @@ class CompetitionHistoryScreen extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-        drawer: const AppDrawer(currentRoute: 'comps'),
+        drawer: const AppDrawer(currentRoute: 'comp_history'),
         appBar: AppBar(
           elevation: 0,
           title: const Text(
