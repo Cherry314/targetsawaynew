@@ -981,17 +981,18 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           ] else if (isManual) ...[
             // Enter Score button for manual entries without scores
             ElevatedButton.icon(
-                                    onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => EnterScoreDialog(
-                            competitionId: competitionId!,
-                            shooterName: name,
-                            currentScore: score,
-                            currentXCount: xCount > 0 ? xCount : null,
-                          ),
-                        );
-                      },
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => EnterScoreDialog(
+                    competitionId: competitionId!,
+                    shooterName: name,
+                    currentScore: score,
+                    currentXCount: xCount > 0 ? xCount : null,
+                    eventName: widget.eventName,
+                  ),
+                );
+              },
               icon: const Icon(Icons.edit, size: 16),
               label: const Text(
                 'Enter Score',

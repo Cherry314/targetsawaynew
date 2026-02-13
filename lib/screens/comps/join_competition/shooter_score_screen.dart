@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../main.dart';
 import '../../../models/comp_history_entry.dart';
+import '../../../models/hive/event.dart';
 import '../../methods/score_calculator_dialog.dart';
 
 class ShooterScoreScreen extends StatefulWidget {
@@ -145,9 +146,12 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
   }
 
   Future<void> _openScoreCalculator() async {
+    // Get total rounds for this event
+    final totalRounds = _getTotalRoundsForEvent();
+    
     final result = await showScoreCalculatorDialog(
       context: context,
-      totalRounds: null, // Can be fetched from event if needed
+      totalRounds: totalRounds,
       selectedPractice: widget.eventName,
       selectedFirearmId: null,
     );
@@ -158,6 +162,41 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
         xController.text = result.xCount > 0 ? result.xCount.toString() : '';
         scoreBreakdown = result.scoreCounts;
       });
+    }
+  }
+
+  /// Get total rounds for the event from courseOfFire
+  int? _getTotalRoundsForEvent() {
+    // Return null if event name is empty
+    if (widget.eventName.isEmpty) {
+      return null;
+    }
+
+    try {
+      // Check if events box is open
+      if (!Hive.isBoxOpen('events')) {
+        return null;
+      }
+
+      final eventBox = Hive.box<Event>('events');
+
+      // Find the event by matching the event name
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == widget.eventName) {
+          matchedEvent = event;
+          break;
+        }
+      }
+
+      if (matchedEvent == null) {
+        return null;
+      }
+
+      // Get total rounds from base content's courseOfFire
+      return matchedEvent.baseContent.courseOfFire.totalRounds;
+    } catch (e) {
+      return null;
     }
   }
 
