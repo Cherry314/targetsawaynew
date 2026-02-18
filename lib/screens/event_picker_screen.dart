@@ -11,7 +11,6 @@ import '../models/hive/position.dart';
 import '../models/hive/ready_position.dart';
 import '../models/hive/practice.dart';
 import '../models/hive/sighters.dart';
-import '../models/hive/target_info.dart';
 import '../data/firearm_table.dart';
 import '../widgets/app_drawer.dart';
 import '../main.dart';

@@ -88,7 +88,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
           final profile = await authService.getUserProfile(user.uid);
           shooterName = '${profile.firstName} ${profile.lastName}'.trim();
           if (shooterName.isEmpty) {
-            shooterName = profile.email?.split('@').first ?? 'Anonymous';
+            shooterName = profile.email.split('@').first;
           }
         } catch (e) {
           shooterName = user.email?.split('@').first ?? 'Anonymous';

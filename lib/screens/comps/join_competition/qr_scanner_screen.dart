@@ -21,7 +21,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = themeProvider.primaryColor;
 
     return Scaffold(

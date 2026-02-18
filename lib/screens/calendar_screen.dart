@@ -92,18 +92,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 8),
-          Text(value),
-        ],
-      ),
-    );
-  }
+  // Widget _buildDetailRow(String label, String value) {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(vertical: 4),
+  //     child: Row(
+  //       children: [
+  //         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+  //         const SizedBox(width: 8),
+  //         Text(value),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {

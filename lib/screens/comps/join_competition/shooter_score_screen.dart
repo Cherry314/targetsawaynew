@@ -128,7 +128,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Competition ended! You placed ${position}${_getPositionSuffix(position)} of $totalShooters',
+              'Competition ended! You placed $position${_getPositionSuffix(position)} of $totalShooters',
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
@@ -664,7 +664,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${finalPosition}${_getPositionSuffix(finalPosition)} Place',
+              '$finalPosition${_getPositionSuffix(finalPosition)} Place',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

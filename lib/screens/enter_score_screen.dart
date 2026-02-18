@@ -486,17 +486,18 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   await CalendarScoreService().createOrUpdateScoreAppointment(
                       newEntry);
 
-                  if (!mounted) return;
-
+                  if (!context.mounted) return;
                   Navigator.pop(context); // close dialog
 
                   if (widget.openedFromCalendar) {
+                    if (!context.mounted) return;
                     // Return to calendar screen
                     Navigator.of(context).pushNamedAndRemoveUntil(
                         '/calendar', (route) => false);
                   } else {
                     // Clear form and stay on screen for next entry
                     _resetFormForNextEntry();
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Score saved! Ready for next entry.'),
@@ -784,7 +785,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     
     // Cache these values so they're only calculated once per build
     final maxScore = _getMaxScoreForSelectedEvent();
-    final totalRounds = _getTotalRoundsForSelectedEvent();
+    // final totalRounds = _getTotalRoundsForSelectedEvent();
 
     // Cache the practices list at state level - only rebuild if list changes
     final practicesList = DropdownValues.practices;
@@ -1836,7 +1837,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     await showDialog(
       context: context,
       builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+        // final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
           title: Row(
             children: [
@@ -1928,64 +1929,5 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
     scoreFieldController.dispose();
     xFieldController.dispose();
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required Color primaryColor,
-    required VoidCallback onPressed,
-  }) {
-    final isDark = Theme
-        .of(context)
-        .brightness == Brightness.dark;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? primaryColor.withValues(alpha: 0.1)
-                    : (isDark ? Colors.grey[800] : Colors.grey[100]),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isActive ? primaryColor : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    color: isActive ? primaryColor : Colors.grey,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight
-                          .normal,
-                      color: isActive ? primaryColor : Colors.grey,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

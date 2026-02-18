@@ -1,7 +1,6 @@
-import 'package:flutter/foundation.dart';
+
 import 'package:hive/hive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/hive/event.dart';
 import '../models/hive/event_content.dart';
 import '../models/hive/event_override.dart';
