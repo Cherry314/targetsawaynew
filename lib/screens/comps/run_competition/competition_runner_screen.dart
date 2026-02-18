@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import '../../../main.dart';
+import '../../../services/sound_service.dart';
 import 'manual_entry_dialog.dart';
 import 'enter_score_dialog.dart';
 import 'competition_results_screen.dart';
@@ -199,7 +200,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              SoundService().playCompStart();
+              Navigator.pop(context, true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
@@ -1313,7 +1317,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              SoundService().playCompWin();
+              Navigator.pop(context, true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,

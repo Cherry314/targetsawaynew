@@ -13,6 +13,7 @@ import 'models/appointment_entry.dart';
 import 'models/rounds_counter_entry.dart';
 import 'models/comp_history_entry.dart';
 import 'services/notification_service.dart';
+import 'services/sound_service.dart';
 
 // Hive model imports
 import 'models/hive/event.dart';
@@ -325,6 +326,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ImageQualityProvider()),
         ChangeNotifierProvider(create: (_) => AnimationsProvider()),
         ChangeNotifierProvider(create: (_) => RoundsCounterProvider()),
+        ChangeNotifierProvider(create: (_) => SoundSettingsProvider()..initialize()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(

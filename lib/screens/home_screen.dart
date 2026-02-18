@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
 import '../services/data_sync_service.dart';
+import '../services/sound_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Check for data updates from Firestore
     _checkForDataUpdates();
+
+    // Start heartbeat sound loop
+    SoundService().startHeartBeat();
   }
 
   /// Check for data updates from Firebase
@@ -206,6 +210,8 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _controller.dispose();
+    // Stop heartbeat sound when leaving home screen
+    SoundService().stopHeartBeat();
     super.dispose();
   }
 

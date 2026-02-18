@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../main.dart';
+import '../services/sound_service.dart';
 import '../utils/backup_restore.dart';
 import '../utils/storage_usage.dart';
 import '../widgets/app_drawer.dart';
@@ -199,6 +200,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: (val) {
                       Provider.of<AnimationsProvider>(context, listen: false)
                           .setAnimationsEnabled(val);
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                // Sound Effects Toggle
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Sound Effects'),
+                  subtitle: const Text('Enable UI sounds throughout the app'),
+                  trailing: Switch(
+                    value: Provider.of<SoundSettingsProvider>(context).enabled,
+                    onChanged: (val) {
+                      Provider.of<SoundSettingsProvider>(context, listen: false)
+                          .setEnabled(val);
                     },
                   ),
                 ),

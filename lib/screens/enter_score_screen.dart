@@ -719,7 +719,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     bool isOutlined = false,
   }) {
     return Container(
-      height: 56,
+      height: icon != null ? 56 : 64,
       decoration: BoxDecoration(
         gradient: isOutlined
             ? null
@@ -740,24 +740,36 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 22),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+        child: icon != null
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              )
+            : Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    height: 1.2,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1397,30 +1409,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                         ),
                       ),
                       const Spacer(),
-                      // Score Calculator Icon Button
-                      IconButton(
-                        icon: Icon(Icons.calculate, color: primaryColor),
-                        tooltip: "Score Calculator",
-                        onPressed: () async {
-                          final calcTotalRounds = _getTotalRoundsForSelectedEvent();
-                          final result = await showScoreCalculatorDialog(
-                            context: context,
-                            totalRounds: calcTotalRounds,
-                            selectedPractice: selectedPractice,
-                            selectedFirearmId: selectedFirearmId,
-                          );
-                          if (result != null) {
-                            setState(() {
-                              scoreController.text = result.score.toString();
-                              xController.text = result.xCount > 0 
-                                  ? result.xCount.toString() 
-                                  : '';
-                              // Store the score breakdown for saving to Hive later
-                              _scoreBreakdown = result.scoreCounts;
-                            });
-                          }
-                        },
-                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -1473,67 +1461,47 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     ),
                   ],
 
-// Score and X Input Row
+                  // Score Calculator and Basic Score Buttons
                   Row(
                     children: [
                       Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: scoreController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w600),
-                          decoration: InputDecoration(
-                            labelText: "Score",
-                            prefixIcon: Icon(
-                                Icons.military_tech, color: primaryColor),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: primaryColor, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                          ),
+                        child: _buildGradientButton(
+                          label: "Score\nCalculator",
+                          onPressed: () async {
+                            final calcTotalRounds = _getTotalRoundsForSelectedEvent();
+                            final result = await showScoreCalculatorDialog(
+                              context: context,
+                              totalRounds: calcTotalRounds,
+                              selectedPractice: selectedPractice,
+                              selectedFirearmId: selectedFirearmId,
+                            );
+                            if (result != null) {
+                              setState(() {
+                                scoreController.text = result.score.toString();
+                                xController.text = result.xCount > 0 
+                                    ? result.xCount.toString() 
+                                    : '';
+                                // Store the score breakdown for saving to Hive later
+                                _scoreBreakdown = result.scoreCounts;
+                              });
+                            }
+                          },
+                          primaryColor: primaryColor,
+                          isOutlined: scoreController.text.isEmpty,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        flex: 1,
-                        child: TextFormField(
-                          controller: xController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w600),
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(
-                                Icons.gps_fixed, color: primaryColor),
-                            labelText: "X",
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: primaryColor, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                          ),
+                        child: _buildGradientButton(
+                          label: "Basic\nScore",
+                          onPressed: () => _showBasicScoreDialog(context, primaryColor),
+                          primaryColor: Colors.orange,
+                          isOutlined: scoreController.text.isEmpty,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
                   // Notes Button (Full Width)
                   SizedBox(
@@ -1857,6 +1825,109 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     } catch (e) {
       return [];
     }
+  }
+
+  /// Show dialog for entering basic score and X count
+  Future<void> _showBasicScoreDialog(BuildContext context, Color primaryColor) async {
+    final scoreFieldController = TextEditingController(text: scoreController.text);
+    final xFieldController = TextEditingController(text: xController.text);
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.edit, color: primaryColor),
+              const SizedBox(width: 8),
+              const Text('Enter Score'),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Score field
+                  TextFormField(
+                    controller: scoreFieldController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Score',
+                      prefixIcon: Icon(Icons.military_tech, color: primaryColor),
+                      border: const OutlineInputBorder(),
+                      hintText: 'Enter total score',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a score';
+                      }
+                      final score = int.tryParse(value);
+                      if (score == null || score < 0) {
+                        return 'Please enter a valid score';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // X count field
+                  TextFormField(
+                    controller: xFieldController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'X Count (Optional)',
+                      prefixIcon: Icon(Icons.gps_fixed, color: primaryColor),
+                      border: const OutlineInputBorder(),
+                      hintText: 'Number of X shots',
+                    ),
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        final xCount = int.tryParse(value);
+                        if (xCount == null || xCount < 0) {
+                          return 'Please enter a valid number';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  setState(() {
+                    scoreController.text = scoreFieldController.text.trim();
+                    xController.text = xFieldController.text.trim();
+                    // Clear score breakdown since we're using basic entry
+                    _scoreBreakdown = null;
+                  });
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    scoreFieldController.dispose();
+    xFieldController.dispose();
   }
 
   Widget _buildActionButton({

@@ -39,6 +39,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   qr_flutter: ^4.1.0
   mobile_scanner: ^6.0.2
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +55,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/audio/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
