@@ -137,6 +137,7 @@ THEME:
 • Choose from 6 color themes
 • Options: Default (Blue), Purple, Green, Orange, Red, Teal
 • Theme applies throughout the app instantly
+• Set to Light Mode, Dark Mode, or use Device Settings
 
 ANIMATIONS:
 • Toggle home screen animations on/off
@@ -146,6 +147,11 @@ IMAGE QUALITY:
 • Adjust camera image quality (Low 50%, Medium 70%, Large 85%)
 • Lower quality saves storage space
 • Higher quality provides better detail for target analysis
+
+ROUNDS COUNTER:
+• Enable/disable rounds fired tracking
+• View total rounds recorded
+• Cannot retrieve historical data if turned off
 
 PRACTICE LIST:
 • Manage your favorite practice types
@@ -161,6 +167,10 @@ BACKUP & RESTORE:
 STORAGE USAGE:
 • View app data storage breakdown
 • See space used by scores, images, and other data
+
+Note: Account and Security settings have been moved to the Profile screen.
+Access your profile via the Profile icon in the top-right of the Home screen,
+or through the Profile option in the navigation drawer.
 
 Tip: Regular backups protect your valuable shooting data!
 ''';
@@ -212,5 +222,30 @@ Tips:
 • Store multiple club memberships
 • Update when cards are renewed
 • Photos should be clear and well-lit for scanning
+''';
+
+  static const String profileScreen = '''
+Profile Screen
+
+Manage your account information and security settings.
+
+ACCOUNT INFORMATION:
+• View your full profile including name, email, clubs, and member since date
+• See which shooting clubs you are associated with
+
+SECURITY:
+• Change Passcode - Update your app unlock passcode
+• Change Password - Update your account password (requires current password)
+• Biometric Authentication - Enable/disable fingerprint/face unlock if available
+
+ACCOUNT ACTIONS:
+• Logout - Sign out of your account (you can log back in anytime)
+• Delete Account - Permanently remove all your data and account
+
+Tips:
+• Keep your password secure and change it regularly
+• Biometric authentication provides quick secure access
+• Deleting your account is permanent and cannot be undone
+• Ensure you have backups of any important data before deleting your account
 ''';
 }

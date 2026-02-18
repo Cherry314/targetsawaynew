@@ -55,6 +55,7 @@ import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/personal_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -417,6 +418,7 @@ class MyApp extends StatelessWidget {
             '/personal': (context) => const PersonalScreen(),
             '/event_picker': (context) => const EventPickerScreen(),
             '/settings': (context) => const SettingsScreen(),
+            '/profile': (context) => const ProfileScreen(),
             '/rounds_manager': (context) => const RoundsManagerScreen(),
             '/comps': (context) => const CompPortalScreen(),
             '/comp_history': (context) => const CompetitionHistoryScreen(),

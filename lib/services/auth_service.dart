@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:flutter/services.dart';
 import '../models/user_profile.dart';
 
 class AuthService {
@@ -277,14 +278,37 @@ class AuthService {
   /// Authenticate with biometrics
   Future<bool> authenticateWithBiometrics() async {
     try {
-      return await _localAuth.authenticate(
-        localizedReason: 'Please authenticate to access the app',
+      // First check if biometrics are available
+      final canCheck = await _localAuth.canCheckBiometrics;
+      if (!canCheck) {
+        print('Biometric auth: cannot check biometrics');
+        return false;
+      }
+
+      final available = await _localAuth.getAvailableBiometrics();
+      print('Available biometrics: $available');
+
+      if (available.isEmpty) {
+        print('Biometric auth: no biometrics enrolled');
+        return false;
+      }
+
+      final result = await _localAuth.authenticate(
+        localizedReason: 'Please authenticate to enable biometric login',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: false,  // Allow device credentials as fallback
+          sensitiveTransaction: true,
         ),
       );
+
+      print('Biometric auth result: $result');
+      return result;
+    } on PlatformException catch (e) {
+      print('Biometric auth PlatformException: ${e.code} - ${e.message}');
+      return false;
     } catch (e) {
+      print('Biometric auth error: $e');
       return false;
     }
   }

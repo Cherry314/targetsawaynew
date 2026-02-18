@@ -23,29 +23,53 @@ class AppDrawer extends StatelessWidget {
             decoration: BoxDecoration(
               color: primaryColor,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Stack(
               children: [
-                Icon(
-                  Icons.gps_fixed,
-                  size: 48,
-                  color: Colors.white,
+                // Main content - Icon and Text on the left
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(
+                      Icons.gps_fixed,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Targets Away',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(
+                      'Firearm Scoring Database',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Targets Away',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Text(
-                  'Firearm Scoring Database',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                // Profile icon positioned at top right
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.account_circle,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    tooltip: 'Profile',
+                    onPressed: () {
+                      Navigator.pop(context); // Close drawer
+                      if (currentRoute != 'profile') {
+                        Navigator.pushNamed(context, '/profile');
+                      }
+                    },
                   ),
                 ),
               ],
