@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../main.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/help_icon_button.dart';
+import '../../utils/help_content.dart';
 import 'run_competition/event_selection_screen.dart';
 import 'join_competition/qr_scanner_screen.dart';
 import 'competition_history_screen.dart';
@@ -48,6 +50,12 @@ class CompPortalScreen extends StatelessWidget {
               ),
             ),
           ),
+          actions: const [
+            HelpIconButton(
+              title: 'Competition Portal Help',
+              content: HelpContent.compPortal,
+            ),
+          ],
         ),
         body: SafeArea(
           child: SingleChildScrollView(

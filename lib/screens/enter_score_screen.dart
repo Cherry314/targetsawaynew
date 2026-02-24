@@ -1,4 +1,4 @@
-// lib/screens/enter_score_screen.dart
+﻿// lib/screens/enter_score_screen.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -881,19 +881,6 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Spacer(),
-                      // Event Details Icon Button
-                      IconButton(
-                        icon: Icon(Icons.article, color: primaryColor),
-                        tooltip: "View Event Details",
-                        onPressed: () {
-                          showEventDetailsDialog(
-                            context: context,
-                            practiceName: selectedPractice,
-                            firearmCode: selectedFirearmId,
-                          );
-                        },
-                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -1038,6 +1025,36 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Show Event button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        showEventDetailsDialog(
+                          context: context,
+                          practiceName: selectedPractice,
+                          firearmCode: selectedFirearmId,
+                        );
+                      },
+                      icon: Icon(Icons.article, color: primaryColor, size: 18),
+                      label: Text(
+                        'Show Event',
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1462,6 +1479,92 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     ),
                   ],
 
+                  // Recorded Score Box (shows if score has been entered)
+                  if (scoreController.text.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Recorded Score',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    scoreController.text,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  if (xController.text.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.gps_fixed, color: Colors.amber[700], size: 14),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      xController.text,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.amber[700],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      ),
+                    ),
+                    // Warning if score exceeds max
+                    if (maxScore != null && int.tryParse(scoreController.text) != null &&
+                        int.parse(scoreController.text) > maxScore) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Score too high for this event!',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                   // Score Calculator and Basic Score Buttons
                   Row(
                     children: [
@@ -1830,73 +1933,124 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   /// Show dialog for entering basic score and X count
   Future<void> _showBasicScoreDialog(BuildContext context, Color primaryColor) async {
-    final scoreFieldController = TextEditingController(text: scoreController.text);
-    final xFieldController = TextEditingController(text: xController.text);
-    final formKey = GlobalKey<FormState>();
+    FocusScope.of(context).unfocus();
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
 
-    await showDialog(
+    final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) {
-        // final isDark = Theme.of(context).brightness == Brightness.dark;
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        return _BasicScoreDialogContent(
+          primaryColor: primaryColor,
+          initialScore: scoreController.text,
+          initialXCount: xController.text,
+          maxScore: _getMaxScoreForSelectedEvent(),
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      scoreController.text = result['score']!;
+      xController.text = result['xCount']!;
+      _scoreBreakdown = null;
+      setState(() {});
+    }
+  }
+}
+
+/// Separate stateful widget for the basic score dialog to isolate its state
+class _BasicScoreDialogContent extends StatefulWidget {
+  final Color primaryColor;
+  final String initialScore;
+  final String initialXCount;
+  final int? maxScore;
+
+  const _BasicScoreDialogContent({
+    required this.primaryColor,
+    required this.initialScore,
+    required this.initialXCount,
+    this.maxScore,
+  });
+
+  @override
+  State<_BasicScoreDialogContent> createState() => _BasicScoreDialogContentState();
+}
+
+class _BasicScoreDialogContentState extends State<_BasicScoreDialogContent> {
+  late final TextEditingController scoreController;
+  late final TextEditingController xController;
+
+  @override
+  void initState() {
+    super.initState();
+    scoreController = TextEditingController(text: widget.initialScore);
+    xController = TextEditingController(text: widget.initialXCount);
+  }
+
+  @override
+  void dispose() {
+    scoreController.dispose();
+    xController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StatefulBuilder(
+      builder: (context, setDialogState) {
+        final enteredScore = int.tryParse(scoreController.text.trim());
+        final isScoreTooHigh = widget.maxScore != null &&
+            enteredScore != null &&
+            enteredScore > widget.maxScore!;
+
         return AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.edit, color: primaryColor),
+              Icon(Icons.edit, color: widget.primaryColor),
               const SizedBox(width: 8),
               const Text('Enter Score'),
             ],
           ),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Score field
-                  TextFormField(
-                    controller: scoreFieldController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Score',
-                      prefixIcon: Icon(Icons.military_tech, color: primaryColor),
-                      border: const OutlineInputBorder(),
-                      hintText: 'Enter total score',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: scoreController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: InputDecoration(
+                    labelText: 'Score',
+                    prefixIcon: Icon(Icons.military_tech, color: widget.primaryColor),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: isScoreTooHigh ? Colors.red : Colors.grey,
+                      ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a score';
-                      }
-                      final score = int.tryParse(value);
-                      if (score == null || score < 0) {
-                        return 'Please enter a valid score';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // X count field
-                  TextFormField(
-                    controller: xFieldController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'X Count (Optional)',
-                      prefixIcon: Icon(Icons.gps_fixed, color: primaryColor),
-                      border: const OutlineInputBorder(),
-                      hintText: 'Number of X shots',
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: isScoreTooHigh ? Colors.red : Colors.grey,
+                      ),
                     ),
-                    validator: (value) {
-                      if (value != null && value.isNotEmpty) {
-                        final xCount = int.tryParse(value);
-                        if (xCount == null || xCount < 0) {
-                          return 'Please enter a valid number';
-                        }
-                      }
-                      return null;
-                    },
+                    hintText: 'Enter total score',
+                    errorText: isScoreTooHigh
+                        ? 'Score too high! Max is ${widget.maxScore}'
+                        : null,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: xController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'X Count (Optional)',
+                    prefixIcon: Icon(Icons.gps_fixed, color: widget.primaryColor),
+                    border: const OutlineInputBorder(),
+                    hintText: 'Number of X shots',
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
@@ -1906,18 +2060,13 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  setState(() {
-                    scoreController.text = scoreFieldController.text.trim();
-                    xController.text = xFieldController.text.trim();
-                    // Clear score breakdown since we're using basic entry
-                    _scoreBreakdown = null;
-                  });
-                  Navigator.pop(context);
-                }
+                Navigator.pop(context, {
+                  'score': scoreController.text.trim(),
+                  'xCount': xController.text.trim(),
+                });
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
+                backgroundColor: widget.primaryColor,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Save'),
@@ -1926,8 +2075,5 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
         );
       },
     );
-
-    scoreFieldController.dispose();
-    xFieldController.dispose();
   }
 }

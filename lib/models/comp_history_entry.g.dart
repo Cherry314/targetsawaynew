@@ -23,13 +23,16 @@ class CompHistoryEntryAdapter extends TypeAdapter<CompHistoryEntry> {
       xCount: fields[3] as int,
       position: fields[4] as int,
       totalShooters: fields[5] as int,
+      finalResults: (fields[6] as List?)
+          ?.map((dynamic e) => (e as Map).cast<String, dynamic>())
+          ?.toList(),
     );
   }
 
   @override
   void write(BinaryWriter writer, CompHistoryEntry obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
@@ -41,7 +44,9 @@ class CompHistoryEntryAdapter extends TypeAdapter<CompHistoryEntry> {
       ..writeByte(4)
       ..write(obj.position)
       ..writeByte(5)
-      ..write(obj.totalShooters);
+      ..write(obj.totalShooters)
+      ..writeByte(6)
+      ..write(obj.finalResults);
   }
 
   @override

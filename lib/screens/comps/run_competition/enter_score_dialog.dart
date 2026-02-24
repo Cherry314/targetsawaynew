@@ -98,13 +98,16 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
       selectedFirearmId: null,
     );
 
-    if (result != null && mounted) {
-      setState(() {
-        _scoreController.text = result.score.toString();
-        _xCountController.text = result.xCount > 0 ? result.xCount.toString() : '';
-        _scoreBreakdown = result.scoreCounts;
-        _mode = 'basic'; // Switch to basic view to show the entered values
-      });
+    if (result != null) {
+      // Check mounted before calling setState
+      if (mounted) {
+        setState(() {
+          _scoreController.text = result.score.toString();
+          _xCountController.text = result.xCount > 0 ? result.xCount.toString() : '';
+          _scoreBreakdown = result.scoreCounts;
+          _mode = 'basic'; // Switch to basic view to show the entered values
+        });
+      }
     }
   }
 
@@ -159,26 +162,19 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
         'manualEntries': updatedEntries,
       });
 
+      // Success - close the dialog immediately
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Score saved successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {
+          // Ignore any navigation errors
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving score: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     }
   }

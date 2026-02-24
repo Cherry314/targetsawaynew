@@ -11,6 +11,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import '../../../main.dart';
 import '../../../services/sound_service.dart';
+import '../../../widgets/help_icon_button.dart';
+import '../../../utils/help_content.dart';
 import 'manual_entry_dialog.dart';
 import 'enter_score_dialog.dart';
 import 'competition_results_screen.dart';
@@ -127,14 +129,6 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       setState(() {
         isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error: User not authenticated. Please log in again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
       return;
     }
 
@@ -169,14 +163,6 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       setState(() {
         isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error creating competition. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -227,24 +213,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         setState(() {
           entriesClosed = true;
         });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Entries closed. No new shooters can join.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error closing entries: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        // Silently handle error
       }
     }
   }
@@ -381,18 +351,16 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             ),
           ),
           actions: [
+            const HelpIconButton(
+              title: 'Running Competition Help',
+              content: HelpContent.competitionRunnerScreen,
+            ),
             IconButton(
               icon: const Icon(Icons.copy),
               tooltip: 'Copy Competition ID',
               onPressed: () {
                 if (competitionId == null) return;
                 Clipboard.setData(ClipboardData(text: competitionId!));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Competition ID copied to clipboard'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
               },
             ),
           ],
@@ -1267,11 +1235,73 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       );
     }
 
-    // Entries closed, but not all scores in - show Add Shooter only
+    // Entries closed, but not all scores in - show Close Competition Early button
     return SizedBox(
       width: double.infinity,
-      child: _buildManualEntryButton(primaryColor),
+      child: _buildCloseCompetitionEarlyButton(primaryColor),
     );
+  }
+
+  /// Build Close Competition Early button
+  Widget _buildCloseCompetitionEarlyButton(Color primaryColor) {
+    return ElevatedButton.icon(
+      onPressed: _closeCompetitionEarly,
+      icon: const Icon(Icons.stop_circle),
+      label: const Text(
+        'Close Competition Early',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  /// Close competition early without waiting for all scores
+  Future<void> _closeCompetitionEarly() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Close Competition Early?'),
+          ],
+        ),
+        content: const Text(
+          'Warning: Not all shooters have submitted their scores.\n\n'
+          'Closing early will end the competition now and mark all unsubmitted scores as incomplete.\n\n'
+          'Are you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              SoundService().playCompWin();
+              Navigator.pop(context, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close & End Now'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _endCompetition();
+    }
   }
 
   /// Build End Competition button
@@ -1414,19 +1444,13 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             builder: (context) => CompetitionResultsScreen(
               eventName: widget.eventName,
               results: leaderboard,
+              competitionId: competitionId!,
             ),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error ending competition: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Silently handle error
     }
   }
 }

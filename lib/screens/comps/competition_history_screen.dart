@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../main.dart';
 import '../../models/comp_history_entry.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/help_icon_button.dart';
+import '../../utils/help_content.dart';
 
 class CompetitionHistoryScreen extends StatelessWidget {
   const CompetitionHistoryScreen({super.key});
@@ -70,6 +72,12 @@ class CompetitionHistoryScreen extends StatelessWidget {
               ),
             ),
           ),
+          actions: const [
+            HelpIconButton(
+              title: 'Competition History Help',
+              content: HelpContent.competitionHistoryScreen,
+            ),
+          ],
         ),
         body: ValueListenableBuilder<Box<CompHistoryEntry>>(
           valueListenable: Hive.box<CompHistoryEntry>('comp_history').listenable(),

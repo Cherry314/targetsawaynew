@@ -25,6 +25,9 @@ class CompHistoryEntry extends HiveObject {
   @HiveField(5)
   final int totalShooters;
 
+  @HiveField(6)
+  final List<Map<String, dynamic>>? finalResults;
+
   CompHistoryEntry({
     required this.date,
     required this.event,
@@ -32,6 +35,7 @@ class CompHistoryEntry extends HiveObject {
     required this.xCount,
     required this.position,
     required this.totalShooters,
+    this.finalResults,
   });
 
   /// Convert to JSON for backup/restore
@@ -43,6 +47,7 @@ class CompHistoryEntry extends HiveObject {
       'xCount': xCount,
       'position': position,
       'totalShooters': totalShooters,
+      'finalResults': finalResults,
     };
   }
 
@@ -55,6 +60,9 @@ class CompHistoryEntry extends HiveObject {
       xCount: json['xCount'] as int,
       position: json['position'] as int,
       totalShooters: json['totalShooters'] as int,
+      finalResults: json['finalResults'] != null
+          ? (json['finalResults'] as List<dynamic>).cast<Map<String, dynamic>>()
+          : null,
     );
   }
 }

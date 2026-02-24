@@ -26,11 +26,11 @@ This is where you record your shooting sessions.
 How to use:
 • Select the Date of your session, you can back-date if desired.
 • Choose your Practice type (configure favorites via the settings icon to the side.)
-• Select your firearm's Caliber and Firearm ID
-• Once you have selected a practice and Firearm ID, you can see the Event Conditions by tapping the Event Conditions icon at the top right corner.
-• You can enter your score, and any X's directly, or use the custom calculator by tapping the Icon at the top right of the Score & Detail section.
-• Enter your Score (required)
-• Optionally add Firearm details, Competition info, or Notes. If you record any extra details, It will highlight the item.
+• You can see the event if to tap the 'Show Event' button.
+• If you have set up your own Firearms in your Personal page, you can select which Firearm used in the 'Select Firearm' Box. (this will automatically select the Caliber and FirearmID).
+• Or you can select your firearm's Caliber and Firearm ID manually
+• If you want to record a breakdown of your score, select the 'Score Calculator' Or you can enter a basic score / X by pressing the 'Basic Score' button.
+• You can enter any notes for this particular event. 
 • Capture a Target photo if desired
 • Tap "Save Entry" to store your session
 
@@ -153,24 +153,11 @@ ROUNDS COUNTER:
 • View total rounds recorded
 • Cannot retrieve historical data if turned off
 
-PRACTICE LIST:
-• Manage your favorite practice types
-• Star practices to show in Enter Score dropdown
-• Unstarred practices are hidden but data is preserved
-
 BACKUP & RESTORE:
 • Export all data to a backup file
 • Restore from previous backups
 • Include/exclude images to manage file size
 • Share backups via any app
-
-STORAGE USAGE:
-• View app data storage breakdown
-• See space used by scores, images, and other data
-
-Note: Account and Security settings have been moved to the Profile screen.
-Access your profile via the Profile icon in the top-right of the Home screen,
-or through the Profile option in the navigation drawer.
 
 Tip: Regular backups protect your valuable shooting data!
 ''';
@@ -247,5 +234,191 @@ Tips:
 • Biometric authentication provides quick secure access
 • Deleting your account is permanent and cannot be undone
 • Ensure you have backups of any important data before deleting your account
+''';
+
+  static const String compPortal = '''
+Competition Portal
+
+Your central hub for all competition activity.
+
+Three options available:
+
+RUN A COMPETITION:
+• Create and manage a live competition as the organiser
+• Select the event, generate a QR code for participants to join
+• Manage scores, close entries, and view the final results
+
+JOIN A COMPETITION:
+• Scan a QR code to join a competition being run by an organiser
+• Submit your score and view live results as they come in
+• See the final podium and full standings when the competition ends
+
+COMPETITION HISTORY:
+• View all your past competition results
+• See your placement, score, and X count for each event
+• Full podium and standings are stored for each competition
+
+Tip: If you are running a competition, make sure you are in a location with internet access!
+''';
+
+  static const String eventSelectionScreen = '''
+Event Selection Screen
+
+Choose which event you want to run a competition for.
+
+How to use:
+• Browse the list of available events
+• Tap an event to select it (it will be highlighted)
+• Press "Start Competition" to proceed
+• The competition will be created and a QR code generated for participants
+
+Notes:
+• Only events configured in your system will appear here
+• Each competition is live for up to 3 hours before expiring
+• Old abandoned competitions are cleaned up automatically
+
+Tip: Make sure participants are ready before you start - the QR code appears on the next screen!
+''';
+
+  static const String competitionRunnerScreen = '''
+Running Competition Screen
+
+Manage your live competition as the organiser.
+
+THE QR CODE:
+• Share this QR code with all participants
+• Participants scan it from their device to join
+• Tap the copy icon to copy the Competition ID manually if needed
+
+PARTICIPANT LIST:
+• Shows all shooters who have joined (app users and manual entries)
+• A tick icon shows when a shooter has submitted their score
+• Progress is shown as "X of Y scores submitted"
+
+ADDING MANUAL ENTRIES (Guests):
+• Tap "Add Shooter" to add a guest who doesn't have the app
+• Enter their name to add them to the competition
+• You will enter their score manually after entries close
+
+CLOSING ENTRIES:
+• Tap "Close Entries" to stop new participants joining
+• After closing, tap a guest entry to enter their score manually
+• If you need to end early, tap "Close Competition Early"
+
+ENDING THE COMPETITION:
+• Once all scores are in, the button changes to "End Competition & Show Results"
+• Tap it to calculate final standings and display the results
+• Results are automatically sent to all app participants
+
+Tip: You can close entries at any time - app users can still submit scores after entries close.
+''';
+
+  static const String competitionResultsScreen = '''
+Competition Results Screen
+
+View the final standings for the completed competition.
+
+PODIUM:
+• 1st, 2nd, and 3rd place are shown with gold, silver, and bronze styling
+• Each entry shows the shooter's name, score, and X count
+
+FULL STANDINGS:
+• All other competitors are listed below the podium in order
+• Each entry shows position, name, score, and X count
+
+CLOSING THE COMPETITION:
+• Tap "Close Competition" when you are done viewing results
+• This will delete all competition data from the server
+• You will be returned to the Competition Portal
+• WARNING: This action cannot be undone
+
+Note: All participant scores have already been saved to their own Competition History before you close.
+''';
+
+  static const String shooterScoreScreen = '''
+Shooter Score Screen
+
+Submit your score as a participant in a live competition.
+
+WHILE THE COMPETITION IS OPEN:
+• You can see the event name and your shooter name at the top
+• Use the Score Calculator to calculate your score by entering hits per zone
+• Or enter your score manually if the organiser allows it
+• Tap "Submit Score" when you are ready
+
+AFTER SUBMITTING:
+• You will see a "Score Submitted" confirmation
+• Wait for the organiser to end the competition
+
+WHEN RESULTS ARE IN:
+• The screen updates automatically when the organiser ends the competition
+• You will see your final placement (1st, 2nd, 3rd, etc.)
+• The full podium (top 3) is displayed with gold, silver, and bronze styling
+• The Full Standings show all competitors in order below the podium
+• Your result is automatically saved to your Competition History
+
+Tips:
+• Make sure you have a stable internet connection during the competition
+• Do not close the app while waiting for results - it will update automatically
+• Your score is saved to your history regardless of placement
+''';
+
+  static const String qrScannerScreen = '''
+QR Scanner Screen
+
+Scan the competition QR code to join a live competition.
+
+How to use:
+• Point your camera at the QR code displayed on the organiser's screen
+• The code will be detected automatically - no button press needed
+• Once scanned, you will see a confirmation screen with the competition details
+• Enter your name and confirm to join
+
+Tips:
+• Make sure the QR code is clearly visible and well lit
+• Hold your phone steady for a few seconds if it doesn't scan immediately
+• If scanning fails, ask the organiser for the Competition ID and enter it manually
+• You need an internet connection to join a competition
+''';
+
+  static const String joinConfirmationScreen = '''
+Join Competition Screen
+
+Confirm your details before joining the competition.
+
+How to use:
+• Check the event name shown matches the competition you want to join
+• Enter your name as you want it to appear on the leaderboard
+• Tap "Join Competition" to enter
+
+Notes:
+• Your name will be visible to all other participants and the organiser
+• Once you join, you will be taken to the score submission screen
+• You cannot re-join with a different name once submitted
+
+Tip: Use your real name or recognised call sign so the organiser can identify you!
+''';
+
+  static const String competitionHistoryScreen = '''
+Competition History Screen
+
+Review all your past competition results.
+
+How to use:
+• Scroll through your competition history (newest first)
+• Each card shows the event, date, your score, X count, and finishing position
+• Gold, silver, and bronze colours show 1st, 2nd, and 3rd place finishes
+• Tap any entry to see the full podium and standings from that competition
+
+WHAT IS SHOWN:
+• Event name and date
+• Your score and X count
+• Your finishing position (e.g. 3rd of 12)
+• Trophy icon for top 3 finishes
+
+Tips:
+• Your history builds up over time as you enter more competitions
+• Use this to track your improvement across different events
+• Full standings from each competition are stored so you can see how everyone placed
 ''';
 }

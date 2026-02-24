@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../data/dropdown_values.dart';
+import '../../../widgets/help_icon_button.dart';
+import '../../../utils/help_content.dart';
 import 'competition_runner_screen.dart';
 
 // Same timeout as in competition_runner_screen.dart
@@ -83,6 +85,12 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
             ),
           ),
         ),
+        actions: const [
+          HelpIconButton(
+            title: 'Event Selection Help',
+            content: HelpContent.eventSelectionScreen,
+          ),
+        ],
       ),
       body: SafeArea(
         child: isLoading

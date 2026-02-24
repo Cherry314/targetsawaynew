@@ -8,7 +8,6 @@ import 'dart:io';
 import '../main.dart';
 import '../services/sound_service.dart';
 import '../utils/backup_restore.dart';
-import '../utils/storage_usage.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
@@ -23,33 +22,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String resultsText = "";
-  final TextEditingController folderController = TextEditingController();
   bool includeImages = true;
-  bool showStorageResults = false;
 
   @override
   void dispose() {
-    folderController.dispose();
     super.dispose();
-  }
-
-  Future<void> _toggleStorageUsage() async {
-    if (showStorageResults) {
-      // If already showing, just hide it
-      setState(() {
-        showStorageResults = false;
-      });
-    } else {
-      // If not showing, calculate and show it
-      final sizes = await StorageUsage.calculateAllSizesMb();
-      setState(() {
-        resultsText = sizes.entries
-            .map((e) => "${e.key}: ${e.value.toStringAsFixed(4)} MB")
-            .join("\n");
-        showStorageResults = true;
-      });
-    }
   }
 
   Widget _buildSectionCard({
@@ -322,53 +299,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                 ),
-              ],
-            ),
-
-            // Storage Section
-            _buildSectionCard(
-              title: 'Storage',
-              context: context,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: Icon(
-                      showStorageResults ? Icons.close : Icons.storage,
-                    ),
-                    label: Text(
-                      showStorageResults
-                          ? 'Close Usage'
-                          : 'Calculate Storage Usage',
-                    ),
-                    onPressed: _toggleStorageUsage,
-                  ),
-                ),
-                if (showStorageResults) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme
-                          .of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme
-                            .of(context)
-                            .dividerColor,
-                      ),
-                    ),
-                    child: Text(
-                      resultsText,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
 

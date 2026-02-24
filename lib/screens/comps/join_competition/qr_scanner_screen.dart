@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
+import '../../../widgets/help_icon_button.dart';
+import '../../../utils/help_content.dart';
 import 'join_confirmation_dialog.dart';
 
 class QRScannerScreen extends StatefulWidget {
@@ -38,6 +40,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         ),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [
+          HelpIconButton(
+            title: 'Join Competition Help',
+            content: HelpContent.qrScannerScreen,
+          ),
+        ],
       ),
       body: Stack(
         children: [

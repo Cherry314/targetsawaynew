@@ -2,17 +2,22 @@
 // Screen showing final competition results with podium for 1st, 2nd, 3rd
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
+import '../../../widgets/help_icon_button.dart';
+import '../../../utils/help_content.dart';
 
 class CompetitionResultsScreen extends StatelessWidget {
   final String eventName;
   final List<Map<String, dynamic>> results;
+  final String competitionId;
 
   const CompetitionResultsScreen({
     super.key,
     required this.eventName,
     required this.results,
+    required this.competitionId,
   });
 
   @override
@@ -106,6 +111,12 @@ class CompetitionResultsScreen extends StatelessWidget {
               }
             },
           ),
+          actions: const [
+            HelpIconButton(
+              title: 'Competition Results Help',
+              content: HelpContent.competitionResultsScreen,
+            ),
+          ],
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -197,20 +208,18 @@ class CompetitionResultsScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                // Done button
+                // Close Competition button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.check_circle),
+                    onPressed: () => _closeCompetition(context),
+                    icon: const Icon(Icons.delete_forever),
                     label: const Text(
-                      'Done',
+                      'Close Competition',
                       style: TextStyle(fontSize: 18),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -225,6 +234,58 @@ class CompetitionResultsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _closeCompetition(BuildContext context) async {
+    final shouldClose = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_forever, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Close Competition?'),
+          ],
+        ),
+        content: const Text(
+          'This will delete all competition data from the server and return you to the Competition Portal.\n\n'
+          'All participants will keep their results in their history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close & Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldClose == true) {
+      try {
+        // Delete competition from Firebase
+        await FirebaseFirestore.instance
+            .collection('competitions')
+            .doc(competitionId)
+            .delete();
+        
+        if (context.mounted) {
+          // Navigate to Competition Portal, removing all competition screens
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          // Then navigate to Competition Portal
+          Navigator.of(context).pushReplacementNamed('/comps');
+        }
+      } catch (e) {
+        // Silently handle error
+      }
+    }
   }
 
   Widget _buildPodium(

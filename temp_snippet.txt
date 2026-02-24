@@ -1,0 +1,15 @@
+﻿Event Details Icon Button
+                      IconButton(
+                        icon: Icon(Icons.article, color: primaryColor),
+                        tooltip: "View Event Details",
+                        onPressed: () {
+                          showEventDetailsDialog(
+                            context: context,
+                            practiceName: selectedPractice,
+                            firearmCode: selectedFirearmId,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  
