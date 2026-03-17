@@ -23,13 +23,14 @@ class EventAdapter extends TypeAdapter<Event> {
       prenotes: fields[5] as PreNotes?,
       baseContent: fields[3] as EventContent,
       overrides: (fields[4] as List).cast<EventOverride>(),
+      scoreChangeTrigger: fields[6] as ScoreChangeTrigger?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Event obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.eventNumber)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class EventAdapter extends TypeAdapter<Event> {
       ..writeByte(3)
       ..write(obj.baseContent)
       ..writeByte(4)
-      ..write(obj.overrides);
+      ..write(obj.overrides)
+      ..writeByte(6)
+      ..write(obj.scoreChangeTrigger);
   }
 
   @override

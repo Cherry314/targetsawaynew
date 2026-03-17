@@ -3,6 +3,7 @@ import 'event_content.dart';
 import 'event_override.dart';
 import 'firearm.dart';
 import 'prenotes.dart';
+import 'score_change_trigger.dart';
 
 part 'event.g.dart';
 
@@ -30,6 +31,10 @@ class Event extends HiveObject {
   @HiveField(4)
   List<EventOverride> overrides;
 
+  /// When to trigger "Time to Score and change target".
+  @HiveField(6)
+  ScoreChangeTrigger scoreChangeTrigger;
+
   Event({
     required this.eventNumber,
     required this.name,
@@ -37,7 +42,8 @@ class Event extends HiveObject {
     this.prenotes,
     required this.baseContent,
     required this.overrides,
-  });
+    ScoreChangeTrigger? scoreChangeTrigger,
+  }) : scoreChangeTrigger = scoreChangeTrigger ?? ScoreChangeTrigger();
 
   /// Get EventContent for a specific firearm
   EventContent getContentForFirearm(Firearm firearm) {

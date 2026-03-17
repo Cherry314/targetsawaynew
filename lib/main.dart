@@ -51,6 +51,7 @@ import 'models/hive/target_zone.dart';
 import 'models/hive/target_info.dart';
 import 'models/hive/prenotes.dart';
 import 'models/hive/club.dart';
+import 'models/hive/score_change_trigger.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
@@ -128,6 +129,8 @@ void main() async {
   Hive.registerAdapter(TargetInfoAdapter()); // typeId:132
   Hive.registerAdapter(PreNotesAdapter()); // typeId:36
   Hive.registerAdapter(ClubAdapter()); // typeId:133
+  Hive.registerAdapter(ScoreChangeTriggerAdapter()); // typeId:135
+  Hive.registerAdapter(ScoreChangeCheckpointAdapter()); // typeId:136
 
   // Open all boxes once at startup
   await Hive.openBox<ScoreEntry>('scores');

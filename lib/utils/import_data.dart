@@ -32,6 +32,7 @@ import '../models/hive/target_zone.dart';
 import '../models/hive/target_info.dart';
 import '../models/hive/prenotes.dart';
 import '../models/hive/club.dart';
+import '../models/hive/score_change_trigger.dart';
 
 class DataImporter {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -200,6 +201,33 @@ class DataImporter {
           : null,
       baseContent: _mapToEventContent(data['baseContent'] as Map<String, dynamic>? ?? {}),
       overrides: _mapToEventOverrides(data['overrides'] as List<dynamic>? ?? []),
+      scoreChangeTrigger: _mapToScoreChangeTrigger(
+        data['scoreChangeTrigger'] as Map<String, dynamic>?,
+      ),
+    );
+  }
+
+  ScoreChangeTrigger _mapToScoreChangeTrigger(Map<String, dynamic>? data) {
+    if (data == null) {
+      return ScoreChangeTrigger();
+    }
+
+    final mode = data['mode'] as int? ?? 0;
+    final rawCheckpoints = data['checkpoints'] as List<dynamic>? ?? const [];
+
+    final checkpoints = rawCheckpoints
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (cp) => ScoreChangeCheckpoint(
+            practiceNumber: cp['practiceNumber'] as int? ?? 1,
+            stageNumber: cp['stageNumber'] as int?,
+          ),
+        )
+        .toList();
+
+    return ScoreChangeTrigger(
+      mode: mode,
+      checkpoints: checkpoints,
     );
   }
 
