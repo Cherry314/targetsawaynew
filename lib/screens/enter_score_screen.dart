@@ -712,6 +712,75 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     }
   }
 
+  /// Get required number of targets/scores for selected event based on score change trigger mode.
+  int? _getRequiredTargetCountForSelectedEvent() {
+    if (selectedPractice == DropdownValues.freestyle) {
+      return null;
+    }
+
+    if (selectedPractice == null || selectedPractice!.isEmpty ||
+        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+      return null;
+    }
+
+    try {
+      if (!Hive.isBoxOpen('events')) {
+        return null;
+      }
+
+      final eventBox = Hive.box<Event>('events');
+
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == selectedPractice) {
+          matchedEvent = event;
+          break;
+        }
+      }
+
+      if (matchedEvent == null) {
+        return null;
+      }
+
+      final mode = matchedEvent.scoreChangeTrigger.mode;
+
+      if (mode == 0) {
+        return 1;
+      }
+
+      if (mode == 2) {
+        return matchedEvent.scoreChangeTrigger.checkpoints.length;
+      }
+
+      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
+      if (firearmId == null) {
+        return null;
+      }
+
+      final firearm = Firearm(
+        id: firearmId,
+        code: selectedFirearmId!,
+        gunType: '',
+      );
+
+      final content = matchedEvent.getContentForFirearm(firearm);
+
+      if (mode == 1) {
+        int highestPracticeNumber = 0;
+        for (final practice in content.practices) {
+          if (practice.practiceNumber > highestPracticeNumber) {
+            highestPracticeNumber = practice.practiceNumber;
+          }
+        }
+        return highestPracticeNumber > 0 ? highestPracticeNumber : 1;
+      }
+
+      return 1;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Widget _buildGradientButton({
     required String label,
     required VoidCallback onPressed,
@@ -785,6 +854,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     
     // Cache these values so they're only calculated once per build
     final maxScore = _getMaxScoreForSelectedEvent();
+    final requiredTargetCount = _getRequiredTargetCountForSelectedEvent();
     // final totalRounds = _getTotalRoundsForSelectedEvent();
 
     // Cache the practices list at state level - only rebuild if list changes
@@ -1430,6 +1500,35 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
+
+                  // Number of targets/scores needed based on score change trigger mode
+                  if (requiredTargetCount != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.45)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.flag, color: Colors.amber[800], size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Number of Targets needed : $requiredTargetCount',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // Max Score Display (only if both practice and firearmId are selected)
                   if (maxScore != null) ...[
