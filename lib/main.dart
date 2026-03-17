@@ -334,6 +334,9 @@ class MyApp extends StatelessWidget {
           title: 'Target Scoring',
           themeMode: themeProvider.themeMode,
           theme: ThemeData.light().copyWith(
+            appBarTheme: const AppBarTheme(
+              foregroundColor: Colors.white,
+            ),
             bottomNavigationBarTheme: BottomNavigationBarThemeData(
               selectedItemColor: themeProvider.primaryColor,
             ),
@@ -349,6 +352,9 @@ class MyApp extends StatelessWidget {
             ),
           ),
           darkTheme: ThemeData.dark().copyWith(
+            appBarTheme: const AppBarTheme(
+              foregroundColor: Colors.white,
+            ),
             bottomNavigationBarTheme: BottomNavigationBarThemeData(
               selectedItemColor: themeProvider.primaryColor,
             ),

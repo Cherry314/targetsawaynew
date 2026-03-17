@@ -1,9 +1,14 @@
 // lib/screens/rounds_manager_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../main.dart';
 import '../models/rounds_counter_entry.dart';
 import '../widgets/app_drawer.dart';
@@ -49,6 +54,13 @@ class RoundsManagerScreen extends StatelessWidget {
               ),
             ),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.file_upload_outlined),
+              onPressed: () => _showExportDialog(context),
+              tooltip: 'Export to CSV',
+            ),
+          ],
         ),
         body: SafeArea(
           bottom: true,
@@ -482,6 +494,863 @@ class RoundsManagerScreen extends StatelessWidget {
       ),
     );
   }
+
+  // Export dialog - Step 1: Choose Format
+  void _showExportDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[850] : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Icon(Icons.file_upload, color: primaryColor, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Export Rounds Data',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose export format',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // CSV Option
+                _buildExportOption(
+                  context,
+                  'CSV File',
+                  'Spreadsheet format for Excel or other apps',
+                  Icons.table_chart,
+                  primaryColor,
+                  isDark,
+                  () => _showDateRangeDialog(context, ExportFormat.csv),
+                ),
+                const SizedBox(height: 12),
+                // PDF Option
+                _buildExportOption(
+                  context,
+                  'PDF Document',
+                  'Formatted document for printing or sharing',
+                  Icons.picture_as_pdf,
+                  primaryColor,
+                  isDark,
+                  () => _showDateRangeDialog(context, ExportFormat.pdf),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Export dialog - Step 2: Choose Date Range
+  void _showDateRangeDialog(BuildContext context, ExportFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[850] : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Icon(Icons.date_range, color: primaryColor, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Select Date Range',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  format == ExportFormat.csv ? 'Export as CSV' : 'Export as PDF',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildExportOption(
+                  context,
+                  'All',
+                  'Export all recorded rounds',
+                  Icons.calendar_view_month,
+                  primaryColor,
+                  isDark,
+                  () => _exportRounds(context, ExportRange.all, format),
+                ),
+                const SizedBox(height: 12),
+                _buildExportOption(
+                  context,
+                  'Last Month',
+                  DateFormat('MMMM yyyy').format(DateTime.now().subtract(const Duration(days: 30))),
+                  Icons.calendar_month,
+                  primaryColor,
+                  isDark,
+                  () => _exportRounds(context, ExportRange.lastMonth, format),
+                ),
+                const SizedBox(height: 12),
+                _buildExportOption(
+                  context,
+                  'Last Quarter',
+                  'Last 3 months',
+                  Icons.view_quilt,
+                  primaryColor,
+                  isDark,
+                  () => _exportRounds(context, ExportRange.lastQuarter, format),
+                ),
+                const SizedBox(height: 12),
+                _buildExportOption(
+                  context,
+                  'Last 6 Months',
+                  'Last 6 months',
+                  Icons.date_range,
+                  primaryColor,
+                  isDark,
+                  () => _exportRounds(context, ExportRange.last6Months, format),
+                ),
+                const SizedBox(height: 12),
+                _buildExportOption(
+                  context,
+                  'Custom Range',
+                  'Select start and end dates',
+                  Icons.edit_calendar,
+                  primaryColor,
+                  isDark,
+                  () {
+                    Navigator.pop(context);
+                    _showCustomDateRangeDialog(context, format);
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExportOption(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color primaryColor,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: primaryColor, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: isDark ? Colors.grey[500] : Colors.grey[400],
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Custom date range dialog
+  void _showCustomDateRangeDialog(BuildContext context, ExportFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+
+    DateTime? startDate;
+    DateTime? endDate;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.date_range, color: primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('Custom Date Range'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Start Date
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: startDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          startDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, color: primaryColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Start Date',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  startDate != null
+                                      ? DateFormat('dd/MM/yyyy').format(startDate!)
+                                      : 'Select date',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: startDate != null
+                                        ? (isDark ? Colors.white : Colors.black)
+                                        : (isDark ? Colors.grey[500] : Colors.grey[500]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // End Date
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: endDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          endDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, color: primaryColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'End Date',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  endDate != null
+                                      ? DateFormat('dd/MM/yyyy').format(endDate!)
+                                      : 'Select date',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: endDate != null
+                                        ? (isDark ? Colors.white : Colors.black)
+                                        : (isDark ? Colors.grey[500] : Colors.grey[500]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: (startDate != null && endDate != null)
+                      ? () {
+                          Navigator.pop(context);
+                          _exportRounds(
+                            context,
+                            ExportRange.custom,
+                            format,
+                            customStart: startDate,
+                            customEnd: endDate,
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Export'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Export rounds to CSV or PDF
+  Future<void> _exportRounds(
+    BuildContext context,
+    ExportRange range,
+    ExportFormat format, {
+    DateTime? customStart,
+    DateTime? customEnd,
+  }) async {
+    final box = Hive.box<RoundsCounterEntry>('rounds_counter');
+    final allEntries = box.values.toList();
+    final now = DateTime.now();
+    late List<RoundsCounterEntry> filteredEntries;
+    late String periodLabel;
+
+    switch (range) {
+      case ExportRange.all:
+        filteredEntries = allEntries;
+        periodLabel = 'All Time';
+        break;
+      case ExportRange.lastMonth:
+        final lastMonth = DateTime(now.year, now.month - 1, now.day);
+        filteredEntries = allEntries.where((e) => e.date.isAfter(lastMonth)).toList();
+        periodLabel = 'Last Month';
+        break;
+      case ExportRange.lastQuarter:
+        final lastQuarter = now.subtract(const Duration(days: 90));
+        filteredEntries = allEntries.where((e) => e.date.isAfter(lastQuarter)).toList();
+        periodLabel = 'Last Quarter';
+        break;
+      case ExportRange.last6Months:
+        final last6Months = now.subtract(const Duration(days: 180));
+        filteredEntries = allEntries.where((e) => e.date.isAfter(last6Months)).toList();
+        periodLabel = 'Last 6 Months';
+        break;
+      case ExportRange.custom:
+        if (customStart != null && customEnd != null) {
+          final start = DateTime(customStart.year, customStart.month, customStart.day);
+          final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+          filteredEntries = allEntries.where((e) {
+            return e.date.isAtSameMomentAs(start) ||
+                   e.date.isAtSameMomentAs(end) ||
+                   (e.date.isAfter(start) && e.date.isBefore(end));
+          }).toList();
+          periodLabel = '${DateFormat('dd/MM/yyyy').format(customStart)} - ${DateFormat('dd/MM/yyyy').format(customEnd)}';
+        } else {
+          filteredEntries = [];
+          periodLabel = 'Custom Range';
+        }
+        break;
+    }
+
+    if (filteredEntries.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No data to export for the selected period'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Sort by date descending
+    filteredEntries.sort((a, b) => b.date.compareTo(a.date));
+
+    try {
+      if (format == ExportFormat.csv) {
+        await _exportToCSV(filteredEntries, periodLabel, context);
+      } else {
+        await _exportToPDF(filteredEntries, periodLabel, context);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Export to CSV
+  Future<void> _exportToCSV(
+    List<RoundsCounterEntry> entries,
+    String periodLabel,
+    BuildContext context,
+  ) async {
+    final grouped = _groupEntriesByMonth(entries);
+    final grandTotal = entries.fold<int>(0, (sum, e) => sum + e.rounds);
+
+    final csv = StringBuffer();
+    csv.writeln('Date,Rounds,Reason,Event,Notes');
+    
+    for (final entry in entries) {
+      final dateStr = DateFormat('dd/MM/yyyy').format(entry.date);
+      final roundsStr = entry.rounds.toString();
+      final reasonStr = '"${entry.reason.replaceAll('"', '""')}"';
+      final eventStr = '"${(entry.event ?? '').replaceAll('"', '""')}"';
+      final notesStr = '"${(entry.notes ?? '').replaceAll('"', '""')}"';
+      csv.writeln('$dateStr,$roundsStr,$reasonStr,$eventStr,$notesStr');
+    }
+    
+    csv.writeln();
+    csv.writeln('MONTHLY TOTALS');
+    csv.writeln('Month,Total Rounds');
+    for (final group in grouped) {
+      final monthYear = group['monthYear'] as String;
+      final total = group['total'] as int;
+      csv.writeln('"$monthYear",$total');
+    }
+    
+    csv.writeln();
+    csv.writeln('GRAND TOTAL,$grandTotal');
+    csv.writeln();
+    csv.writeln('Export Period,$periodLabel');
+    csv.writeln('Export Date,${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+
+    final tempDir = await getTemporaryDirectory();
+    final fileName = 'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsString(csv.toString());
+
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      subject: 'Rounds Export - $periodLabel',
+      text: 'Rounds export for $periodLabel',
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CSV exported successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // Export to PDF
+  Future<void> _exportToPDF(
+    List<RoundsCounterEntry> entries,
+    String periodLabel,
+    BuildContext context,
+  ) async {
+    final grouped = _groupEntriesByMonth(entries);
+    final grandTotal = entries.fold<int>(0, (sum, e) => sum + e.rounds);
+
+    final pdf = pw.Document();
+    final exportDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Rounds Export Report',
+                        style: pw.TextStyle(
+                          fontSize: 24,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Period: $periodLabel',
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.blue100,
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Text(
+                      'Total: $grandTotal rounds',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                'Detailed Entries by Month',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              // Monthly sections with entries
+              ...grouped.expand((group) {
+                final monthYear = group['monthYear'] as String;
+                final monthEntries = group['entries'] as List<RoundsCounterEntry>;
+                final monthlyTotal = group['total'] as int;
+
+                return [
+                  // Month header with total
+                  pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.blue50,
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          monthYear,
+                          style: pw.TextStyle(
+                            fontSize: 13,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blue800,
+                          ),
+                        ),
+                        pw.Text(
+                          'Subtotal: $monthlyTotal rounds',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blue800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  // Entries table for this month
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(2), // Date
+                      1: const pw.FlexColumnWidth(1.5), // Rounds
+                      2: const pw.FlexColumnWidth(3), // Reason
+                      3: const pw.FlexColumnWidth(3), // Event
+                      4: const pw.FlexColumnWidth(3), // Notes
+                    },
+                    children: [
+                      // Table Header
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                        children: [
+                          _buildPdfHeaderCell('Date'),
+                          _buildPdfHeaderCell('Rounds'),
+                          _buildPdfHeaderCell('Reason'),
+                          _buildPdfHeaderCell('Event / Practice'),
+                          _buildPdfHeaderCell('Notes'),
+                        ],
+                      ),
+                      // Data Rows
+                      ...monthEntries.map((entry) => pw.TableRow(
+                        children: [
+                          _buildPdfCell(DateFormat('dd/MM/yyyy').format(entry.date)),
+                          _buildPdfCell(entry.rounds.toString(), isNumber: true),
+                          _buildPdfCell(entry.reason),
+                          _buildPdfCell(entry.event ?? ''),
+                          _buildPdfCell(entry.notes ?? ''),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 16),
+                ];
+              }),
+
+              pw.SizedBox(height: 20),
+
+              // Grand Total
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.blue700,
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'GRAND TOTAL',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                    pw.Text(
+                      '$grandTotal rounds',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.Spacer(),
+
+              // Footer
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  'Exported: $exportDate',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey500,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    final tempDir = await getTemporaryDirectory();
+    final fileName = 'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(await pdf.save());
+
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      subject: 'Rounds Export - $periodLabel',
+      text: 'Rounds export PDF for $periodLabel',
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF exported successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  pw.Widget _buildPdfHeaderCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontWeight: pw.FontWeight.bold,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfCell(String text, {bool isNumber = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 9,
+        ),
+        textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+      ),
+    );
+  }
+}
+
+enum ExportFormat {
+  csv,
+  pdf,
+}
+
+enum ExportRange {
+  all,
+  lastMonth,
+  lastQuarter,
+  last6Months,
+  custom,
 }
 
 // Separate screen for manual entry
