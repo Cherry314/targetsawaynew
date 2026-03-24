@@ -1,20 +1,28 @@
-// lib/screens/score_detail_screen.dart
-
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import '../models/score_entry.dart';
+
+import '../data/dropdown_values.dart';
+import '../main.dart';
 import '../models/hive/event.dart';
 import '../models/hive/firearm.dart';
-import '../data/dropdown_values.dart';
+import '../models/score_entry.dart';
 import '../utils/date_utils.dart';
-import '../main.dart';
 
-/// Reusable screen that displays detailed information about a score entry
-/// including score breakdown, target image, and all metadata
-class ScoreDetailScreen extends StatelessWidget {
+class _TargetViewData {
+  final Map<int, int> breakdown;
+  final String? imagePath;
+
+  const _TargetViewData({
+    required this.breakdown,
+    this.imagePath,
+  });
+}
+
+class ScoreDetailScreen extends StatefulWidget {
   final ScoreEntry entry;
 
   const ScoreDetailScreen({
@@ -22,14 +30,20 @@ class ScoreDetailScreen extends StatelessWidget {
     required this.entry,
   });
 
-  /// Get max score for an entry based on practice/event and firearm
-  int? _getMaxScoreForEntry(ScoreEntry entry) {
+  @override
+  State<ScoreDetailScreen> createState() => _ScoreDetailScreenState();
+}
+
+class _ScoreDetailScreenState extends State<ScoreDetailScreen> {
+  int _currentTargetIndex = 0;
+
+  ScoreEntry get entry => widget.entry;
+
+  int? _getMaxScoreForEntry() {
     try {
       if (!Hive.isBoxOpen('events')) return null;
-      
+
       final eventBox = Hive.box<Event>('events');
-      
-      // Find the event by matching the practice name
       Event? matchedEvent;
       for (final event in eventBox.values) {
         if (event.name == entry.practice) {
@@ -37,35 +51,30 @@ class ScoreDetailScreen extends StatelessWidget {
           break;
         }
       }
-      
+
       if (matchedEvent == null) return null;
 
-      // Get the firearm ID from the code
       final firearmId = DropdownValues.getFirearmIdByCode(entry.firearmId);
       if (firearmId == null) return null;
 
-      // Create a Firearm object
       final firearm = Firearm(
         id: firearmId,
         code: entry.firearmId,
         gunType: '',
       );
 
-      // Get the content for this firearm
       final content = matchedEvent.getContentForFirearm(firearm);
       return content.courseOfFire.maxScore;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  /// Get total rounds for an entry
-  int? _getTotalRoundsForEntry(ScoreEntry entry) {
+  int? _getTotalRoundsForEntry() {
     try {
       if (!Hive.isBoxOpen('events')) return null;
-      
+
       final eventBox = Hive.box<Event>('events');
-      
       Event? matchedEvent;
       for (final event in eventBox.values) {
         if (event.name == entry.practice) {
@@ -73,7 +82,7 @@ class ScoreDetailScreen extends StatelessWidget {
           break;
         }
       }
-      
+
       if (matchedEvent == null) return null;
 
       final firearmId = DropdownValues.getFirearmIdByCode(entry.firearmId);
@@ -87,16 +96,97 @@ class ScoreDetailScreen extends StatelessWidget {
 
       final content = matchedEvent.getContentForFirearm(firearm);
       return content.courseOfFire.totalRounds;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  bool _hasScoreBreakdown(ScoreEntry entry) {
-    return entry.score10 != null || entry.score9 != null || entry.score8 != null ||
-        entry.score7 != null || entry.score6 != null || entry.score5 != null ||
-        entry.score4 != null || entry.score3 != null || entry.score2 != null ||
-        entry.score1 != null || entry.score0 != null;
+  int _targetsScoredCount() {
+    final listCounts = [
+      entry.scoreBasics?.length ?? 0,
+      entry.targetFilePaths?.length ?? 0,
+      entry.score10s?.length ?? 0,
+      entry.score9s?.length ?? 0,
+      entry.score8s?.length ?? 0,
+      entry.score7s?.length ?? 0,
+      entry.score6s?.length ?? 0,
+      entry.score5s?.length ?? 0,
+      entry.score4s?.length ?? 0,
+      entry.score3s?.length ?? 0,
+      entry.score2s?.length ?? 0,
+      entry.score1s?.length ?? 0,
+      entry.score0s?.length ?? 0,
+    ];
+
+    int maxCount = listCounts.fold<int>(0, (max, count) => count > max ? count : max);
+
+    if (maxCount == 0) {
+      final hasLegacy = (entry.score10 ?? 0) > 0 ||
+          (entry.score9 ?? 0) > 0 ||
+          (entry.score8 ?? 0) > 0 ||
+          (entry.score7 ?? 0) > 0 ||
+          (entry.score6 ?? 0) > 0 ||
+          (entry.score5 ?? 0) > 0 ||
+          (entry.score4 ?? 0) > 0 ||
+          (entry.score3 ?? 0) > 0 ||
+          (entry.score2 ?? 0) > 0 ||
+          (entry.score1 ?? 0) > 0 ||
+          (entry.score0 ?? 0) > 0 ||
+          entry.targetFilePath != null;
+      if (hasLegacy) maxCount = 1;
+    }
+
+    return maxCount;
+  }
+
+  List<_TargetViewData> _buildTargetViews() {
+    final count = _targetsScoredCount();
+    if (count == 0) return const [];
+
+    final result = <_TargetViewData>[];
+
+    for (int i = 0; i < count; i++) {
+      final breakdown = <int, int>{
+        10: entry.score10s != null && i < entry.score10s!.length ? (entry.score10s![i]) : (i == 0 ? (entry.score10 ?? 0) : 0),
+        9: entry.score9s != null && i < entry.score9s!.length ? (entry.score9s![i]) : (i == 0 ? (entry.score9 ?? 0) : 0),
+        8: entry.score8s != null && i < entry.score8s!.length ? (entry.score8s![i]) : (i == 0 ? (entry.score8 ?? 0) : 0),
+        7: entry.score7s != null && i < entry.score7s!.length ? (entry.score7s![i]) : (i == 0 ? (entry.score7 ?? 0) : 0),
+        6: entry.score6s != null && i < entry.score6s!.length ? (entry.score6s![i]) : (i == 0 ? (entry.score6 ?? 0) : 0),
+        5: entry.score5s != null && i < entry.score5s!.length ? (entry.score5s![i]) : (i == 0 ? (entry.score5 ?? 0) : 0),
+        4: entry.score4s != null && i < entry.score4s!.length ? (entry.score4s![i]) : (i == 0 ? (entry.score4 ?? 0) : 0),
+        3: entry.score3s != null && i < entry.score3s!.length ? (entry.score3s![i]) : (i == 0 ? (entry.score3 ?? 0) : 0),
+        2: entry.score2s != null && i < entry.score2s!.length ? (entry.score2s![i]) : (i == 0 ? (entry.score2 ?? 0) : 0),
+        1: entry.score1s != null && i < entry.score1s!.length ? (entry.score1s![i]) : (i == 0 ? (entry.score1 ?? 0) : 0),
+        0: entry.score0s != null && i < entry.score0s!.length ? (entry.score0s![i]) : (i == 0 ? (entry.score0 ?? 0) : 0),
+      };
+
+      String? imagePath;
+      if (entry.targetFilePaths != null && i < entry.targetFilePaths!.length) {
+        final path = entry.targetFilePaths![i];
+        imagePath = path.isEmpty ? null : path;
+      } else if (i == 0) {
+        imagePath = entry.targetFilePath;
+      }
+
+      result.add(_TargetViewData(
+        breakdown: breakdown,
+        imagePath: imagePath,
+      ));
+    }
+
+    return result;
+  }
+
+  int? _getRoundsUsed() {
+    final targetViews = _buildTargetViews();
+    if (targetViews.isNotEmpty) {
+      int total = 0;
+      for (final view in targetViews) {
+        total += view.breakdown.values.fold<int>(0, (sum, v) => sum + v);
+      }
+      return total > 0 ? total : null;
+    }
+    return null;
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value, Color primaryColor, bool isDark) {
@@ -105,7 +195,7 @@ class ScoreDetailScreen extends StatelessWidget {
         Icon(icon, size: 18, color: primaryColor.withValues(alpha: 0.7)),
         const SizedBox(width: 12),
         SizedBox(
-          width: 100,
+          width: 110,
           child: Text(
             label,
             style: TextStyle(
@@ -128,92 +218,6 @@ class ScoreDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildScoreBreakdownTable(ScoreEntry entry, Color primaryColor, bool isDark) {
-    // Build list of scores that have hits
-    final List<Map<String, dynamic>> scoreData = [];
-    
-    // Add scores in descending order (10 to 0)
-    if (entry.score10 != null && entry.score10! > 0) {
-      scoreData.add({'score': 10, 'hits': entry.score10!});
-    }
-    if (entry.score9 != null && entry.score9! > 0) {
-      scoreData.add({'score': 9, 'hits': entry.score9!});
-    }
-    if (entry.score8 != null && entry.score8! > 0) {
-      scoreData.add({'score': 8, 'hits': entry.score8!});
-    }
-    if (entry.score7 != null && entry.score7! > 0) {
-      scoreData.add({'score': 7, 'hits': entry.score7!});
-    }
-    if (entry.score6 != null && entry.score6! > 0) {
-      scoreData.add({'score': 6, 'hits': entry.score6!});
-    }
-    if (entry.score5 != null && entry.score5! > 0) {
-      scoreData.add({'score': 5, 'hits': entry.score5!});
-    }
-    if (entry.score4 != null && entry.score4! > 0) {
-      scoreData.add({'score': 4, 'hits': entry.score4!});
-    }
-    if (entry.score3 != null && entry.score3! > 0) {
-      scoreData.add({'score': 3, 'hits': entry.score3!});
-    }
-    if (entry.score2 != null && entry.score2! > 0) {
-      scoreData.add({'score': 2, 'hits': entry.score2!});
-    }
-    if (entry.score1 != null && entry.score1! > 0) {
-      scoreData.add({'score': 1, 'hits': entry.score1!});
-    }
-    if (entry.score0 != null && entry.score0! > 0) {
-      scoreData.add({'score': 0, 'hits': entry.score0!});
-    }
-
-    if (scoreData.isEmpty) {
-      return const Text('No score breakdown available');
-    }
-
-    // Calculate total hits for percentage
-    final totalHits = scoreData.fold<int>(0, (sum, item) => sum + (item['hits'] as int));
-
-    return Table(
-      border: TableBorder.all(
-        color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(1.5),
-        2: FlexColumnWidth(1.5),
-      },
-      children: [
-        // Header row
-        TableRow(
-          decoration: BoxDecoration(
-            color: primaryColor.withValues(alpha: 0.1),
-          ),
-          children: [
-            _buildTableCell('Score', isHeader: true, isDark: isDark),
-            _buildTableCell('Hits', isHeader: true, isDark: isDark),
-            _buildTableCell('Percentage', isHeader: true, isDark: isDark),
-          ],
-        ),
-        // Data rows
-        ...scoreData.map((data) {
-          final score = data['score'] as int;
-          final hits = data['hits'] as int;
-          final percentage = ((hits / totalHits) * 100).toStringAsFixed(1);
-          
-          return TableRow(
-            children: [
-              _buildTableCell(score.toString(), isDark: isDark, primaryColor: primaryColor),
-              _buildTableCell(hits.toString(), isDark: isDark),
-              _buildTableCell('$percentage%', isDark: isDark),
-            ],
-          );
-        }).toList(),
-      ],
-    );
-  }
-
   Widget _buildTableCell(String text, {bool isHeader = false, bool isDark = false, Color? primaryColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -229,31 +233,118 @@ class ScoreDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildScoreBreakdownTable(
+    Map<int, int> breakdown,
+    Color primaryColor,
+    bool isDark, {
+    String scoreHeader = 'Score',
+    String percentageHeader = 'Percentage',
+  }) {
+    final scoreData = <Map<String, int>>[];
+    for (int score = 10; score >= 0; score--) {
+      final hits = breakdown[score] ?? 0;
+      if (hits > 0) {
+        scoreData.add({'score': score, 'hits': hits});
+      }
+    }
+
+    if (scoreData.isEmpty) {
+      return const Text('No score breakdown available');
+    }
+
+    final totalHits = scoreData.fold<int>(0, (sum, item) => sum + (item['hits'] ?? 0));
+
+    return Table(
+      border: TableBorder.all(
+        color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(1),
+        1: FlexColumnWidth(1.5),
+        2: FlexColumnWidth(1.5),
+      },
+      children: [
+        TableRow(
+          decoration: BoxDecoration(
+            color: primaryColor.withValues(alpha: 0.1),
+          ),
+          children: [
+            _buildTableCell(scoreHeader, isHeader: true, isDark: isDark),
+            _buildTableCell('Hits', isHeader: true, isDark: isDark),
+            _buildTableCell(percentageHeader, isHeader: true, isDark: isDark),
+          ],
+        ),
+        ...scoreData.map((data) {
+          final score = data['score'] ?? 0;
+          final hits = data['hits'] ?? 0;
+          final percentage = ((hits / totalHits) * 100).toStringAsFixed(1);
+          return TableRow(
+            children: [
+              _buildTableCell(score.toString(), isDark: isDark, primaryColor: primaryColor),
+              _buildTableCell(hits.toString(), isDark: isDark),
+              _buildTableCell('$percentage%', isDark: isDark),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  void _showCombinedDialog(BuildContext context, List<_TargetViewData> targets, Color primaryColor, bool isDark) {
+    final combined = <int, int>{for (int s = 0; s <= 10; s++) s: 0};
+    for (final target in targets) {
+      for (int s = 0; s <= 10; s++) {
+        combined[s] = (combined[s] ?? 0) + (target.breakdown[s] ?? 0);
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Combined Breakdown'),
+        content: SingleChildScrollView(
+          child: _buildScoreBreakdownTable(
+            combined,
+            primaryColor,
+            isDark,
+            scoreHeader: 'Text',
+            percentageHeader: '%',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final maxScore = _getMaxScoreForEntry(entry);
-    final totalRounds = _getTotalRoundsForEntry(entry);
 
-    // Calculate total rounds from score breakdown
-    int? roundsUsed;
-    if (entry.score10 != null || entry.score9 != null || entry.score8 != null ||
-        entry.score7 != null || entry.score6 != null || entry.score5 != null ||
-        entry.score4 != null || entry.score3 != null || entry.score2 != null ||
-        entry.score1 != null || entry.score0 != null) {
-      roundsUsed = (entry.score10 ?? 0) + (entry.score9 ?? 0) + (entry.score8 ?? 0) +
-          (entry.score7 ?? 0) + (entry.score6 ?? 0) + (entry.score5 ?? 0) +
-          (entry.score4 ?? 0) + (entry.score3 ?? 0) + (entry.score2 ?? 0) +
-          (entry.score1 ?? 0) + (entry.score0 ?? 0);
-    }
+    final maxScore = _getMaxScoreForEntry();
+    final totalRounds = _getTotalRoundsForEntry();
+    final roundsUsed = _getRoundsUsed();
+    final targetViews = _buildTargetViews();
 
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
       appBar: AppBar(
-        title: Text(formatUKDate(entry.date)),
         elevation: 0,
+        title: Text(
+          formatUKDate(entry.date),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        centerTitle: true,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -270,7 +361,6 @@ class ScoreDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Score Card
               Container(
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(20),
@@ -305,10 +395,7 @@ class ScoreDetailScreen extends StatelessWidget {
                             children: [
                               const Text(
                                 'Score',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(height: 4),
                               Row(
@@ -316,13 +403,9 @@ class ScoreDetailScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     entry.score.toString(),
-                                    style: TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                    ),
+                                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: primaryColor),
                                   ),
-                                  if (maxScore != null) ...[
+                                  if (maxScore != null)
                                     Padding(
                                       padding: const EdgeInsets.only(left: 8, bottom: 6),
                                       child: Text(
@@ -334,7 +417,6 @@ class ScoreDetailScreen extends StatelessWidget {
                                         ),
                                       ),
                                     ),
-                                  ],
                                 ],
                               ),
                             ],
@@ -346,27 +428,14 @@ class ScoreDetailScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: primaryColor.withValues(alpha: 0.3),
-                              ),
+                              border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                             ),
                             child: Column(
                               children: [
-                                Text(
-                                  'X',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: primaryColor,
-                                  ),
-                                ),
+                                Text('X', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor)),
                                 Text(
                                   entry.x.toString(),
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: primaryColor,
-                                  ),
+                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
                                 ),
                               ],
                             ),
@@ -381,6 +450,8 @@ class ScoreDetailScreen extends StatelessWidget {
                     _buildInfoRow(Icons.straighten, 'Calibre', entry.caliber, primaryColor, isDark),
                     const SizedBox(height: 12),
                     _buildInfoRow(Icons.tag, 'Firearm ID', entry.firearmId, primaryColor, isDark),
+                    const SizedBox(height: 12),
+                    _buildInfoRow(Icons.layers, 'Targets', targetViews.length.toString(), primaryColor, isDark),
                     if (entry.firearm != null && entry.firearm!.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       _buildInfoRow(FontAwesomeIcons.gun, 'Firearm', entry.firearm!, primaryColor, isDark),
@@ -397,35 +468,11 @@ class ScoreDetailScreen extends StatelessWidget {
                         isDark,
                       ),
                     ],
-                    if (entry.notes != null && entry.notes!.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Icon(Icons.note, color: primaryColor, size: 20),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Notes',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        entry.notes!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ],
                   ],
                 ),
               ),
 
-              // Score Breakdown Table (if available)
-              if (_hasScoreBreakdown(entry))
+              if (targetViews.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   padding: const EdgeInsets.all(20),
@@ -447,47 +494,79 @@ class ScoreDetailScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.table_chart, color: primaryColor, size: 20),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Score Breakdown',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              'Target ${_currentTargetIndex + 1}',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => _showCombinedDialog(context, targetViews, primaryColor, isDark),
+                            child: const Text(
+                              'Show\ncombined',
+                              textAlign: TextAlign.right,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      _buildScoreBreakdownTable(entry, primaryColor, isDark),
-                    ],
-                  ),
-                ),
-
-              // Target Image (if available)
-              if (entry.targetFilePath != null && File(entry.targetFilePath!).existsSync())
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[850] : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 460,
+                        child: PageView.builder(
+                          itemCount: targetViews.length,
+                          onPageChanged: (index) => setState(() => _currentTargetIndex = index),
+                          itemBuilder: (context, index) {
+                            final target = targetViews[index];
+                            final hasImage = target.imagePath != null && File(target.imagePath!).existsSync();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildScoreBreakdownTable(target.breakdown, primaryColor, isDark),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  child: hasImage
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: InteractiveViewer(
+                                            panEnabled: true,
+                                            minScale: 1.0,
+                                            maxScale: 5.0,
+                                            child: Image.file(
+                                              File(target.imagePath!),
+                                              width: double.infinity,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(12),
+                                            color: isDark ? Colors.grey[800] : Colors.grey[100],
+                                          ),
+                                          child: const Center(
+                                            child: Text('No target image available'),
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
+                      if (targetViews.length > 1) ...[
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Text(
+                            'Target ${_currentTargetIndex + 1} of ${targetViews.length}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: InteractiveViewer(
-                      panEnabled: true,
-                      minScale: 1.0,
-                      maxScale: 5.0,
-                      child: Image.file(
-                        File(entry.targetFilePath!),
-                        fit: BoxFit.contain,
-                      ),
-                    ),
                   ),
                 ),
             ],

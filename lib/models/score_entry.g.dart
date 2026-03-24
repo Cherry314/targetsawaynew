@@ -44,13 +44,31 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       score2: fields[24] as int?,
       score1: fields[25] as int?,
       score0: fields[26] as int?,
+      scoreBasic: fields[27] as int?,
+      targetFilePaths: (fields[28] as List?)?.cast<String>(),
+      thumbnailFilePaths: (fields[29] as List?)?.cast<String>(),
+      targetsCaptured: (fields[30] as List?)?.cast<bool>(),
+      xs: (fields[31] as List?)?.cast<int>(),
+      scoreXs: (fields[32] as List?)?.cast<int>(),
+      score10s: (fields[33] as List?)?.cast<int>(),
+      score9s: (fields[34] as List?)?.cast<int>(),
+      score8s: (fields[35] as List?)?.cast<int>(),
+      score7s: (fields[36] as List?)?.cast<int>(),
+      score6s: (fields[37] as List?)?.cast<int>(),
+      score5s: (fields[38] as List?)?.cast<int>(),
+      score4s: (fields[39] as List?)?.cast<int>(),
+      score3s: (fields[40] as List?)?.cast<int>(),
+      score2s: (fields[41] as List?)?.cast<int>(),
+      score1s: (fields[42] as List?)?.cast<int>(),
+      score0s: (fields[43] as List?)?.cast<int>(),
+      scoreBasics: (fields[44] as List?)?.cast<int>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, ScoreEntry obj) {
     writer
-      ..writeByte(27)
+      ..writeByte(45)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -104,7 +122,43 @@ class ScoreEntryAdapter extends TypeAdapter<ScoreEntry> {
       ..writeByte(25)
       ..write(obj.score1)
       ..writeByte(26)
-      ..write(obj.score0);
+      ..write(obj.score0)
+      ..writeByte(27)
+      ..write(obj.scoreBasic)
+      ..writeByte(28)
+      ..write(obj.targetFilePaths)
+      ..writeByte(29)
+      ..write(obj.thumbnailFilePaths)
+      ..writeByte(30)
+      ..write(obj.targetsCaptured)
+      ..writeByte(31)
+      ..write(obj.xs)
+      ..writeByte(32)
+      ..write(obj.scoreXs)
+      ..writeByte(33)
+      ..write(obj.score10s)
+      ..writeByte(34)
+      ..write(obj.score9s)
+      ..writeByte(35)
+      ..write(obj.score8s)
+      ..writeByte(36)
+      ..write(obj.score7s)
+      ..writeByte(37)
+      ..write(obj.score6s)
+      ..writeByte(38)
+      ..write(obj.score5s)
+      ..writeByte(39)
+      ..write(obj.score4s)
+      ..writeByte(40)
+      ..write(obj.score3s)
+      ..writeByte(41)
+      ..write(obj.score2s)
+      ..writeByte(42)
+      ..write(obj.score1s)
+      ..writeByte(43)
+      ..write(obj.score0s)
+      ..writeByte(44)
+      ..write(obj.scoreBasics);
   }
 
   @override

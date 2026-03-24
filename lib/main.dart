@@ -55,6 +55,7 @@ import 'models/hive/score_change_trigger.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/enter_score_screen.dart';
+import 'screens/event_scoring_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/profile_screen.dart';
@@ -416,12 +417,15 @@ class MyApp extends StatelessWidget {
             '/passcode_setup': (context) => const PasscodeSetupScreen(),
             '/app_unlock': (context) => const AppUnlockScreen(),
             '/home': (context) => const HomeScreen(),
-            '/enter_score': (context) =>
-                EnterScoreScreen(
-                  key: ValueKey('enter_score_${DateTime
-                      .now()
-                      .millisecondsSinceEpoch}'),
+            '/enter_score': (context) => EnterScoreScreen(
+                  key: ValueKey('enter_score_${DateTime.now().millisecondsSinceEpoch}'),
+                  scoringMode: false,
                 ),
+            '/basic_scoring': (context) => EnterScoreScreen(
+                  key: ValueKey('basic_scoring_${DateTime.now().millisecondsSinceEpoch}'),
+                  scoringMode: true,
+                ),
+            '/event_scoring': (context) => const EventScoringScreen(),
             '/history': (context) => const HistoryScreen(),
             '/progress': (context) => const ProgressScreen(),
             '/stats': (context) => const StatsScreen(),

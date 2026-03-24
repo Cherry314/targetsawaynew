@@ -110,7 +110,7 @@ class HistoryScreenState extends State<HistoryScreen> {
           appBar: AppBar(
         elevation: 0,
         title: const Text(
-          'Previous Targets',
+          'History',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -347,8 +347,24 @@ class HistoryScreenState extends State<HistoryScreen> {
                     final entry = entries[index];
                     final formattedDate = formatUKDate(entry.date);
 
+                    final multiTargetCount = entry.targetFilePaths
+                            ?.where((p) => p.isNotEmpty)
+                            .length ??
+                        0;
+                    final hasMultipleTargets = multiTargetCount > 1;
+
                     Widget leading;
-                    if (entry.thumbnailFilePath != null &&
+                    if (hasMultipleTargets) {
+                      leading = ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/multi.jpg',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      );
+                    } else if (entry.thumbnailFilePath != null &&
                         File(entry.thumbnailFilePath!).existsSync()) {
                       leading = ClipRRect(
                         borderRadius: BorderRadius.circular(8),

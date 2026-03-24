@@ -62,6 +62,47 @@ class ScoreEntry extends HiveObject {
   @HiveField(26)
   int? score0;
 
+  // Basic manually-entered total score (without zone breakdown)
+  @HiveField(27)
+  int? scoreBasic;
+
+  // Multi-target scoring breakdown (one entry per target)
+  @HiveField(28)
+  List<String>? targetFilePaths;
+  @HiveField(29)
+  List<String>? thumbnailFilePaths;
+  @HiveField(30)
+  List<bool>? targetsCaptured;
+  @HiveField(31)
+  List<int>? xs;
+  @HiveField(32)
+  List<int>? scoreXs;
+  @HiveField(33)
+  List<int>? score10s;
+  @HiveField(34)
+  List<int>? score9s;
+  @HiveField(35)
+  List<int>? score8s;
+  @HiveField(36)
+  List<int>? score7s;
+  @HiveField(37)
+  List<int>? score6s;
+  @HiveField(38)
+  List<int>? score5s;
+  @HiveField(39)
+  List<int>? score4s;
+  @HiveField(40)
+  List<int>? score3s;
+  @HiveField(41)
+  List<int>? score2s;
+  @HiveField(42)
+  List<int>? score1s;
+  @HiveField(43)
+  List<int>? score0s;
+
+  @HiveField(44)
+  List<int>? scoreBasics;
+
   ScoreEntry({
     required this.id,
     required this.date,
@@ -90,6 +131,24 @@ class ScoreEntry extends HiveObject {
     this.score2,
     this.score1,
     this.score0,
+    this.scoreBasic,
+    this.targetFilePaths,
+    this.thumbnailFilePaths,
+    this.targetsCaptured,
+    this.xs,
+    this.scoreXs,
+    this.score10s,
+    this.score9s,
+    this.score8s,
+    this.score7s,
+    this.score6s,
+    this.score5s,
+    this.score4s,
+    this.score3s,
+    this.score2s,
+    this.score1s,
+    this.score0s,
+    this.scoreBasics,
   });
 
   /// Convert to JSON
@@ -121,6 +180,24 @@ class ScoreEntry extends HiveObject {
     'score2': score2,
     'score1': score1,
     'score0': score0,
+    'scoreBasic': scoreBasic,
+    'targetFilePaths': targetFilePaths,
+    'thumbnailFilePaths': thumbnailFilePaths,
+    'targetsCaptured': targetsCaptured,
+    'xs': xs,
+    'scoreXs': scoreXs,
+    'score10s': score10s,
+    'score9s': score9s,
+    'score8s': score8s,
+    'score7s': score7s,
+    'score6s': score6s,
+    'score5s': score5s,
+    'score4s': score4s,
+    'score3s': score3s,
+    'score2s': score2s,
+    'score1s': score1s,
+    'score0s': score0s,
+    'scoreBasics': scoreBasics,
   };
 
   /// Create from JSON
@@ -152,5 +229,23 @@ class ScoreEntry extends HiveObject {
     score2: json['score2'],
     score1: json['score1'],
     score0: json['score0'],
+    scoreBasic: json['scoreBasic'],
+    targetFilePaths: (json['targetFilePaths'] as List?)?.cast<String>(),
+    thumbnailFilePaths: (json['thumbnailFilePaths'] as List?)?.cast<String>(),
+    targetsCaptured: (json['targetsCaptured'] as List?)?.cast<bool>(),
+    xs: (json['xs'] as List?)?.cast<int>(),
+    scoreXs: (json['scoreXs'] as List?)?.cast<int>(),
+    score10s: (json['score10s'] as List?)?.cast<int>(),
+    score9s: (json['score9s'] as List?)?.cast<int>(),
+    score8s: (json['score8s'] as List?)?.cast<int>(),
+    score7s: (json['score7s'] as List?)?.cast<int>(),
+    score6s: (json['score6s'] as List?)?.cast<int>(),
+    score5s: (json['score5s'] as List?)?.cast<int>(),
+    score4s: (json['score4s'] as List?)?.cast<int>(),
+    score3s: (json['score3s'] as List?)?.cast<int>(),
+    score2s: (json['score2s'] as List?)?.cast<int>(),
+    score1s: (json['score1s'] as List?)?.cast<int>(),
+    score0s: (json['score0s'] as List?)?.cast<int>(),
+    scoreBasics: (json['scoreBasics'] as List?)?.cast<int>(),
   );
 }

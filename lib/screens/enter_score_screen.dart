@@ -14,6 +14,7 @@ import '../models/firearm_entry.dart';
 import '../models/rounds_counter_entry.dart';
 import '../models/hive/event.dart';
 import '../models/hive/firearm.dart';
+import '../models/hive/practice.dart';
 import '../data/dropdown_values.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
@@ -26,15 +27,30 @@ import 'methods/firearm_selection_dialog.dart';
 import 'methods/caliber_selection_dialog.dart';
 import 'methods/event_details_dialog.dart';
 import 'methods/score_calculator_dialog.dart';
+import 'event_scoring_screen.dart';
 
 class EnterScoreScreen extends StatefulWidget {
   final ScoreEntry? editEntry;
   final bool openedFromCalendar;
+  final bool scoringMode;
+  final bool eventScoringMode;
+  final DateTime? initialDate;
+  final String? initialPractice;
+  final String? initialCaliber;
+  final String? initialFirearmId;
+  final String? initialFirearm;
 
   const EnterScoreScreen({
     super.key,
     this.editEntry,
     this.openedFromCalendar = false,
+    this.scoringMode = false,
+    this.eventScoringMode = false,
+    this.initialDate,
+    this.initialPractice,
+    this.initialCaliber,
+    this.initialFirearmId,
+    this.initialFirearm,
   });
 
   @override
@@ -66,6 +82,14 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
   // Score breakdown storage (from calculator)
   Map<int, int>? _scoreBreakdown;
 
+  // Event scoring per-target storage
+  final List<int?> _targetScores = [];
+  final List<int?> _targetXCounts = [];
+  final List<Map<int, int>?> _targetBreakdowns = [];
+  final List<int?> _targetBasicScores = [];
+  final List<File?> _targetImages = [];
+  final List<File?> _targetThumbnails = [];
+
   // Cache the practice items at state level to prevent recreation on every build
   List<DropdownMenuItem<String>> _cachedPracticeItems = [];
   String _cachedPracticeListHash = '';
@@ -83,6 +107,24 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   Future<void> _initializeScreen() async {
     await _loadLastSelections();
+
+    if (widget.scoringMode) {
+      setState(() {
+        if (widget.initialDate != null) selectedDate = widget.initialDate!;
+        if (widget.initialPractice != null && widget.initialPractice!.isNotEmpty) {
+          selectedPractice = widget.initialPractice;
+        }
+        if (widget.initialCaliber != null && widget.initialCaliber!.isNotEmpty) {
+          selectedCaliber = widget.initialCaliber;
+        }
+        if (widget.initialFirearmId != null && widget.initialFirearmId!.isNotEmpty) {
+          selectedFirearmId = widget.initialFirearmId;
+        }
+        if (widget.initialFirearm != null && widget.initialFirearm!.isNotEmpty) {
+          firearmController.text = widget.initialFirearm!;
+        }
+      });
+    }
 
     if (widget.editEntry != null && !widget.openedFromCalendar) {
       // Only populate fields if it's a real edit entry (not from calendar)
@@ -243,6 +285,12 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
       
       // Clear score breakdown
       _scoreBreakdown = null;
+      _targetScores.clear();
+      _targetXCounts.clear();
+      _targetBreakdowns.clear();
+      _targetBasicScores.clear();
+      _targetImages.clear();
+      _targetThumbnails.clear();
 
       // Reset date to today
       selectedDate = DateTime.now();
@@ -285,14 +333,116 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     }
   }
 
-  void _confirmSaveEntry() async {
-    final scoreValid = scoreController.text.isNotEmpty &&
-        int.tryParse(scoreController.text) != null;
+  void _ensureTargetSlots(int count) {
+    while (_targetScores.length < count) {
+      _targetScores.add(null);
+      _targetXCounts.add(null);
+      _targetBreakdowns.add(null);
+      _targetBasicScores.add(null);
+      _targetImages.add(null);
+      _targetThumbnails.add(null);
+    }
 
-    if (!scoreValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please enter a valid score")));
-      return;
+    if (_targetScores.length > count) {
+      _targetScores.removeRange(count, _targetScores.length);
+      _targetXCounts.removeRange(count, _targetXCounts.length);
+      _targetBreakdowns.removeRange(count, _targetBreakdowns.length);
+      _targetBasicScores.removeRange(count, _targetBasicScores.length);
+      _targetImages.removeRange(count, _targetImages.length);
+      _targetThumbnails.removeRange(count, _targetThumbnails.length);
+    }
+  }
+
+  Future<void> _pickImageForTarget(int index) async {
+    final imageQualityProvider = Provider.of<ImageQualityProvider>(
+        context, listen: false);
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: imageQualityProvider.qualityPercentage,
+    );
+
+    if (pickedFile != null) {
+      final fullFile = File(pickedFile.path);
+      final thumbFile = await _generateThumbnail(fullFile);
+
+      setState(() {
+        _targetImages[index] = fullFile;
+        _targetThumbnails[index] = thumbFile;
+      });
+    }
+  }
+
+  Future<void> _openScoreCalculatorForTarget(int index) async {
+    final calcTotalRounds = _getTotalRoundsForTarget(index);
+    final result = await showScoreCalculatorDialog(
+      context: context,
+      totalRounds: calcTotalRounds,
+      selectedPractice: selectedPractice,
+      selectedFirearmId: selectedFirearmId,
+    );
+
+    if (result != null) {
+      setState(() {
+        _targetScores[index] = result.score;
+        _targetXCounts[index] = result.xCount > 0 ? result.xCount : 0;
+        _targetBreakdowns[index] = result.scoreCounts;
+        _targetBasicScores[index] = null;
+      });
+    }
+  }
+
+  Future<void> _openBasicScoreForTarget(int index, Color primaryColor) async {
+    final targetRounds = _getTotalRoundsForTarget(index);
+    final maxScoreForTarget = targetRounds != null ? targetRounds * 10 : null;
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        return _BasicScoreDialogContent(
+          primaryColor: primaryColor,
+          initialScore: _targetScores[index]?.toString() ?? '',
+          initialXCount: _targetXCounts[index]?.toString() ?? '',
+          maxScore: maxScoreForTarget,
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        final parsedScore = int.tryParse(result['score'] ?? '');
+        final parsedX = int.tryParse(result['xCount'] ?? '');
+        _targetScores[index] = parsedScore;
+        _targetXCounts[index] = parsedX;
+        _targetBreakdowns[index] = null;
+        _targetBasicScores[index] = parsedScore;
+      });
+    }
+  }
+
+  void _confirmSaveEntry() async {
+    final isEventScoring = widget.eventScoringMode;
+
+    if (isEventScoring) {
+      final expectedTargets = _getRequiredTargetCountForSelectedEvent() ?? 1;
+      _ensureTargetSlots(expectedTargets);
+      final hasMissingTargetScores = _targetScores.take(expectedTargets).any((score) => score == null);
+      if (hasMissingTargetScores) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a score for each target.')),
+        );
+        return;
+      }
+    } else {
+      final scoreValid = scoreController.text.isNotEmpty &&
+          int.tryParse(scoreController.text) != null;
+
+      if (!scoreValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please enter a valid score")));
+        return;
+      }
     }
 
     // Validate required fields are set
@@ -312,7 +462,24 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
     // Calculate rounds from score breakdown
     int? roundsUsed;
-    if (_scoreBreakdown != null) {
+    if (isEventScoring) {
+      int totalRoundsUsed = 0;
+      for (final breakdown in _targetBreakdowns) {
+        if (breakdown == null) continue;
+        totalRoundsUsed += ((breakdown[10] ?? 0) +
+            (breakdown[9] ?? 0) +
+            (breakdown[8] ?? 0) +
+            (breakdown[7] ?? 0) +
+            (breakdown[6] ?? 0) +
+            (breakdown[5] ?? 0) +
+            (breakdown[4] ?? 0) +
+            (breakdown[3] ?? 0) +
+            (breakdown[2] ?? 0) +
+            (breakdown[1] ?? 0) +
+            (breakdown[0] ?? 0));
+      }
+      roundsUsed = totalRoundsUsed > 0 ? totalRoundsUsed : null;
+    } else if (_scoreBreakdown != null) {
       roundsUsed = (_scoreBreakdown![10] ?? 0) +
           (_scoreBreakdown![9] ?? 0) +
           (_scoreBreakdown![8] ?? 0) +
@@ -404,6 +571,16 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   final compIsTrue = compIdController.text.isNotEmpty ||
                       compResultController.text.isNotEmpty;
 
+                  final targetScoreTotal = isEventScoring
+                      ? _targetScores.whereType<int>().fold<int>(0, (sum, score) => sum + score)
+                      : int.parse(scoreController.text);
+
+                  final targetXTotal = isEventScoring
+                      ? _targetXCounts.whereType<int>().fold<int>(0, (sum, x) => sum + x)
+                      : (xController.text.isNotEmpty ? int.tryParse(xController.text) : null);
+
+                  final eventTargetCount = _getRequiredTargetCountForSelectedEvent() ?? 1;
+
                   final newEntry = ScoreEntry(
                     id: widget.editEntry?.id ??
                         DateTime
@@ -411,34 +588,92 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                             .millisecondsSinceEpoch
                             .toString(),
                     date: selectedDate,
-                    score: int.parse(scoreController.text),
+                    score: targetScoreTotal,
                     practice: selectedPractice!,
                     caliber: selectedCaliber!,
                     firearmId: selectedFirearmId ?? '',
                     firearm: firearmController.text,
-                    notes: notesController.text,
+                    notes: isEventScoring ? null : notesController.text,
                     comp: compIsTrue,
                     compId: compIdController.text,
                     compResult: compResultController.text,
-                    targetFilePath: targetImage?.path,
-                    thumbnailFilePath: thumbnailImage?.path,
-                    targetCaptured: targetImage != null,
-                    x: xController.text.isNotEmpty ? int.tryParse(xController.text) : null,
+                    targetFilePath: isEventScoring ? null : targetImage?.path,
+                    thumbnailFilePath: isEventScoring ? null : thumbnailImage?.path,
+                    targetCaptured: isEventScoring ? _targetImages.any((f) => f != null) : targetImage != null,
+                    x: targetXTotal,
                     // Score breakdown from calculator (if available)
-                    scoreX: _scoreBreakdown != null && xController.text.isNotEmpty
-                        ? int.tryParse(xController.text)
-                        : null,
-                    score10: _scoreBreakdown?[10],
-                    score9: _scoreBreakdown?[9],
-                    score8: _scoreBreakdown?[8],
-                    score7: _scoreBreakdown?[7],
-                    score6: _scoreBreakdown?[6],
-                    score5: _scoreBreakdown?[5],
-                    score4: _scoreBreakdown?[4],
-                    score3: _scoreBreakdown?[3],
-                    score2: _scoreBreakdown?[2],
-                    score1: _scoreBreakdown?[1],
-                    score0: _scoreBreakdown?[0],
+                    scoreX: isEventScoring
+                        ? null
+                        : (_scoreBreakdown != null && xController.text.isNotEmpty
+                            ? int.tryParse(xController.text)
+                            : null),
+                    score10: isEventScoring ? null : _scoreBreakdown?[10],
+                    score9: isEventScoring ? null : _scoreBreakdown?[9],
+                    score8: isEventScoring ? null : _scoreBreakdown?[8],
+                    score7: isEventScoring ? null : _scoreBreakdown?[7],
+                    score6: isEventScoring ? null : _scoreBreakdown?[6],
+                    score5: isEventScoring ? null : _scoreBreakdown?[5],
+                    score4: isEventScoring ? null : _scoreBreakdown?[4],
+                    score3: isEventScoring ? null : _scoreBreakdown?[3],
+                    score2: isEventScoring ? null : _scoreBreakdown?[2],
+                    score1: isEventScoring ? null : _scoreBreakdown?[1],
+                    score0: isEventScoring ? null : _scoreBreakdown?[0],
+                    scoreBasic: isEventScoring
+                        ? null
+                        : (_scoreBreakdown == null ? int.tryParse(scoreController.text) : null),
+                    targetFilePaths: isEventScoring
+                        ? List<String>.generate(eventTargetCount, (i) => _targetImages[i]?.path ?? '')
+                        : (targetImage?.path != null ? [targetImage!.path] : null),
+                    thumbnailFilePaths: isEventScoring
+                        ? List<String>.generate(eventTargetCount, (i) => _targetThumbnails[i]?.path ?? '')
+                        : (thumbnailImage?.path != null ? [thumbnailImage!.path] : null),
+                    targetsCaptured: isEventScoring
+                        ? List<bool>.generate(eventTargetCount, (i) => _targetImages[i] != null)
+                        : [targetImage != null],
+                    xs: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetXCounts[i] ?? 0)
+                        : (xController.text.isNotEmpty ? [int.tryParse(xController.text) ?? 0] : null),
+                    scoreXs: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetXCounts[i] ?? 0)
+                        : (_scoreBreakdown != null && xController.text.isNotEmpty
+                            ? [int.tryParse(xController.text) ?? 0]
+                            : null),
+                    score10s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[10] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![10] ?? 0] : null),
+                    score9s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[9] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![9] ?? 0] : null),
+                    score8s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[8] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![8] ?? 0] : null),
+                    score7s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[7] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![7] ?? 0] : null),
+                    score6s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[6] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![6] ?? 0] : null),
+                    score5s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[5] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![5] ?? 0] : null),
+                    score4s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[4] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![4] ?? 0] : null),
+                    score3s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[3] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![3] ?? 0] : null),
+                    score2s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[2] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![2] ?? 0] : null),
+                    score1s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[1] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![1] ?? 0] : null),
+                    score0s: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBreakdowns[i]?[0] ?? 0)
+                        : (_scoreBreakdown != null ? [_scoreBreakdown![0] ?? 0] : null),
+                    scoreBasics: isEventScoring
+                        ? List<int>.generate(eventTargetCount, (i) => _targetBasicScores[i] ?? 0)
+                        : [(_scoreBreakdown == null ? int.tryParse(scoreController.text) ?? 0 : 0)],
                   );
 
                   await box.put(newEntry.id, newEntry);
@@ -595,6 +830,153 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     }
   }
 
+  List<int>? _getPerTargetRoundsForSelectedEvent() {
+    if (selectedPractice == DropdownValues.freestyle) {
+      return null;
+    }
+
+    if (selectedPractice == null || selectedPractice!.isEmpty ||
+        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+      return null;
+    }
+
+    try {
+      if (!Hive.isBoxOpen('events')) {
+        return null;
+      }
+
+      final eventBox = Hive.box<Event>('events');
+      Event? matchedEvent;
+      for (final event in eventBox.values) {
+        if (event.name == selectedPractice) {
+          matchedEvent = event;
+          break;
+        }
+      }
+      if (matchedEvent == null) return null;
+
+      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
+      if (firearmId == null) return null;
+
+      final firearm = Firearm(
+        id: firearmId,
+        code: selectedFirearmId!,
+        gunType: '',
+      );
+
+      final content = matchedEvent.getContentForFirearm(firearm);
+      final mode = matchedEvent.scoreChangeTrigger.mode;
+      final eventTotalRounds = content.courseOfFire.totalRounds ?? 0;
+
+      if (mode == 0) {
+        return [eventTotalRounds];
+      }
+
+      final practices = [...content.practices]
+        ..sort((a, b) => a.practiceNumber.compareTo(b.practiceNumber));
+
+      int practiceRounds(Practice practice) {
+        int total = 0;
+        for (final stage in practice.stages) {
+          total += (stage.rounds ?? 0);
+        }
+        return total;
+      }
+
+      if (mode == 1) {
+        if (practices.isEmpty) return [eventTotalRounds];
+        return practices.map(practiceRounds).toList();
+      }
+
+      if (mode == 2) {
+        final flattenedStages = <Map<String, int>>[];
+        for (final practice in practices) {
+          final stages = [...practice.stages]
+            ..sort((a, b) => a.stageNumber.compareTo(b.stageNumber));
+          for (final stage in stages) {
+            flattenedStages.add({
+              'practice': practice.practiceNumber,
+              'stage': stage.stageNumber,
+              'rounds': stage.rounds ?? 0,
+            });
+          }
+        }
+
+        if (flattenedStages.isEmpty) {
+          return [eventTotalRounds];
+        }
+
+        final checkpointPositions = <int>{};
+        for (final checkpoint in matchedEvent.scoreChangeTrigger.checkpoints) {
+          int index = -1;
+          if (checkpoint.stageNumber != null) {
+            index = flattenedStages.indexWhere(
+              (s) => s['practice'] == checkpoint.practiceNumber && s['stage'] == checkpoint.stageNumber,
+            );
+          } else {
+            for (int i = flattenedStages.length - 1; i >= 0; i--) {
+              if (flattenedStages[i]['practice'] == checkpoint.practiceNumber) {
+                index = i;
+                break;
+              }
+            }
+          }
+
+          if (index >= 0) {
+            checkpointPositions.add(index);
+          }
+        }
+
+        final sortedPositions = checkpointPositions.toList()..sort();
+
+        if (sortedPositions.isEmpty) {
+          final total = flattenedStages.fold<int>(0, (sum, s) => sum + (s['rounds'] ?? 0));
+          return [total];
+        }
+
+        final targetRounds = <int>[];
+        int start = 0;
+
+        for (final end in sortedPositions) {
+          if (end < start) continue;
+          int segmentTotal = 0;
+          for (int i = start; i <= end && i < flattenedStages.length; i++) {
+            segmentTotal += flattenedStages[i]['rounds'] ?? 0;
+          }
+          targetRounds.add(segmentTotal);
+          start = end + 1;
+        }
+
+        if (start < flattenedStages.length) {
+          int tailTotal = 0;
+          for (int i = start; i < flattenedStages.length; i++) {
+            tailTotal += flattenedStages[i]['rounds'] ?? 0;
+          }
+          targetRounds.add(tailTotal);
+        }
+
+        return targetRounds.isEmpty ? [eventTotalRounds] : targetRounds;
+      }
+
+      return [eventTotalRounds];
+    } catch (e) {
+      return null;
+    }
+  }
+
+  int? _getTotalRoundsForTarget(int targetIndex) {
+    final perTargetRounds = _getPerTargetRoundsForSelectedEvent();
+    if (perTargetRounds == null || perTargetRounds.isEmpty) {
+      return null;
+    }
+
+    if (targetIndex < perTargetRounds.length) {
+      return perTargetRounds[targetIndex];
+    }
+
+    return perTargetRounds.last;
+  }
+
 /// Get the max score for the selected event/practice and firearm
   int? _getMaxScoreForSelectedEvent() {
     // Return null if Freestyle is selected (no max score for freestyle)
@@ -656,129 +1038,21 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
   /// Get the total rounds for the selected event/practice and firearm
   int? _getTotalRoundsForSelectedEvent() {
-    // Return null if Freestyle is selected (no total rounds for freestyle)
-    if (selectedPractice == DropdownValues.freestyle) {
-      return null;
-    }
-    
-    // Return null if either practice or firearmId not selected
-    if (selectedPractice == null || selectedPractice!.isEmpty ||
-        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
+    final perTargetRounds = _getPerTargetRoundsForSelectedEvent();
+    if (perTargetRounds == null || perTargetRounds.isEmpty) {
       return null;
     }
 
-    try {
-      // Check if events box is open
-      if (!Hive.isBoxOpen('events')) {
-        return null;
-      }
-      
-      final eventBox = Hive.box<Event>('events');
-      
-      // Find the event by matching the practice name to event name
-      Event? matchedEvent;
-      for (final event in eventBox.values) {
-        if (event.name == selectedPractice) {
-          matchedEvent = event;
-          break;
-        }
-      }
-      
-      if (matchedEvent == null) {
-        return null;
-      }
-
-      // Get the firearm ID from the code
-      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
-      
-      if (firearmId == null) {
-        return null;
-      }
-
-      // Create a Firearm object to get the correct content (with overrides)
-      final firearm = Firearm(
-        id: firearmId,
-        code: selectedFirearmId!,
-        gunType: '', // Not needed for this operation
-      );
-
-      // Get the content for this firearm (applies overrides automatically)
-      final content = matchedEvent.getContentForFirearm(firearm);
-
-      // Return the total rounds from courseOfFire
-      return content.courseOfFire.totalRounds;
-    } catch (e) {
-      return null;
-    }
+    return perTargetRounds.fold<int>(0, (sum, rounds) => sum + rounds);
   }
 
   /// Get required number of targets/scores for selected event based on score change trigger mode.
   int? _getRequiredTargetCountForSelectedEvent() {
-    if (selectedPractice == DropdownValues.freestyle) {
+    final perTargetRounds = _getPerTargetRoundsForSelectedEvent();
+    if (perTargetRounds == null || perTargetRounds.isEmpty) {
       return null;
     }
-
-    if (selectedPractice == null || selectedPractice!.isEmpty ||
-        selectedFirearmId == null || selectedFirearmId!.isEmpty) {
-      return null;
-    }
-
-    try {
-      if (!Hive.isBoxOpen('events')) {
-        return null;
-      }
-
-      final eventBox = Hive.box<Event>('events');
-
-      Event? matchedEvent;
-      for (final event in eventBox.values) {
-        if (event.name == selectedPractice) {
-          matchedEvent = event;
-          break;
-        }
-      }
-
-      if (matchedEvent == null) {
-        return null;
-      }
-
-      final mode = matchedEvent.scoreChangeTrigger.mode;
-
-      if (mode == 0) {
-        return 1;
-      }
-
-      if (mode == 2) {
-        return matchedEvent.scoreChangeTrigger.checkpoints.length;
-      }
-
-      final firearmId = DropdownValues.getFirearmIdByCode(selectedFirearmId!);
-      if (firearmId == null) {
-        return null;
-      }
-
-      final firearm = Firearm(
-        id: firearmId,
-        code: selectedFirearmId!,
-        gunType: '',
-      );
-
-      final content = matchedEvent.getContentForFirearm(firearm);
-
-      if (mode == 1) {
-        int highestPracticeNumber = 0;
-        for (final practice in content.practices) {
-          if (practice.practiceNumber > highestPracticeNumber) {
-            highestPracticeNumber = practice.practiceNumber;
-          }
-        }
-        return highestPracticeNumber > 0 ? highestPracticeNumber : 1;
-      }
-
-      return 1;
-    } catch (e) {
-      return null;
-    }
+    return perTargetRounds.length;
   }
 
   Widget _buildGradientButton({
@@ -855,6 +1129,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     // Cache these values so they're only calculated once per build
     final maxScore = _getMaxScoreForSelectedEvent();
     final requiredTargetCount = _getRequiredTargetCountForSelectedEvent();
+    final eventTargetCount = requiredTargetCount ?? 1;
+    if (widget.eventScoringMode) {
+      _ensureTargetSlots(eventTargetCount);
+    }
     // final totalRounds = _getTotalRoundsForSelectedEvent();
 
     // Cache the practices list at state level - only rebuild if list changes
@@ -892,7 +1170,11 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           appBar: AppBar(
         elevation: 0,
         title: Text(
-          widget.editEntry != null ? "Edit Score" : "Enter Score",
+          widget.scoringMode
+              ? (widget.editEntry != null
+                  ? "Edit Score"
+                  : (widget.eventScoringMode ? "Event Scoring" : "Basic Scoring"))
+              : "Enter Score",
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -923,11 +1205,15 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // PreNotes Card (if prenotes exists and is not empty)
-            if (selectedPractice != null && selectedPractice!.isNotEmpty && selectedPractice != DropdownValues.freestyle)
+            if (!widget.scoringMode &&
+                selectedPractice != null &&
+                selectedPractice!.isNotEmpty &&
+                selectedPractice != DropdownValues.freestyle)
               ..._buildPreNotesCard(context, primaryColor, isDark),
             
             // Session Details Card
-            _buildSectionCard(
+            if (!widget.scoringMode)
+              _buildSectionCard(
               context: context,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1131,7 +1417,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             ),
 
  // Firearm Details Card
-            _buildSectionCard(
+            if (!widget.scoringMode)
+              _buildSectionCard(
               context: context,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1473,7 +1760,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             ),
 
 // Score, X and Additional Info Card
-            _buildSectionCard(
+            if (widget.scoringMode)
+              _buildSectionCard(
               context: context,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1534,7 +1822,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   if (maxScore != null) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         color: primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -1578,8 +1866,126 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     ),
                   ],
 
+                  if (widget.eventScoringMode) ...[
+                    Builder(
+                      builder: (_) {
+                        final eventTotal = _targetScores.whereType<int>().fold<int>(0, (sum, s) => sum + s);
+                        final eventXTotal = _targetXCounts.whereType<int>().fold<int>(0, (sum, x) => sum + x);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.summarize, color: Colors.green, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Total score for Event:',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '$eventTotal / X=$eventXTotal',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
+                  if (widget.eventScoringMode) ...[
+                    for (int i = 0; i < eventTargetCount; i++) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[800] : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Target ${i + 1}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildGradientButton(
+                                    label: "Score\nCalculator",
+                                    onPressed: () => _openScoreCalculatorForTarget(i),
+                                    primaryColor: primaryColor,
+                                    isOutlined: _targetScores[i] == null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildGradientButton(
+                                    label: "Basic\nScore",
+                                    onPressed: () => _openBasicScoreForTarget(i, primaryColor),
+                                    primaryColor: Colors.orange,
+                                    isOutlined: _targetScores[i] == null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _buildGradientButton(
+                              label: "Capture Target",
+                              icon: Icons.camera_alt,
+                              onPressed: () => _pickImageForTarget(i),
+                              primaryColor: primaryColor,
+                              isOutlined: _targetImages[i] == null,
+                            ),
+                            if (_targetScores[i] != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Score: ${_targetScores[i]}${(_targetXCounts[i] ?? 0) > 0 ? '  X: ${_targetXCounts[i]}' : ''}',
+                                style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            if (_targetImages[i] != null) ...[
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _targetImages[i]!,
+                                  height: 120,
+                                  width: double.infinity,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+
                   // Recorded Score Box (shows if score has been entered)
-                  if (scoreController.text.isNotEmpty) ...[
+                  if (!widget.eventScoringMode && scoreController.text.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1665,7 +2071,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     ],
                   ],
                   // Score Calculator and Basic Score Buttons
-                  Row(
+                  if (!widget.eventScoringMode)
+                    Row(
                     children: [
                       Expanded(
                         child: _buildGradientButton(
@@ -1707,7 +2114,8 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   const SizedBox(height: 12),
 
                   // Notes Button (Full Width)
-                  SizedBox(
+                  if (!widget.eventScoringMode)
+                    SizedBox(
                     width: double.infinity,
                     child: _buildGradientButton(
                       label: "Notes",
@@ -1727,7 +2135,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             ),
 
 // Target Image Card (if captured)
-            if (targetImage != null)
+            if (widget.scoringMode && !widget.eventScoringMode && targetImage != null)
               _buildSectionCard(
                 context: context,
                 child: Column(
@@ -1769,20 +2177,72 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
 
  // Action Buttons
             const SizedBox(height: 8),
-            _buildGradientButton(
-              label: "Capture Target",
-              icon: Icons.camera_alt,
-              onPressed: _pickImage,
-              primaryColor: primaryColor,
-              isOutlined: true,
-            ),
-            const SizedBox(height: 12),
-            _buildGradientButton(
-              label: widget.editEntry != null ? "Update Entry" : "Save Entry",
-              icon: Icons.save,
-              onPressed: _confirmSaveEntry,
-              primaryColor: primaryColor,
-            ),
+            if (widget.scoringMode) ...[
+              if (!widget.eventScoringMode)
+                _buildGradientButton(
+                label: "Capture Target",
+                icon: Icons.camera_alt,
+                onPressed: _pickImage,
+                primaryColor: primaryColor,
+                isOutlined: true,
+              ),
+              const SizedBox(height: 12),
+              _buildGradientButton(
+                label: widget.editEntry != null ? "Update Entry" : "Save Entry",
+                icon: Icons.save,
+                onPressed: _confirmSaveEntry,
+                primaryColor: primaryColor,
+              ),
+            ] else ...[
+              _buildGradientButton(
+                label: "Basic Scoring",
+                icon: Icons.calculate,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EnterScoreScreen(
+                        scoringMode: true,
+                        initialDate: selectedDate,
+                        initialPractice: selectedPractice,
+                        initialCaliber: selectedCaliber,
+                        initialFirearmId: selectedFirearmId,
+                        initialFirearm: firearmController.text,
+                      ),
+                    ),
+                  );
+                },
+                primaryColor: primaryColor,
+              ),
+              const SizedBox(height: 12),
+              _buildGradientButton(
+                label: "Enter Score as Event",
+                icon: Icons.flag,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EventScoringScreen(
+                        initialDate: selectedDate,
+                        initialPractice: selectedPractice,
+                        initialCaliber: selectedCaliber,
+                        initialFirearmId: selectedFirearmId,
+                        initialFirearm: firearmController.text,
+                      ),
+                    ),
+                  );
+                },
+                primaryColor: Colors.orange,
+              ),
+              const SizedBox(height: 12),
+              _buildGradientButton(
+                label: "Cancel",
+                icon: Icons.close,
+                onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                primaryColor: Colors.grey,
+                isOutlined: true,
+              ),
+            ],
             const SizedBox(height: 15),
           ],
         ),
