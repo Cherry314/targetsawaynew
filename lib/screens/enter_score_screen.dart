@@ -1790,7 +1790,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                   const SizedBox(height: 20),
 
                   // Number of targets/scores needed based on score change trigger mode
-                  if (requiredTargetCount != null) ...[
+                  if (widget.eventScoringMode && requiredTargetCount != null) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       margin: const EdgeInsets.only(bottom: 12),

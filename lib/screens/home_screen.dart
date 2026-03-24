@@ -339,8 +339,8 @@ class _HomeScreenState extends State<HomeScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Image.asset(
-                            'assets/targetsaway.png',
-                            width: screenSize.width * 0.5,
+                            'assets/targetsaway2.png',
+                            width: screenSize.width * 0.8,
                             // adjust size as needed
                             fit: BoxFit.contain,
                           ),
@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen>
                           Text(
                             'Firearm Scoring Database',
                             style: TextStyle(
-                              color: Colors.red,
+                              color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
