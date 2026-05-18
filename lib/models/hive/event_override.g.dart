@@ -19,17 +19,20 @@ class EventOverrideAdapter extends TypeAdapter<EventOverride> {
     return EventOverride(
       firearmIds: (fields[0] as List).cast<int>(),
       changes: fields[1] as OverrideContent,
+      firearmCodes: (fields[2] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, EventOverride obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.firearmIds)
       ..writeByte(1)
-      ..write(obj.changes);
+      ..write(obj.changes)
+      ..writeByte(2)
+      ..write(obj.firearmCodes);
   }
 
   @override

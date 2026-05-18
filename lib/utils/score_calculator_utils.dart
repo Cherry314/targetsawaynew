@@ -3,7 +3,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../data/dropdown_values.dart';
 import '../models/hive/event.dart';
 import '../models/hive/event_content.dart';
-import '../models/hive/firearm.dart';
 import '../models/hive/practice.dart';
 import '../models/hive/target_info.dart';
 
@@ -33,17 +32,12 @@ class ScoreCalculatorUtils {
     return null;
   }
 
-  static Firearm? firearmFromCode(String? firearmCode) {
+  static int? firearmIdFromCode(String? firearmCode) {
     if (firearmCode == null || firearmCode.isEmpty) {
       return null;
     }
 
-    final firearmId = DropdownValues.getFirearmIdByCode(firearmCode);
-    if (firearmId == null) {
-      return null;
-    }
-
-    return Firearm(id: firearmId, code: firearmCode, gunType: '');
+    return DropdownValues.getFirearmIdByCode(firearmCode);
   }
 
   static EventContent? getEventContent({
@@ -55,12 +49,12 @@ class ScoreCalculatorUtils {
       return null;
     }
 
-    final firearm = firearmFromCode(firearmCode);
-    if (firearm == null) {
+    final firearmId = firearmIdFromCode(firearmCode);
+    if (firearmId == null) {
       return event.baseContent;
     }
 
-    return event.getContentForFirearm(firearm);
+    return event.getContentForFirearmId(firearmId);
   }
 
   static int? getMaxScore({
@@ -72,7 +66,7 @@ class ScoreCalculatorUtils {
       return null;
     }
 
-    if (requireFirearm && firearmFromCode(firearmCode) == null) {
+    if (requireFirearm && firearmIdFromCode(firearmCode) == null) {
       return null;
     }
 
@@ -147,7 +141,7 @@ class ScoreCalculatorUtils {
       return null;
     }
 
-    if (requireFirearm && firearmFromCode(firearmCode) == null) {
+    if (requireFirearm && firearmIdFromCode(firearmCode) == null) {
       return null;
     }
 
@@ -283,9 +277,11 @@ class ScoreCalculatorUtils {
         return null;
       }
 
+      final normalizedTargetName = targetName.trim().toLowerCase();
       final targetInfoBox = Hive.box<TargetInfo>('target_info');
       for (final targetInfo in targetInfoBox.values) {
-        if (targetInfo.targetName == targetName) {
+        if (targetInfo.targetName.trim().toLowerCase() ==
+            normalizedTargetName) {
           return targetInfo;
         }
       }

@@ -18,6 +18,7 @@ import 'notes.dart';
 import 'scoring.dart';
 import 'loading.dart';
 import 'reloading.dart';
+import 'magazine.dart';
 import 'equipment.dart';
 import 'range_equipment.dart';
 import 'changing_position.dart';
@@ -83,6 +84,9 @@ class OverrideContent {
   @HiveField(17)
   Reloading? reloading; // NEW: Reloading information
 
+  @HiveField(22)
+  List<Magazine>? magazine; // NEW: Magazine information
+
   @HiveField(18)
   Equipment? equipment; // NEW: Equipment information
 
@@ -112,6 +116,7 @@ class OverrideContent {
     this.scoring,
     this.loading,
     this.reloading,
+    this.magazine,
     this.equipment,
     this.rangeEquipment,
     this.changingPosition,

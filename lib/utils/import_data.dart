@@ -1,6 +1,6 @@
-
 import 'package:hive/hive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../data/dropdown_values.dart';
 import '../models/hive/event.dart';
 import '../models/hive/event_content.dart';
 import '../models/hive/event_override.dart';
@@ -99,7 +99,9 @@ class DataImporter {
   /// Returns the number of firearms imported
   Future<int> _importFirearms() async {
     final firearmBox = Hive.box<Firearm>('firearms_hive');
-    final firestoreFirearms = await _firestore.collection(firearmsCollection).get();
+    final firestoreFirearms = await _firestore
+        .collection(firearmsCollection)
+        .get();
 
     int importedCount = 0;
 
@@ -141,7 +143,9 @@ class DataImporter {
   /// Returns the number of targets imported
   Future<int> _importTargetZones() async {
     final targetInfoBox = Hive.box<TargetInfo>('target_info');
-    final firestoreTargets = await _firestore.collection(targetInfoCollection).get();
+    final firestoreTargets = await _firestore
+        .collection(targetInfoCollection)
+        .get();
 
     int importedCount = 0;
 
@@ -199,8 +203,10 @@ class DataImporter {
       prenotes: data['prenotes'] != null
           ? _mapToPreNotes(data['prenotes'] as Map<String, dynamic>)
           : null,
-      baseContent: _mapToEventContent(data['baseContent'] as Map<String, dynamic>? ?? {}),
-      overrides: _mapToEventOverrides(data['overrides'] as List<dynamic>? ?? []),
+      baseContent: _mapToEventContent(
+        data['baseContent'] as Map<String, dynamic>? ?? {},
+      ),
+      overrides: _mapToEventOverrides(data['overrides']),
       scoreChangeTrigger: _mapToScoreChangeTrigger(
         data['scoreChangeTrigger'] as Map<String, dynamic>?,
       ),
@@ -225,10 +231,7 @@ class DataImporter {
         )
         .toList();
 
-    return ScoreChangeTrigger(
-      mode: mode,
-      checkpoints: checkpoints,
-    );
+    return ScoreChangeTrigger(mode: mode, checkpoints: checkpoints);
   }
 
   /// Convert Firestore map to PreNotes object
@@ -247,16 +250,29 @@ class DataImporter {
       ammunition: _mapToAmmunition(data['ammunition'] as List<dynamic>?),
       sights: _mapToSights(data['sights'] as List<dynamic>? ?? []),
       positions: _mapToPositions(data['positions'] as List<dynamic>? ?? []),
-      readyPositions: _mapToReadyPositions(data['readyPositions'] as List<dynamic>? ?? []),
-      rangeCommands: _mapToRangeCommands(data['rangeCommands'] as List<dynamic>? ?? []),
+      readyPositions: _mapToReadyPositions(
+        data['readyPositions'] as List<dynamic>? ?? [],
+      ),
+      rangeCommands: _mapToRangeCommands(
+        data['rangeCommands'] as List<dynamic>? ?? [],
+      ),
       notes: _mapToEventNotes(data['notes'] as List<dynamic>?),
       ties: _mapToTies(data['ties'] as List<dynamic>?),
-      proceduralPenalties: _mapToProceduralPenalties(data['proceduralPenalties'] as List<dynamic>?),
-      classifications: _mapToClassifications(data['classifications'] as List<dynamic>?),
+      proceduralPenalties: _mapToProceduralPenalties(
+        data['proceduralPenalties'] as List<dynamic>?,
+      ),
+      classifications: _mapToClassifications(
+        data['classifications'] as List<dynamic>?,
+      ),
       targetPositions: null, // Not stored in Firestore
       courseOfFire: data['courseOfFire'] != null
           ? _mapToCourseOfFire(data['courseOfFire'] as Map<String, dynamic>)
-          : CourseOfFire(distance: null, totalTime: null, totalRounds: null, maxScore: null),
+          : CourseOfFire(
+              distance: null,
+              totalTime: null,
+              totalRounds: null,
+              maxScore: null,
+            ),
       sighters: _mapToSighters(data['sighters'] as List<dynamic>?),
       practices: data['practices'] != null
           ? _mapToPractices(data['practices'] as List<dynamic>)
@@ -268,8 +284,12 @@ class DataImporter {
       magazine: _mapToMagazines(data['magazine'] as List<dynamic>?),
       reloading: _mapToReloading(data['reloading'] as Map<String, dynamic>?),
       equipment: _mapToEquipment(data['equipment'] as Map<String, dynamic>?),
-      rangeEquipment: _mapToRangeEquipment(data['rangeEquipment'] as Map<String, dynamic>?),
-      changingPosition: _mapToChangingPosition(data['changingPosition'] as Map<String, dynamic>?),
+      rangeEquipment: _mapToRangeEquipment(
+        data['rangeEquipment'] as Map<String, dynamic>?,
+      ),
+      changingPosition: _mapToChangingPosition(
+        data['changingPosition'] as Map<String, dynamic>?,
+      ),
     );
 
     return content;
@@ -296,8 +316,12 @@ class DataImporter {
           : null,
       notes: _mapToEventNotes(data['notes'] as List<dynamic>?),
       ties: _mapToTies(data['ties'] as List<dynamic>?),
-      proceduralPenalties: _mapToProceduralPenalties(data['proceduralPenalties'] as List<dynamic>?),
-      classifications: _mapToClassifications(data['classifications'] as List<dynamic>?),
+      proceduralPenalties: _mapToProceduralPenalties(
+        data['proceduralPenalties'] as List<dynamic>?,
+      ),
+      classifications: _mapToClassifications(
+        data['classifications'] as List<dynamic>?,
+      ),
       targetPositions: null,
       courseOfFire: data['courseOfFire'] != null
           ? _mapToCourseOfFire(data['courseOfFire'] as Map<String, dynamic>)
@@ -310,24 +334,146 @@ class DataImporter {
       generalNotes: _mapToNotes(data['generalNotes'] as Map<String, dynamic>?),
       scoring: _mapToScoring(data['scoring'] as Map<String, dynamic>?),
       loading: _mapToLoading(data['loading'] as Map<String, dynamic>?),
+      magazine: _mapToMagazines(data['magazine'] as List<dynamic>?),
       reloading: _mapToReloading(data['reloading'] as Map<String, dynamic>?),
       equipment: _mapToEquipment(data['equipment'] as Map<String, dynamic>?),
-      rangeEquipment: _mapToRangeEquipment(data['rangeEquipment'] as Map<String, dynamic>?),
-      changingPosition: _mapToChangingPosition(data['changingPosition'] as Map<String, dynamic>?),
+      rangeEquipment: _mapToRangeEquipment(
+        data['rangeEquipment'] as Map<String, dynamic>?,
+      ),
+      changingPosition: _mapToChangingPosition(
+        data['changingPosition'] as Map<String, dynamic>?,
+      ),
     );
   }
 
-  /// Convert Firestore list to EventOverride objects
-  List<EventOverride> _mapToEventOverrides(List<dynamic> overrides) {
-    return overrides.map((overrideData) {
-      if (overrideData is Map<String, dynamic>) {
-        return EventOverride(
-          firearmIds: List<int>.from(overrideData['firearmIds'] ?? []),
-          changes: _mapToOverrideContent(overrideData['changes'] as Map<String, dynamic>? ?? {}),
-        );
-      }
-      return EventOverride(firearmIds: [], changes: OverrideContent());
+  /// Convert Firestore override data to EventOverride objects.
+  /// Supports both list-shaped and map-shaped override data, and both:
+  /// - { firearmIds/firearmCodes, changes: { ...content } }
+  /// - { firearmIds/firearmCodes, ...content }
+  List<EventOverride> _mapToEventOverrides(dynamic overrides) {
+    final overrideItems = _normaliseOverrideItems(overrides);
+
+    return overrideItems.map((overrideData) {
+      final firearmIdentifiers =
+          overrideData['firearmIds'] ??
+          overrideData['firearmCodes'] ??
+          overrideData['firearms'] ??
+          overrideData['firearm'] ??
+          overrideData['firearmId'] ??
+          overrideData['firearmCode'] ??
+          [];
+      final parsedFirearms = _parseFirearmIdentifiers(firearmIdentifiers);
+      final contentData = _overrideContentData(overrideData);
+
+      return EventOverride(
+        firearmIds: parsedFirearms.ids,
+        firearmCodes: parsedFirearms.codes,
+        changes: _mapToOverrideContent(contentData),
+      );
     }).toList();
+  }
+
+  List<Map<String, dynamic>> _normaliseOverrideItems(dynamic overrides) {
+    if (overrides == null) {
+      return [];
+    }
+
+    if (overrides is List) {
+      return overrides
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    if (overrides is Map) {
+      final items = <Map<String, dynamic>>[];
+      overrides.forEach((key, value) {
+        if (value is Map) {
+          final item = Map<String, dynamic>.from(value);
+          item.putIfAbsent('firearmCode', () => key.toString());
+          items.add(item);
+        }
+      });
+      return items;
+    }
+
+    return [];
+  }
+
+  Map<String, dynamic> _overrideContentData(Map<String, dynamic> overrideData) {
+    final changes = overrideData['changes'];
+    if (changes is Map) {
+      return Map<String, dynamic>.from(changes);
+    }
+
+    final content = overrideData['content'];
+    if (content is Map) {
+      return Map<String, dynamic>.from(content);
+    }
+
+    final contentData = Map<String, dynamic>.from(overrideData);
+    contentData.remove('firearmIds');
+    contentData.remove('firearmCodes');
+    contentData.remove('firearms');
+    contentData.remove('firearm');
+    contentData.remove('firearmId');
+    contentData.remove('firearmCode');
+    contentData.remove('changes');
+    contentData.remove('content');
+    return contentData;
+  }
+
+  ({List<int> ids, List<String> codes}) _parseFirearmIdentifiers(
+    dynamic firearmIdentifiers,
+  ) {
+    final ids = <int>{};
+    final codes = <String>{};
+    final values = firearmIdentifiers is List
+        ? firearmIdentifiers
+        : firearmIdentifiers == null
+        ? const []
+        : [firearmIdentifiers];
+
+    for (final value in values) {
+      if (value is Map) {
+        final map = Map<String, dynamic>.from(value);
+        final nested =
+            map['id'] ??
+            map['firearmId'] ??
+            map['firearmIds'] ??
+            map['code'] ??
+            map['firearmCode'] ??
+            map['firearmCodes'];
+        final parsedNested = _parseFirearmIdentifiers(nested);
+        ids.addAll(parsedNested.ids);
+        codes.addAll(parsedNested.codes);
+        continue;
+      }
+
+      if (value is int) {
+        ids.add(value);
+        final code = DropdownValues.getFirearmCodeById(value);
+        if (code != null) codes.add(code);
+        continue;
+      }
+
+      final text = value?.toString().trim() ?? '';
+      if (text.isEmpty) continue;
+
+      final numericId = int.tryParse(text);
+      if (numericId != null) {
+        ids.add(numericId);
+        final code = DropdownValues.getFirearmCodeById(numericId);
+        if (code != null) codes.add(code);
+        continue;
+      }
+
+      codes.add(text);
+      final id = DropdownValues.getFirearmIdByCode(text);
+      if (id != null) ids.add(id);
+    }
+
+    return (ids: ids.toList(), codes: codes.toList());
   }
 
   /// Convert Firestore list to targets
@@ -363,9 +509,7 @@ class DataImporter {
   List<Sight> _mapToSights(List<dynamic> sights) {
     return sights.map((sightData) {
       if (sightData is Map<String, dynamic>) {
-        return Sight(
-          text: sightData['text'] as String?,
-        );
+        return Sight(text: sightData['text'] as String?);
       }
       return Sight();
     }).toList();
@@ -415,9 +559,7 @@ class DataImporter {
     if (eventNotesList == null) return null;
     return eventNotesList.map((noteData) {
       if (noteData is Map<String, dynamic>) {
-        return EventNotes(
-          text: noteData['text'] as String? ?? '',
-        );
+        return EventNotes(text: noteData['text'] as String? ?? '');
       }
       return EventNotes(text: '');
     }).toList();
@@ -440,7 +582,9 @@ class DataImporter {
   }
 
   /// Convert Firestore list to ProceduralPenalty objects
-  List<ProceduralPenalty>? _mapToProceduralPenalties(List<dynamic>? penaltiesList) {
+  List<ProceduralPenalty>? _mapToProceduralPenalties(
+    List<dynamic>? penaltiesList,
+  ) {
     if (penaltiesList == null) return null;
     return penaltiesList.map((ppData) {
       if (ppData is Map<String, dynamic>) {
@@ -456,7 +600,9 @@ class DataImporter {
   }
 
   /// Convert Firestore list to Classification objects
-  List<Classification>? _mapToClassifications(List<dynamic>? classificationsList) {
+  List<Classification>? _mapToClassifications(
+    List<dynamic>? classificationsList,
+  ) {
     if (classificationsList == null) return null;
     return classificationsList.map((classData) {
       if (classData is Map<String, dynamic>) {
@@ -491,9 +637,7 @@ class DataImporter {
     if (sightersList == null) return null;
     return sightersList.map((sighterData) {
       if (sighterData is Map<String, dynamic>) {
-        return Sighters(
-          text: sighterData['text'] as String? ?? '',
-        );
+        return Sighters(text: sighterData['text'] as String? ?? '');
       }
       return Sighters(text: '');
     }).toList();
@@ -538,17 +682,13 @@ class DataImporter {
   /// Convert Firestore map to Notes object
   Notes? _mapToNotes(Map<String, dynamic>? data) {
     if (data == null) return null;
-    return Notes(
-      text: data['text'] as String?,
-    );
+    return Notes(text: data['text'] as String?);
   }
 
   /// Convert Firestore map to Scoring object
   Scoring? _mapToScoring(Map<String, dynamic>? data) {
     if (data == null) return null;
-    return Scoring(
-      text: data['text'] as String?,
-    );
+    return Scoring(text: data['text'] as String?);
   }
 
   /// Convert Firestore map to Loading object
@@ -626,8 +766,12 @@ class DataImporter {
       if (zoneData is Map<String, dynamic>) {
         return TargetZone(
           score: zoneData['score'] as String,
-          min: zoneData['min'] != null ? (zoneData['min'] as num).toDouble() : null,
-          max: zoneData['max'] != null ? (zoneData['max'] as num).toDouble() : null,
+          min: zoneData['min'] != null
+              ? (zoneData['min'] as num).toDouble()
+              : null,
+          max: zoneData['max'] != null
+              ? (zoneData['max'] as num).toDouble()
+              : null,
           rot: zoneData['rot'] as String?,
           notes: zoneData['notes'] as String?,
         );
@@ -638,8 +782,6 @@ class DataImporter {
 
   /// Convert Firestore map to Club object
   Club _mapToClub(Map<String, dynamic> data) {
-    return Club(
-      clubname: data['clubname'] as String,
-    );
+    return Club(clubname: data['clubname'] as String);
   }
 }

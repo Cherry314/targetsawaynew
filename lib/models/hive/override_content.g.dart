@@ -36,6 +36,7 @@ class OverrideContentAdapter extends TypeAdapter<OverrideContent> {
       scoring: fields[15] as Scoring?,
       loading: fields[16] as Loading?,
       reloading: fields[17] as Reloading?,
+      magazine: (fields[22] as List?)?.cast<Magazine>(),
       equipment: fields[18] as Equipment?,
       rangeEquipment: fields[19] as RangeEquipment?,
       changingPosition: fields[20] as ChangingPosition?,
@@ -45,7 +46,7 @@ class OverrideContentAdapter extends TypeAdapter<OverrideContent> {
   @override
   void write(BinaryWriter writer, OverrideContent obj) {
     writer
-      ..writeByte(22)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.targets)
       ..writeByte(21)
@@ -84,6 +85,8 @@ class OverrideContentAdapter extends TypeAdapter<OverrideContent> {
       ..write(obj.loading)
       ..writeByte(17)
       ..write(obj.reloading)
+      ..writeByte(22)
+      ..write(obj.magazine)
       ..writeByte(18)
       ..write(obj.equipment)
       ..writeByte(19)

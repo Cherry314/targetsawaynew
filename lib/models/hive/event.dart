@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import '../../data/dropdown_values.dart';
 import 'event_content.dart';
 import 'event_override.dart';
 import 'firearm.dart';
@@ -45,43 +46,110 @@ class Event extends HiveObject {
     ScoreChangeTrigger? scoreChangeTrigger,
   }) : scoreChangeTrigger = scoreChangeTrigger ?? ScoreChangeTrigger();
 
-  /// Get EventContent for a specific firearm
-  EventContent getContentForFirearm(Firearm firearm) {
-    EventOverride? override;
-    try {
-      override = overrides.firstWhere(
-        (o) => o.firearmIds.contains(firearm.id),
-      );
-    } catch (e) {
-      // No override found, return base content
+  /// Get EventContent for a specific firearm ID.
+  ///
+  /// This is the primary override path for event conditions: the selected
+  /// button is a numeric firearm ID (for example, GRCF = 2), and event
+  /// overrides are keyed by numeric firearmIds.
+  EventContent getContentForFirearmId(int firearmId) {
+    final override = getOverrideForFirearmId(firearmId);
+    if (override == null) {
       return baseContent;
     }
 
-    // Merge base content with override
+    return mergeContentWithOverride(override);
+  }
+
+  /// Get EventContent for a specific firearm.
+  EventContent getContentForFirearm(Firearm firearm) {
+    final override = getOverrideForFirearm(firearm);
+    if (override == null) {
+      return baseContent;
+    }
+
+    return mergeContentWithOverride(override);
+  }
+
+  /// Get the override for a numeric firearm ID.
+  EventOverride? getOverrideForFirearmId(int firearmId) {
+    for (final override in overrides) {
+      if (override.firearmIds.contains(firearmId)) {
+        return override;
+      }
+    }
+    return null;
+  }
+
+  /// Get the override for a firearm by numeric ID or code.
+  EventOverride? getOverrideForFirearm(Firearm firearm) {
+    final idOverride = getOverrideForFirearmId(firearm.id);
+    if (idOverride != null) {
+      return idOverride;
+    }
+
+    final firearmCode = firearm.code.trim().toLowerCase();
+    for (final override in overrides) {
+      final overrideCodes = {
+        ...override.firearmCodes.map((code) => code.trim().toLowerCase()),
+        ...override.firearmIds
+            .map(_firearmCodeForId)
+            .whereType<String>()
+            .map((code) => code.trim().toLowerCase()),
+      };
+      final matchesCode =
+          firearmCode.isNotEmpty && overrideCodes.contains(firearmCode);
+      if (matchesCode) {
+        return override;
+      }
+    }
+    return null;
+  }
+
+  String? _firearmCodeForId(int firearmId) {
+    return DropdownValues.getFirearmCodeById(firearmId);
+  }
+
+  List<T> _overrideListOrBase<T>(List<T>? overrideList, List<T> baseList) {
+    if (overrideList == null || overrideList.isEmpty) {
+      return baseList;
+    }
+    return overrideList;
+  }
+
+  EventContent mergeContentWithOverride(EventOverride override) {
     final changes = override.changes;
     return EventContent(
-      targets: changes.targets ?? baseContent.targets,
+      targets: _overrideListOrBase(changes.targets, baseContent.targets),
       ammunition: changes.ammunition ?? baseContent.ammunition,
-      sights: changes.sights ?? baseContent.sights,
-      positions: changes.positions ?? baseContent.positions,
-      readyPositions: changes.readyPositions ?? baseContent.readyPositions,
-      rangeCommands: changes.rangeCommands ?? baseContent.rangeCommands,
+      sights: _overrideListOrBase(changes.sights, baseContent.sights),
+      positions: _overrideListOrBase(changes.positions, baseContent.positions),
+      readyPositions: _overrideListOrBase(
+        changes.readyPositions,
+        baseContent.readyPositions,
+      ),
+      rangeCommands: _overrideListOrBase(
+        changes.rangeCommands,
+        baseContent.rangeCommands,
+      ),
       notes: changes.notes ?? baseContent.notes,
       ties: changes.ties ?? baseContent.ties,
-      proceduralPenalties: changes.proceduralPenalties ?? baseContent.proceduralPenalties,
+      proceduralPenalties:
+          changes.proceduralPenalties ?? baseContent.proceduralPenalties,
       classifications: changes.classifications ?? baseContent.classifications,
       targetPositions: changes.targetPositions ?? baseContent.targetPositions,
       courseOfFire: changes.courseOfFire ?? baseContent.courseOfFire,
       sighters: changes.sighters ?? baseContent.sighters,
-      practices: changes.practices ?? baseContent.practices,
+      practices: _overrideListOrBase(changes.practices, baseContent.practices),
       targetIds: changes.targetIds ?? baseContent.targetIds,
       generalNotes: changes.generalNotes ?? baseContent.generalNotes,
       scoring: changes.scoring ?? baseContent.scoring,
       loading: changes.loading ?? baseContent.loading,
+      magazine: changes.magazine ?? baseContent.magazine,
       reloading: changes.reloading ?? baseContent.reloading,
       equipment: changes.equipment ?? baseContent.equipment,
       rangeEquipment: changes.rangeEquipment ?? baseContent.rangeEquipment,
-      changingPosition: changes.changingPosition ?? baseContent.changingPosition,
+      changingPosition:
+          changes.changingPosition ?? baseContent.changingPosition,
     );
   }
 }

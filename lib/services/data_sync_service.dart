@@ -10,6 +10,8 @@ class DataSyncService {
 
   static const String metadataCollection = 'metadata';
   static const String localVersionKey = 'local_data_version';
+  static const String localImporterVersionKey = 'local_importer_schema_version';
+  static const int currentImporterSchemaVersion = 2;
 
   /// Check if there's a new version available on Firebase
   /// Returns true if an update is available
@@ -24,9 +26,12 @@ class DataSyncService {
 
       // Get the local version from Hive
       final localVersion = await _getLocalVersion();
+      final localImporterVersion = await _getLocalImporterVersion();
 
-      // Check if remote is newer
-      return remoteVersion > localVersion;
+      // Check if remote data is newer, or if local data needs to be re-imported
+      // because the importer schema changed.
+      return remoteVersion > localVersion ||
+          localImporterVersion < currentImporterSchemaVersion;
     } catch (e) {
       return false;
     }
@@ -59,11 +64,29 @@ class DataSyncService {
     }
   }
 
+  Future<int> _getLocalImporterVersion() async {
+    try {
+      final box = await Hive.openBox('app_metadata');
+      return box.get(localImporterVersionKey, defaultValue: 0);
+    } catch (e) {
+      return 0;
+    }
+  }
+
   /// Save the local data version to Hive
   Future<void> _saveLocalVersion(int version) async {
     try {
       final box = await Hive.openBox('app_metadata');
       await box.put(localVersionKey, version);
+    } catch (e) {
+      // Silently handle error
+    }
+  }
+
+  Future<void> _saveLocalImporterVersion() async {
+    try {
+      final box = await Hive.openBox('app_metadata');
+      await box.put(localImporterVersionKey, currentImporterSchemaVersion);
     } catch (e) {
       // Silently handle error
     }
@@ -82,6 +105,7 @@ class DataSyncService {
       if (remoteVersion != null) {
         await _saveLocalVersion(remoteVersion);
       }
+      await _saveLocalImporterVersion();
 
       return results;
     } catch (e) {

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../../models/hive/event.dart';
-import '../../models/hive/firearm.dart';
+import '../../models/hive/event_content.dart';
 import '../../models/hive/ammunition.dart';
 import '../../models/hive/sight.dart';
 import '../../models/hive/position.dart';
@@ -23,7 +23,7 @@ Future<void> showEventDetailsDialog({
   if (practiceName == null || practiceName.isEmpty) {
     return; // Don't show dialog if no practice selected
   }
-  
+
   if (firearmCode == null || firearmCode.isEmpty) {
     return; // Don't show dialog if no firearm selected
   }
@@ -35,7 +35,7 @@ Future<void> showEventDetailsDialog({
     }
 
     final eventBox = Hive.box<Event>('events');
-    
+
     // Find the event by name
     Event? matchedEvent;
     for (final event in eventBox.values) {
@@ -44,7 +44,7 @@ Future<void> showEventDetailsDialog({
         break;
       }
     }
-    
+
     if (matchedEvent == null) {
       return; // Don't show dialog if event not found
     }
@@ -63,15 +63,12 @@ Future<void> showEventDetailsDialog({
     // Get firearm info from master table
     final firearmInfo = DropdownValues.masterFirearmTable.firstWhere(
       (f) => f.id == firearmId,
-      orElse: () => FirearmInfo(id: firearmId, code: firearmCode, gunType: 'Unknown'),
+      orElse: () =>
+          FirearmInfo(id: firearmId, code: firearmCode, gunType: 'Unknown'),
     );
 
-    // Get content for this firearm (with overrides applied)
-    final content = matchedEvent.getContentForFirearm(Firearm(
-      id: firearmId,
-      code: firearmInfo.code,
-      gunType: firearmInfo.gunType,
-    ));
+    // Get content for this numeric firearm ID (with overrides applied)
+    final content = matchedEvent.getContentForFirearmId(firearmId);
 
     // Show dialog
     await showDialog(
@@ -91,7 +88,7 @@ Future<void> showEventDetailsDialog({
 class _EventDetailsDialog extends StatelessWidget {
   final Event event;
   final FirearmInfo firearmInfo;
-  final dynamic content; // EventContent
+  final EventContent content;
 
   const _EventDetailsDialog({
     required this.event,
@@ -148,7 +145,7 @@ class _EventDetailsDialog extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Scrollable content
             Expanded(
               child: SingleChildScrollView(
@@ -164,8 +161,17 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatTargetsRich(content.targets, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatTargetsRich(
+                              content.targets,
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -173,15 +179,25 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Ammunition
-                    if (content.ammunition != null && content.ammunition!.isNotEmpty) ...[
+                    if (content.ammunition != null &&
+                        content.ammunition!.isNotEmpty) ...[
                       _buildFieldRow('Ammunition', '', bold: true),
                       const SizedBox(height: 4),
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatAmmunitionRich(content.ammunition!, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatAmmunitionRich(
+                              content.ammunition!,
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -196,8 +212,17 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatSightsRich(content.sights, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatSightsRich(
+                              content.sights,
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -212,8 +237,13 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatPositionsWithLineBreaks(content.positions),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatPositionsWithLineBreaks(
+                              content.positions,
+                            ),
                           ),
                         ),
                       ),
@@ -228,8 +258,13 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatReadyPositionsWithTitle(content.readyPositions),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatReadyPositionsWithTitle(
+                              content.readyPositions,
+                            ),
                           ),
                         ),
                       ),
@@ -237,7 +272,13 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Course of Fire Section
-                    const Text('Course of Fire', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text(
+                      'Course of Fire',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 4),
 
                     // Distance
@@ -246,13 +287,31 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              const TextSpan(text: 'Distance : ', style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: '${content.courseOfFire.distance}'),
-                              if (content.courseOfFire.distanceNotes != null && content.courseOfFire.distanceNotes!.isNotEmpty) ...[
+                              const TextSpan(
+                                text: 'Distance : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              TextSpan(
+                                text: '${content.courseOfFire.distance}',
+                              ),
+                              if (content.courseOfFire.distanceNotes != null &&
+                                  content
+                                      .courseOfFire
+                                      .distanceNotes!
+                                      .isNotEmpty) ...[
                                 const TextSpan(text: ' '),
-                                ..._processRichText(content.courseOfFire.distanceNotes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                                ..._processRichText(
+                                  content.courseOfFire.distanceNotes,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -267,13 +326,31 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              const TextSpan(text: 'Time : ', style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: '${content.courseOfFire.totalTime}'),
-                              if (content.courseOfFire.timeNotes != null && content.courseOfFire.timeNotes!.isNotEmpty) ...[
+                              const TextSpan(
+                                text: 'Time : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              TextSpan(
+                                text: '${content.courseOfFire.totalTime}',
+                              ),
+                              if (content.courseOfFire.timeNotes != null &&
+                                  content
+                                      .courseOfFire
+                                      .timeNotes!
+                                      .isNotEmpty) ...[
                                 const TextSpan(text: ' '),
-                                ..._processRichText(content.courseOfFire.timeNotes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                                ..._processRichText(
+                                  content.courseOfFire.timeNotes,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -288,13 +365,31 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              const TextSpan(text: 'Rounds : ', style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: '${content.courseOfFire.totalRounds}'),
-                              if (content.courseOfFire.roundsNotes != null && content.courseOfFire.roundsNotes!.isNotEmpty) ...[
+                              const TextSpan(
+                                text: 'Rounds : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              TextSpan(
+                                text: '${content.courseOfFire.totalRounds}',
+                              ),
+                              if (content.courseOfFire.roundsNotes != null &&
+                                  content
+                                      .courseOfFire
+                                      .roundsNotes!
+                                      .isNotEmpty) ...[
                                 const TextSpan(text: ' '),
-                                ..._processRichText(content.courseOfFire.roundsNotes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                                ..._processRichText(
+                                  content.courseOfFire.roundsNotes,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -309,13 +404,31 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              const TextSpan(text: 'Max Score : ', style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: '${content.courseOfFire.maxScore}'),
-                              if (content.courseOfFire.maxScoreNotes != null && content.courseOfFire.maxScoreNotes!.isNotEmpty) ...[
+                              const TextSpan(
+                                text: 'Max Score : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              TextSpan(
+                                text: '${content.courseOfFire.maxScore}',
+                              ),
+                              if (content.courseOfFire.maxScoreNotes != null &&
+                                  content
+                                      .courseOfFire
+                                      .maxScoreNotes!
+                                      .isNotEmpty) ...[
                                 const TextSpan(text: ' '),
-                                ..._processRichText(content.courseOfFire.maxScoreNotes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                                ..._processRichText(
+                                  content.courseOfFire.maxScoreNotes,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -325,15 +438,28 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Notes (from course of fire)
-                    if (content.courseOfFire.generalNotes != null && content.courseOfFire.generalNotes!.isNotEmpty) ...[
+                    if (content.courseOfFire.generalNotes != null &&
+                        content.courseOfFire.generalNotes!.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              const TextSpan(text: 'Notes : ', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ..._processNotesText(content.courseOfFire.generalNotes!, style: const TextStyle(color: Colors.black, fontSize: 13)),
+                              const TextSpan(
+                                text: 'Notes : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              ..._processNotesText(
+                                content.courseOfFire.generalNotes!,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -342,15 +468,26 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Sighters
-                    if (content.sighters != null && content.sighters!.isNotEmpty) ...[
+                    if (content.sighters != null &&
+                        content.sighters!.isNotEmpty) ...[
                       _buildFieldRow('Sighters', '', bold: true),
                       const SizedBox(height: 4),
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _formatSightersRich(content.sighters!, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _formatSightersRich(
+                              content.sighters!,
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -358,18 +495,32 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Practices
-                    ...content.practices.map((practice) => _buildPractice(practice)),
+                    ...content.practices.map(
+                      (practice) => _buildPractice(practice),
+                    ),
 
                     // General Notes (new field)
-                    if (content.generalNotes != null && content.generalNotes!.text != null && content.generalNotes!.text!.isNotEmpty) ...[
+                    if (content.generalNotes != null &&
+                        content.generalNotes!.text != null &&
+                        content.generalNotes!.text!.isNotEmpty) ...[
                       _buildFieldRow('Notes', '', bold: true),
                       const SizedBox(height: 4),
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _processRichText(content.generalNotes!.text!, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _processRichText(
+                              content.generalNotes!.text!,
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -380,19 +531,36 @@ class _EventDetailsDialog extends StatelessWidget {
                     if (content.rangeCommands.isNotEmpty) ...[
                       _buildFieldRow('Range Commands', '', bold: true),
                       const SizedBox(height: 4),
-                      ...content.rangeCommands.map((rc) =>
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16, bottom: 4),
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black, fontSize: 13),
-                                children: [
-                                  ..._processRichText(rc.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                                  if (rc.text != null && rc.text!.isNotEmpty) ..._processRichText(rc.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
-                                ],
+                      ...content.rangeCommands.map(
+                        (rc) => Padding(
+                          padding: const EdgeInsets.only(left: 16, bottom: 4),
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
                               ),
+                              children: [
+                                ..._processRichText(
+                                  rc.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (rc.text != null && rc.text!.isNotEmpty)
+                                  ..._processRichText(
+                                    rc.text,
+                                    baseStyle: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          )
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -405,8 +573,17 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
-                            children: _processRichText(content.scoring!.text ?? '', baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                            children: _processRichText(
+                              content.scoring!.text ?? '',
+                              baseStyle: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -421,11 +598,33 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              if (content.loading!.title != null && content.loading!.title!.isNotEmpty) ..._processRichText(content.loading!.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                              if (content.loading!.text != null && content.loading!.text!.isNotEmpty) const TextSpan(text: ' '),
-                              if (content.loading!.text != null && content.loading!.text!.isNotEmpty) ..._processRichText(content.loading!.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                              if (content.loading!.title != null &&
+                                  content.loading!.title!.isNotEmpty)
+                                ..._processRichText(
+                                  content.loading!.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (content.loading!.text != null &&
+                                  content.loading!.text!.isNotEmpty)
+                                const TextSpan(text: ' '),
+                              if (content.loading!.text != null &&
+                                  content.loading!.text!.isNotEmpty)
+                                ..._processRichText(
+                                  content.loading!.text,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -434,23 +633,50 @@ class _EventDetailsDialog extends StatelessWidget {
                     ],
 
                     // Magazine
-                    if (content.magazine != null && content.magazine!.isNotEmpty) ...[
-                      _buildFieldRow('Magazine, Speedloaders and Moon-Clips:', '', bold: true),
+                    if (content.magazine != null &&
+                        content.magazine!.isNotEmpty) ...[
+                      _buildFieldRow(
+                        'Magazine, Speedloaders and Moon-Clips:',
+                        '',
+                        bold: true,
+                      ),
                       const SizedBox(height: 4),
-                      ...content.magazine!.map((mag) =>
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16, bottom: 4),
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black, fontSize: 13),
-                                children: [
-                                  if (mag.title != null && mag.title!.isNotEmpty) ..._processRichText(mag.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                                  if (mag.title != null && mag.title!.isNotEmpty && mag.text != null && mag.text!.isNotEmpty) const TextSpan(text: ' '),
-                                  if (mag.text != null && mag.text!.isNotEmpty) ..._processRichText(mag.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
-                                ],
+                      ...content.magazine!.map(
+                        (mag) => Padding(
+                          padding: const EdgeInsets.only(left: 16, bottom: 4),
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
                               ),
+                              children: [
+                                if (mag.title != null && mag.title!.isNotEmpty)
+                                  ..._processRichText(
+                                    mag.title,
+                                    baseStyle: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                if (mag.title != null &&
+                                    mag.title!.isNotEmpty &&
+                                    mag.text != null &&
+                                    mag.text!.isNotEmpty)
+                                  const TextSpan(text: ' '),
+                                if (mag.text != null && mag.text!.isNotEmpty)
+                                  ..._processRichText(
+                                    mag.text,
+                                    baseStyle: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          )
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -463,11 +689,33 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              if (content.reloading!.title != null && content.reloading!.title!.isNotEmpty) ..._processRichText(content.reloading!.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                              if (content.reloading!.text != null && content.reloading!.text!.isNotEmpty) const TextSpan(text: ' '),
-                              if (content.reloading!.text != null && content.reloading!.text!.isNotEmpty) ..._processRichText(content.reloading!.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                              if (content.reloading!.title != null &&
+                                  content.reloading!.title!.isNotEmpty)
+                                ..._processRichText(
+                                  content.reloading!.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (content.reloading!.text != null &&
+                                  content.reloading!.text!.isNotEmpty)
+                                const TextSpan(text: ' '),
+                              if (content.reloading!.text != null &&
+                                  content.reloading!.text!.isNotEmpty)
+                                ..._processRichText(
+                                  content.reloading!.text,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -483,11 +731,33 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              if (content.equipment!.title != null && content.equipment!.title!.isNotEmpty) ..._processRichText(content.equipment!.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                              if (content.equipment!.text != null && content.equipment!.text!.isNotEmpty) const TextSpan(text: ' '),
-                              if (content.equipment!.text != null && content.equipment!.text!.isNotEmpty) ..._processRichText(content.equipment!.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                              if (content.equipment!.title != null &&
+                                  content.equipment!.title!.isNotEmpty)
+                                ..._processRichText(
+                                  content.equipment!.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (content.equipment!.text != null &&
+                                  content.equipment!.text!.isNotEmpty)
+                                const TextSpan(text: ' '),
+                              if (content.equipment!.text != null &&
+                                  content.equipment!.text!.isNotEmpty)
+                                ..._processRichText(
+                                  content.equipment!.text,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -503,11 +773,33 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              if (content.rangeEquipment!.title != null && content.rangeEquipment!.title!.isNotEmpty) ..._processRichText(content.rangeEquipment!.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                              if (content.rangeEquipment!.text != null && content.rangeEquipment!.text!.isNotEmpty) const TextSpan(text: ' '),
-                              if (content.rangeEquipment!.text != null && content.rangeEquipment!.text!.isNotEmpty) ..._processRichText(content.rangeEquipment!.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                              if (content.rangeEquipment!.title != null &&
+                                  content.rangeEquipment!.title!.isNotEmpty)
+                                ..._processRichText(
+                                  content.rangeEquipment!.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (content.rangeEquipment!.text != null &&
+                                  content.rangeEquipment!.text!.isNotEmpty)
+                                const TextSpan(text: ' '),
+                              if (content.rangeEquipment!.text != null &&
+                                  content.rangeEquipment!.text!.isNotEmpty)
+                                ..._processRichText(
+                                  content.rangeEquipment!.text,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -523,11 +815,33 @@ class _EventDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 16),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: Colors.black, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
                             children: [
-                              if (content.changingPosition!.title != null && content.changingPosition!.title!.isNotEmpty) ..._processRichText(content.changingPosition!.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                              if (content.changingPosition!.text != null && content.changingPosition!.text!.isNotEmpty) const TextSpan(text: ' '),
-                              if (content.changingPosition!.text != null && content.changingPosition!.text!.isNotEmpty) ..._processRichText(content.changingPosition!.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                              if (content.changingPosition!.title != null &&
+                                  content.changingPosition!.title!.isNotEmpty)
+                                ..._processRichText(
+                                  content.changingPosition!.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (content.changingPosition!.text != null &&
+                                  content.changingPosition!.text!.isNotEmpty)
+                                const TextSpan(text: ' '),
+                              if (content.changingPosition!.text != null &&
+                                  content.changingPosition!.text!.isNotEmpty)
+                                ..._processRichText(
+                                  content.changingPosition!.text,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -539,46 +853,90 @@ class _EventDetailsDialog extends StatelessWidget {
                     if (content.ties != null && content.ties!.isNotEmpty) ...[
                       _buildFieldRow('Ties', '', bold: true),
                       const SizedBox(height: 4),
-                      ...content.ties!.map((tie) =>
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16, bottom: 4),
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black, fontSize: 13),
-                                children: [
-                                  ..._processRichText(tie.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                                  if (tie.text != null && tie.text!.isNotEmpty) ..._processRichText(tie.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
-                                  if (tie.idx != null && tie.idx!.isNotEmpty) ...[
-                                    const TextSpan(text: '\n'),
-                                    TextSpan(text: '${tie.idx}. '),
-                                    if (tie.idxText != null && tie.idxText!.isNotEmpty) ..._processRichText(tie.idxText, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
-                                  ],
-                                ],
+                      ...content.ties!.map(
+                        (tie) => Padding(
+                          padding: const EdgeInsets.only(left: 16, bottom: 4),
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
                               ),
+                              children: [
+                                ..._processRichText(
+                                  tie.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (tie.text != null && tie.text!.isNotEmpty)
+                                  ..._processRichText(
+                                    tie.text,
+                                    baseStyle: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                if (tie.idx != null && tie.idx!.isNotEmpty) ...[
+                                  const TextSpan(text: '\n'),
+                                  TextSpan(text: '${tie.idx}. '),
+                                  if (tie.idxText != null &&
+                                      tie.idxText!.isNotEmpty)
+                                    ..._processRichText(
+                                      tie.idxText,
+                                      baseStyle: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                ],
+                              ],
                             ),
-                          )
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
 
                     // Procedural Penalties
-                    if (content.proceduralPenalties != null && content.proceduralPenalties!.isNotEmpty) ...[
+                    if (content.proceduralPenalties != null &&
+                        content.proceduralPenalties!.isNotEmpty) ...[
                       _buildFieldRow('Procedural Penalties', '', bold: true),
                       const SizedBox(height: 4),
-                      ...content.proceduralPenalties!.map((pp) =>
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16, bottom: 4),
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black, fontSize: 13),
-                                children: [
-                                  ..._processRichText(pp.title, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
-                                  if (pp.text != null && pp.text!.isNotEmpty) const TextSpan(text: ' '),
-                                  if (pp.text != null && pp.text!.isNotEmpty) ..._processRichText(pp.text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
-                                ],
+                      ...content.proceduralPenalties!.map(
+                        (pp) => Padding(
+                          padding: const EdgeInsets.only(left: 16, bottom: 4),
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 13,
                               ),
+                              children: [
+                                ..._processRichText(
+                                  pp.title,
+                                  baseStyle: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (pp.text != null && pp.text!.isNotEmpty)
+                                  const TextSpan(text: ' '),
+                                if (pp.text != null && pp.text!.isNotEmpty)
+                                  ..._processRichText(
+                                    pp.text,
+                                    baseStyle: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          )
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -598,15 +956,28 @@ class _EventDetailsDialog extends StatelessWidget {
       text: TextSpan(
         style: const TextStyle(color: Colors.black, fontSize: 13),
         children: [
-          TextSpan(text: '$label : ', style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.bold)),
-          TextSpan(text: value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+          TextSpan(
+            text: '$label : ',
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.bold : FontWeight.bold,
+            ),
+          ),
+          TextSpan(
+            text: value,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ],
       ),
     );
   }
 
   // Helper method to format targets with rich text support
-  List<InlineSpan> _formatTargetsRich(List<Target> targets, {TextStyle? baseStyle}) {
+  List<InlineSpan> _formatTargetsRich(
+    List<Target> targets, {
+    TextStyle? baseStyle,
+  }) {
     if (targets.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -625,7 +996,10 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Helper method to format ammunition with rich text support
-  List<InlineSpan> _formatAmmunitionRich(List<Ammunition> ammunition, {TextStyle? baseStyle}) {
+  List<InlineSpan> _formatAmmunitionRich(
+    List<Ammunition> ammunition, {
+    TextStyle? baseStyle,
+  }) {
     if (ammunition.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -643,7 +1017,10 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Helper method to format sights with rich text support
-  List<InlineSpan> _formatSightsRich(List<Sight> sights, {TextStyle? baseStyle}) {
+  List<InlineSpan> _formatSightsRich(
+    List<Sight> sights, {
+    TextStyle? baseStyle,
+  }) {
     if (sights.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -670,7 +1047,12 @@ class _EventDetailsDialog extends StatelessWidget {
       final text = position.text ?? position.title ?? '';
 
       // Process text for rich formatting
-      spans.addAll(_processRichText(text, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)));
+      spans.addAll(
+        _processRichText(
+          text,
+          baseStyle: const TextStyle(color: Colors.black, fontSize: 13),
+        ),
+      );
 
       // Add comma separator if not the last item
       if (i < positions.length - 1) {
@@ -682,7 +1064,9 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Helper method to format ready positions with title in bold and rich text support
-  List<InlineSpan> _formatReadyPositionsWithTitle(List<ReadyPosition> readyPositions) {
+  List<InlineSpan> _formatReadyPositionsWithTitle(
+    List<ReadyPosition> readyPositions,
+  ) {
     if (readyPositions.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -691,11 +1075,17 @@ class _EventDetailsDialog extends StatelessWidget {
 
       // Add title in bold if it exists (with rich text processing)
       if (readyPosition.title != null && readyPosition.title!.isNotEmpty) {
-        spans.addAll(_processRichText(
-          readyPosition.title,
-          baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold),
-          alreadyBold: true,
-        ));
+        spans.addAll(
+          _processRichText(
+            readyPosition.title,
+            baseStyle: const TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+            alreadyBold: true,
+          ),
+        );
         // Add space between title and text if text exists
         if (readyPosition.text != null && readyPosition.text!.isNotEmpty) {
           spans.add(const TextSpan(text: ' '));
@@ -704,10 +1094,12 @@ class _EventDetailsDialog extends StatelessWidget {
 
       // Add text in normal weight (with rich text processing)
       if (readyPosition.text != null && readyPosition.text!.isNotEmpty) {
-        spans.addAll(_processRichText(
-          readyPosition.text,
-          baseStyle: const TextStyle(color: Colors.black, fontSize: 13),
-        ));
+        spans.addAll(
+          _processRichText(
+            readyPosition.text,
+            baseStyle: const TextStyle(color: Colors.black, fontSize: 13),
+          ),
+        );
       }
 
       // Add comma separator if not the last item
@@ -720,7 +1112,10 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Helper method to format sighters with rich text support
-  List<InlineSpan> _formatSightersRich(List<Sighters> sighters, {TextStyle? baseStyle}) {
+  List<InlineSpan> _formatSightersRich(
+    List<Sighters> sighters, {
+    TextStyle? baseStyle,
+  }) {
     if (sighters.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -737,7 +1132,11 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Universal text processor - handles <> for line breaks and {} for bold text
-  List<InlineSpan> _processRichText(String? text, {TextStyle? baseStyle, bool alreadyBold = false}) {
+  List<InlineSpan> _processRichText(
+    String? text, {
+    TextStyle? baseStyle,
+    bool alreadyBold = false,
+  }) {
     if (text == null || text.isEmpty) return [];
 
     final List<InlineSpan> spans = [];
@@ -750,7 +1149,13 @@ class _EventDetailsDialog extends StatelessWidget {
 
       if (line.isNotEmpty) {
         // Now process each line for {} bold markers
-        spans.addAll(_processBoldMarkers(line, baseStyle: baseStyle, alreadyBold: alreadyBold));
+        spans.addAll(
+          _processBoldMarkers(
+            line,
+            baseStyle: baseStyle,
+            alreadyBold: alreadyBold,
+          ),
+        );
       }
 
       // Add line break after each part except the last one
@@ -763,7 +1168,11 @@ class _EventDetailsDialog extends StatelessWidget {
   }
 
   // Helper to process {} bold markers within a text segment
-  List<InlineSpan> _processBoldMarkers(String text, {TextStyle? baseStyle, bool alreadyBold = false}) {
+  List<InlineSpan> _processBoldMarkers(
+    String text, {
+    TextStyle? baseStyle,
+    bool alreadyBold = false,
+  }) {
     final List<InlineSpan> spans = [];
     final RegExp boldPattern = RegExp(r'\{([^}]*)\}');
 
@@ -772,20 +1181,20 @@ class _EventDetailsDialog extends StatelessWidget {
       // Add text before the match (normal or already bold)
       if (match.start > lastEnd) {
         final normalText = text.substring(lastEnd, match.start);
-        spans.add(TextSpan(
-          text: normalText,
-          style: baseStyle,
-        ));
+        spans.add(TextSpan(text: normalText, style: baseStyle));
       }
 
       // Add the matched text in bold
       final boldText = match.group(1) ?? '';
       if (boldText.isNotEmpty) {
-        spans.add(TextSpan(
-          text: boldText,
-          style: baseStyle?.copyWith(fontWeight: FontWeight.bold) ??
-              const TextStyle(fontWeight: FontWeight.bold),
-        ));
+        spans.add(
+          TextSpan(
+            text: boldText,
+            style:
+                baseStyle?.copyWith(fontWeight: FontWeight.bold) ??
+                const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        );
       }
 
       lastEnd = match.end;
@@ -794,10 +1203,7 @@ class _EventDetailsDialog extends StatelessWidget {
     // Add remaining text after last match
     if (lastEnd < text.length) {
       final remainingText = text.substring(lastEnd);
-      spans.add(TextSpan(
-        text: remainingText,
-        style: baseStyle,
-      ));
+      spans.add(TextSpan(text: remainingText, style: baseStyle));
     }
 
     // If no matches were found, return the original text
@@ -835,14 +1241,30 @@ class _EventDetailsDialog extends StatelessWidget {
             style: const TextStyle(color: Colors.black, fontSize: 13),
             children: [
               // Show custom practice name if it exists, otherwise show 'Practice' with number
-              if (practice.practiceName != null && practice.practiceName!.isNotEmpty) ...[
-                TextSpan(text: practice.practiceName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                TextSpan(text: ' ${practice.practiceNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              if (practice.practiceName != null &&
+                  practice.practiceName!.isNotEmpty) ...[
+                TextSpan(
+                  text: practice.practiceName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: ' ${practice.practiceNumber}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ] else ...[
-                const TextSpan(text: 'Practice ', style: TextStyle(fontWeight: FontWeight.bold)),
-                TextSpan(text: '${practice.practiceNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const TextSpan(
+                  text: 'Practice ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: '${practice.practiceNumber}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ],
-              const TextSpan(text: ' :', style: TextStyle(fontWeight: FontWeight.bold)),
+              const TextSpan(
+                text: ' :',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -861,9 +1283,18 @@ class _EventDetailsDialog extends StatelessWidget {
                     text: TextSpan(
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
-                        const TextSpan(text: 'Stage ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        TextSpan(text: '${stage.stageNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const TextSpan(text: ' :', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const TextSpan(
+                          text: 'Stage ',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: '${stage.stageNumber}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const TextSpan(
+                          text: ' :',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -877,9 +1308,16 @@ class _EventDetailsDialog extends StatelessWidget {
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
                         TextSpan(text: '${stage.distance}'),
-                        if (stage.distanceText != null && stage.distanceText!.isNotEmpty) ...[
+                        if (stage.distanceText != null &&
+                            stage.distanceText!.isNotEmpty) ...[
                           const TextSpan(text: ' '),
-                          ..._processRichText(stage.distanceText, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                          ..._processRichText(
+                            stage.distanceText,
+                            baseStyle: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -893,9 +1331,16 @@ class _EventDetailsDialog extends StatelessWidget {
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
                         TextSpan(text: '${stage.rounds}'),
-                        if (stage.roundsText != null && stage.roundsText!.isNotEmpty) ...[
+                        if (stage.roundsText != null &&
+                            stage.roundsText!.isNotEmpty) ...[
                           const TextSpan(text: ' '),
-                          ..._processRichText(stage.roundsText, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                          ..._processRichText(
+                            stage.roundsText,
+                            baseStyle: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -909,9 +1354,16 @@ class _EventDetailsDialog extends StatelessWidget {
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
                         TextSpan(text: _formatNumber(stage.time)),
-                        if (stage.timeText != null && stage.timeText!.isNotEmpty) ...[
+                        if (stage.timeText != null &&
+                            stage.timeText!.isNotEmpty) ...[
                           const TextSpan(text: ' '),
-                          ..._processRichText(stage.timeText, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                          ..._processRichText(
+                            stage.timeText,
+                            baseStyle: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -925,9 +1377,23 @@ class _EventDetailsDialog extends StatelessWidget {
                     text: TextSpan(
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
-                        ..._processRichText(stage.notesHeader, baseStyle: const TextStyle(color: Colors.black, fontSize: 13, fontStyle: FontStyle.italic)),
+                        ..._processRichText(
+                          stage.notesHeader,
+                          baseStyle: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                         if (stage.notes != null) const TextSpan(text: ' '),
-                        if (stage.notes != null) ..._processRichText(stage.notes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                        if (stage.notes != null)
+                          ..._processRichText(
+                            stage.notes,
+                            baseStyle: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -936,7 +1402,13 @@ class _EventDetailsDialog extends StatelessWidget {
                   RichText(
                     text: TextSpan(
                       style: const TextStyle(color: Colors.black, fontSize: 13),
-                      children: _processRichText(stage.notes, baseStyle: const TextStyle(color: Colors.black, fontSize: 13)),
+                      children: _processRichText(
+                        stage.notes,
+                        baseStyle: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ),
                 ],
