@@ -15,6 +15,8 @@ import '../models/rounds_counter_entry.dart';
 import '../models/comp_history_entry.dart';
 
 class BackupRestore {
+  static const String _profilePhotoPathKey = 'profilePhotoPath';
+
   /// Backup app data (Hive as JSON + SharedPrefs + optionally images)
   static Future<File> backupAppData({bool includeImages = true}) async {
     final archive = Archive();
@@ -58,7 +60,9 @@ class BackupRestore {
       spMap[key] = prefs.get(key);
     }
     final spJson = utf8.encode(jsonEncode(spMap));
-    archive.addFile(ArchiveFile('data/shared_preferences.json', spJson.length, spJson));
+    archive.addFile(
+      ArchiveFile('data/shared_preferences.json', spJson.length, spJson),
+    );
 
     // ---------------------------
     // 3. Images from Hive entries
@@ -68,10 +72,18 @@ class BackupRestore {
       final scoreBox = Hive.box<ScoreEntry>('scores');
       for (var entry in scoreBox.values) {
         if (entry.targetFilePath != null) {
-          await _addFileToArchive(entry.targetFilePath!, archive, 'images/targets/full');
+          await _addFileToArchive(
+            entry.targetFilePath!,
+            archive,
+            'images/targets/full',
+          );
         }
         if (entry.thumbnailFilePath != null) {
-          await _addFileToArchive(entry.thumbnailFilePath!, archive, 'images/targets/thumbs');
+          await _addFileToArchive(
+            entry.thumbnailFilePath!,
+            archive,
+            'images/targets/thumbs',
+          );
         }
       }
 
@@ -87,11 +99,25 @@ class BackupRestore {
       final membershipBox = Hive.box<MembershipCardEntry>('membership_cards');
       for (var entry in membershipBox.values) {
         if (entry.frontImagePath != null) {
-          await _addFileToArchive(entry.frontImagePath!, archive, 'images/membership');
+          await _addFileToArchive(
+            entry.frontImagePath!,
+            archive,
+            'images/membership',
+          );
         }
         if (entry.backImagePath != null) {
-          await _addFileToArchive(entry.backImagePath!, archive, 'images/membership');
+          await _addFileToArchive(
+            entry.backImagePath!,
+            archive,
+            'images/membership',
+          );
         }
+      }
+
+      // Profile photo
+      final profilePhotoPath = prefs.getString(_profilePhotoPathKey);
+      if (profilePhotoPath != null && profilePhotoPath.isNotEmpty) {
+        await _addFileToArchive(profilePhotoPath, archive, 'images/profile');
       }
     }
 
@@ -114,7 +140,11 @@ class BackupRestore {
   }
 
   /// Helper: add a file to the archive with a relative folder
-  static Future<void> _addFileToArchive(String path, Archive archive, String folder) async {
+  static Future<void> _addFileToArchive(
+    String path,
+    Archive archive,
+    String folder,
+  ) async {
     final f = File(path);
     if (await f.exists()) {
       final bytes = await f.readAsBytes();
@@ -147,7 +177,14 @@ class BackupRestore {
 
   /// Restore Hive boxes & SharedPreferences safely
   static Future<void> _restoreHiveAndPrefs(Directory appDir) async {
-    const boxNames = ['scores', 'firearms', 'membership_cards', 'appointments', 'rounds_counter', 'comp_history'];
+    const boxNames = [
+      'scores',
+      'firearms',
+      'membership_cards',
+      'appointments',
+      'rounds_counter',
+      'comp_history',
+    ];
 
     for (var boxName in boxNames) {
       final file = File('${appDir.path}/data/$boxName.json');
@@ -218,71 +255,80 @@ class BackupRestore {
       } else if (v is bool) {
         prefs.setBool(key, v);
       } else if (v is String) {
-        prefs.setString(key, v);
+        prefs.setString(
+          key,
+          key == _profilePhotoPathKey
+              ? _restoredImagePath(v, appDir, 'images/profile')
+              : v,
+        );
       } else if (v is List) {
         prefs.setStringList(key, List<String>.from(v));
       }
     }
   }
 
+  static String _restoredImagePath(
+    String originalPath,
+    Directory appDir,
+    String folder,
+  ) {
+    final filename = originalPath.split('/').last.split('\\').last;
+    return '${appDir.path}/$folder/$filename';
+  }
+
   /// Update ScoreEntry image paths to point to restored location
-  static void _updateScoreImagePaths(Map<String, dynamic> map,
-      Directory appDir) {
+  static void _updateScoreImagePaths(
+    Map<String, dynamic> map,
+    Directory appDir,
+  ) {
     if (map['targetFilePath'] != null) {
-      final filename = map['targetFilePath']
-          .toString()
-          .split('/')
-          .last
-          .split('\\')
-          .last;
-      map['targetFilePath'] = '${appDir.path}/images/targets/full/$filename';
+      map['targetFilePath'] = _restoredImagePath(
+        map['targetFilePath'].toString(),
+        appDir,
+        'images/targets/full',
+      );
     }
     if (map['thumbnailFilePath'] != null) {
-      final filename = map['thumbnailFilePath']
-          .toString()
-          .split('/')
-          .last
-          .split('\\')
-          .last;
-      map['thumbnailFilePath'] =
-      '${appDir.path}/images/targets/thumbs/$filename';
+      map['thumbnailFilePath'] = _restoredImagePath(
+        map['thumbnailFilePath'].toString(),
+        appDir,
+        'images/targets/thumbs',
+      );
     }
   }
 
   /// Update FirearmEntry image path to point to restored location
-  static void _updateFirearmImagePath(Map<String, dynamic> map,
-      Directory appDir) {
+  static void _updateFirearmImagePath(
+    Map<String, dynamic> map,
+    Directory appDir,
+  ) {
     if (map['imagePath'] != null) {
-      final filename = map['imagePath']
-          .toString()
-          .split('/')
-          .last
-          .split('\\')
-          .last;
-      map['imagePath'] = '${appDir.path}/images/armory/$filename';
+      map['imagePath'] = _restoredImagePath(
+        map['imagePath'].toString(),
+        appDir,
+        'images/armory',
+      );
     }
   }
 
   /// Update MembershipCardEntry image paths to point to restored location
-  static void _updateMembershipImagePaths(Map<String, dynamic> map,
-      Directory appDir) {
+  static void _updateMembershipImagePaths(
+    Map<String, dynamic> map,
+    Directory appDir,
+  ) {
     if (map['frontImagePath'] != null) {
-      final filename = map['frontImagePath']
-          .toString()
-          .split('/')
-          .last
-          .split('\\')
-          .last;
-      map['frontImagePath'] = '${appDir.path}/images/membership/$filename';
+      map['frontImagePath'] = _restoredImagePath(
+        map['frontImagePath'].toString(),
+        appDir,
+        'images/membership',
+      );
     }
     if (map['backImagePath'] != null) {
-      final filename = map['backImagePath']
-          .toString()
-          .split('/')
-          .last
-          .split('\\')
-          .last;
-      map['backImagePath'] = '${appDir.path}/images/membership/$filename';
+      map['backImagePath'] = _restoredImagePath(
+        map['backImagePath'].toString(),
+        appDir,
+        'images/membership',
+      );
     }
   }
 }

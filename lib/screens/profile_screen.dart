@@ -1,8 +1,13 @@
 // lib/screens/profile_screen.dart
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../services/auth_service.dart';
 import '../models/user_profile.dart';
@@ -18,9 +23,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const String _profilePhotoPathKey = 'profilePhotoPath';
+
   final AuthService _authService = AuthService();
   UserProfile? _userProfile;
   bool _loadingProfile = true;
+  String? _profilePhotoPath;
 
   @override
   void initState() {
@@ -30,19 +38,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedPhotoPath = prefs.getString(_profilePhotoPathKey);
       final user = _authService.currentUser;
       if (user != null) {
         final profile = await _authService.getUserProfile(user.uid);
+        if (!mounted) return;
         setState(() {
           _userProfile = profile;
+          _profilePhotoPath = savedPhotoPath;
           _loadingProfile = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
+          _profilePhotoPath = savedPhotoPath;
           _loadingProfile = false;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _loadingProfile = false;
       });
@@ -64,6 +79,182 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }).toList();
     return names.join('/');
+  }
+
+  String _getProfileInitials() {
+    final firstInitial = _userProfile?.firstName.trim().isNotEmpty == true
+        ? _userProfile!.firstName.trim()[0]
+        : '';
+    final lastInitial = _userProfile?.lastName.trim().isNotEmpty == true
+        ? _userProfile!.lastName.trim()[0]
+        : '';
+    final initials = '$firstInitial$lastInitial'.toUpperCase();
+    return initials.isNotEmpty ? initials : '?';
+  }
+
+  bool get _hasProfilePhoto {
+    final path = _profilePhotoPath;
+    return path != null && path.isNotEmpty && File(path).existsSync();
+  }
+
+  Future<void> _updateProfilePhoto(ImageSource source) async {
+    try {
+      final imageQualityProvider = Provider.of<ImageQualityProvider>(
+        context,
+        listen: false,
+      );
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: imageQualityProvider.qualityPercentage,
+      );
+      if (picked == null) return;
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final profileDir = Directory('${appDir.path}/images/profile');
+      await profileDir.create(recursive: true);
+
+      final extension = picked.path.split('.').last.toLowerCase();
+      final safeExtension = extension.isNotEmpty ? extension : 'jpg';
+      final savedFile = File(
+        '${profileDir.path}/profile_photo_${DateTime.now().millisecondsSinceEpoch}.$safeExtension',
+      );
+      await File(picked.path).copy(savedFile.path);
+
+      final prefs = await SharedPreferences.getInstance();
+      final previousPhotoPath = _profilePhotoPath;
+      await prefs.setString(_profilePhotoPathKey, savedFile.path);
+
+      if (previousPhotoPath != null && previousPhotoPath != savedFile.path) {
+        final previousFile = File(previousPhotoPath);
+        if (await previousFile.exists()) {
+          await previousFile.delete();
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoPath = savedFile.path;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile photo: $e')),
+      );
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    final currentPhotoPath = _profilePhotoPath;
+    if (currentPhotoPath == null || currentPhotoPath.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove Profile Photo?'),
+        content: const Text('Your initials will be shown instead.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_profilePhotoPathKey);
+    final currentFile = File(currentPhotoPath);
+    if (await currentFile.exists()) {
+      await currentFile.delete();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _profilePhotoPath = null;
+    });
+  }
+
+  Future<void> _showProfilePhotoOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _updateProfilePhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _updateProfilePhoto(ImageSource.gallery);
+              },
+            ),
+            if (_hasProfilePhoto)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Remove Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _removeProfilePhoto();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileAvatar(Color primaryColor) {
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: primaryColor,
+          backgroundImage: _hasProfilePhoto
+              ? FileImage(File(_profilePhotoPath!))
+              : null,
+          child: _hasProfilePhoto
+              ? null
+              : Text(
+                  _getProfileInitials(),
+                  style: const TextStyle(
+                    fontSize: 40,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+        Material(
+          color: primaryColor,
+          shape: const CircleBorder(),
+          elevation: 2,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _showProfilePhotoOptions,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSectionCard({
@@ -183,21 +374,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (result == true) {
+      if (!mounted) return;
       try {
         // Show loading indicator
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (_) => const Center(child: CircularProgressIndicator()),
         );
 
         // Re-authenticate user with current password
         await _authService.reauthenticate(currentPasswordController.text);
 
         // Update password
-        await _authService.currentUser?.updatePassword(newPasswordController.text);
+        await _authService.currentUser?.updatePassword(
+          newPasswordController.text,
+        );
 
         // Close loading indicator
         if (mounted) Navigator.pop(context);
@@ -237,22 +429,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_loadingProfile) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          centerTitle: true,
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(title: const Text('Profile'), centerTitle: true),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_userProfile == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          centerTitle: true,
-        ),
+        appBar: AppBar(title: const Text('Profile'), centerTitle: true),
         body: const Center(
           child: Text('No user profile found. Please log in again.'),
         ),
@@ -286,18 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: themeProvider.primaryColor,
-                        child: Text(
-                          _userProfile!.firstName[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 40,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      _buildProfileAvatar(themeProvider.primaryColor),
                       const SizedBox(height: 16),
                       Text(
                         _userProfile!.fullName,
@@ -309,10 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 4),
                       Text(
                         _userProfile!.email,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -383,27 +553,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   FutureBuilder<bool>(
                     future: _authService.isBiometricAvailable(),
                     builder: (context, availabilitySnapshot) {
-                      if (availabilitySnapshot.connectionState == ConnectionState.waiting) {
+                      if (availabilitySnapshot.connectionState ==
+                          ConnectionState.waiting) {
                         return const SizedBox.shrink();
                       }
                       if (availabilitySnapshot.data == true) {
                         return FutureBuilder<List<BiometricType>>(
                           future: _authService.getAvailableBiometrics(),
                           builder: (context, biometricsSnapshot) {
-                            final availableBiometrics = biometricsSnapshot.data ?? [];
+                            final availableBiometrics =
+                                biometricsSnapshot.data ?? [];
                             final biometricName = availableBiometrics.isNotEmpty
-                                ? availableBiometrics.map((b) {
-                                    switch (b) {
-                                      case BiometricType.fingerprint:
-                                        return 'Fingerprint';
-                                      case BiometricType.face:
-                                        return 'Face ID';
-                                      case BiometricType.iris:
-                                        return 'Iris';
-                                      default:
-                                        return 'Biometric';
-                                    }
-                                  }).join('/')
+                                ? availableBiometrics
+                                      .map((b) {
+                                        switch (b) {
+                                          case BiometricType.fingerprint:
+                                            return 'Fingerprint';
+                                          case BiometricType.face:
+                                            return 'Face ID';
+                                          case BiometricType.iris:
+                                            return 'Iris';
+                                          default:
+                                            return 'Biometric';
+                                        }
+                                      })
+                                      .join('/')
                                 : 'Biometric';
                             return FutureBuilder<bool>(
                               future: _authService.isBiometricEnabled(),
@@ -417,48 +591,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     value: isEnabled,
                                     onChanged: (value) async {
                                       if (value) {
-                                        debugPrint('Attempting to enable biometric auth...');
+                                        debugPrint(
+                                          'Attempting to enable biometric auth...',
+                                        );
                                         // Authenticate first before enabling
-                                        final authenticated =
-                                            await _authService.authenticateWithBiometrics();
-                                        debugPrint('Biometric auth result: $authenticated');
+                                        final authenticated = await _authService
+                                            .authenticateWithBiometrics();
+                                        debugPrint(
+                                          'Biometric auth result: $authenticated',
+                                        );
                                         if (authenticated) {
-                                          debugPrint('Authentication successful, enabling biometric...');
-                                          await _authService.setBiometricEnabled(true);
+                                          debugPrint(
+                                            'Authentication successful, enabling biometric...',
+                                          );
+                                          await _authService
+                                              .setBiometricEnabled(true);
                                           // Trigger rebuild to show enabled state
                                           if (context.mounted) {
                                             setState(() {});
                                           }
                                           if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               const SnackBar(
-                                                content: Text('Biometric authentication enabled.'),
+                                                content: Text(
+                                                  'Biometric authentication enabled.',
+                                                ),
                                                 backgroundColor: Colors.green,
                                               ),
                                             );
                                           }
                                         } else {
                                           // Authentication failed or cancelled
-                                          debugPrint('Authentication failed or cancelled');
+                                          debugPrint(
+                                            'Authentication failed or cancelled',
+                                          );
                                           if (context.mounted) {
                                             String errorMsg;
                                             if (availableBiometrics.isEmpty) {
-                                              errorMsg = 'No biometrics enrolled on this device. Please set up fingerprint or face unlock in your device settings first.';
+                                              errorMsg =
+                                                  'No biometrics enrolled on this device. Please set up fingerprint or face unlock in your device settings first.';
                                             } else {
-                                              errorMsg = 'Biometric authentication failed. Please ensure your ${_getBiometricTypeName(availableBiometrics)} is properly enrolled and try again.';
+                                              errorMsg =
+                                                  'Biometric authentication failed. Please ensure your ${_getBiometricTypeName(availableBiometrics)} is properly enrolled and try again.';
                                             }
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               SnackBar(
                                                 content: Text(errorMsg),
                                                 backgroundColor: Colors.orange,
-                                                duration: const Duration(seconds: 5),
+                                                duration: const Duration(
+                                                  seconds: 5,
+                                                ),
                                               ),
                                             );
                                           }
                                         }
                                       } else {
                                         // Turning off - no authentication needed
-                                        await _authService.setBiometricEnabled(false);
+                                        await _authService.setBiometricEnabled(
+                                          false,
+                                        );
                                         if (context.mounted) {
                                           setState(() {});
                                         }
@@ -494,7 +689,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Logout'),
-                          content: const Text('Are you sure you want to logout?'),
+                          content: const Text(
+                            'Are you sure you want to logout?',
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
@@ -514,7 +711,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       if (confirmed == true) {
                         await _authService.signOut();
-                        if (mounted) {
+                        if (context.mounted) {
                           Navigator.pushNamedAndRemoveUntil(
                             context,
                             '/login',
@@ -527,7 +724,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 1),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.delete_forever, color: Colors.red),
+                    leading: const Icon(
+                      Icons.delete_forever,
+                      color: Colors.red,
+                    ),
                     title: const Text(
                       'Delete Account',
                       style: TextStyle(color: Colors.red),
@@ -559,6 +759,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
 
                       if (confirmed == true) {
+                        if (!context.mounted) return;
                         // Show password re-authentication dialog
                         final passwordController = TextEditingController();
                         final reauthed = await showDialog<bool>(
@@ -597,18 +798,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       passwordController.text,
                                     );
                                     passwordController.dispose();
+                                    if (!context.mounted) return;
                                     Navigator.pop(context, true);
                                   } catch (e) {
                                     passwordController.dispose();
+                                    if (!context.mounted) return;
                                     Navigator.pop(context, false);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: $e'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -624,7 +825,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (reauthed == true) {
                           try {
                             await _authService.deleteAccount();
-                            if (mounted) {
+                            if (context.mounted) {
                               Navigator.pushNamedAndRemoveUntil(
                                 context,
                                 '/login',
@@ -632,7 +833,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               );
                             }
                           } catch (e) {
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Error deleting account: $e'),
