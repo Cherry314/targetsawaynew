@@ -29,13 +29,13 @@ class ProgressScreenState extends State<ProgressScreen> {
   List<ScoreEntry> filteredEntries = [];
   int? selectedLineChartIndex;
   int? selectedBarChartIndex;
-  
+
   @override
   void initState() {
     super.initState();
     _loadFavoritesFromPrefs();
   }
-  
+
   Future<void> _loadFavoritesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -65,26 +65,32 @@ class ProgressScreenState extends State<ProgressScreen> {
           .cast<int>()
           .toList();
     }
-    
+
     // Update UI after loading favorites
     if (mounted) {
       setState(() {});
     }
   }
-  
+
   // Get filter lists with "All" option and favorites
   List<String> get practiceFilterList {
-    final favorites = DropdownValues.practices.where((p) => p.isNotEmpty).toList();
+    final favorites = DropdownValues.practices
+        .where((p) => p.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
-  
+
   List<String> get caliberFilterList {
-    final favorites = DropdownValues.calibers.where((c) => c.isNotEmpty).toList();
+    final favorites = DropdownValues.calibers
+        .where((c) => c.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
-  
+
   List<String> get firearmIdFilterList {
-    final favorites = DropdownValues.firearmIds.where((f) => f.isNotEmpty).toList();
+    final favorites = DropdownValues.firearmIds
+        .where((f) => f.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
 
@@ -94,12 +100,12 @@ class ProgressScreenState extends State<ProgressScreen> {
 
     setState(() {
       filteredEntries = allEntries.where((entry) {
-        final matchesPractice = selectedPractice == null ||
-            entry.practice == selectedPractice;
-        final matchesCaliber = selectedCaliber == null ||
-            entry.caliber == selectedCaliber;
-        final matchesFirearm = selectedFirearmId == null ||
-            entry.firearmId == selectedFirearmId;
+        final matchesPractice =
+            selectedPractice == null || entry.practice == selectedPractice;
+        final matchesCaliber =
+            selectedCaliber == null || entry.caliber == selectedCaliber;
+        final matchesFirearm =
+            selectedFirearmId == null || entry.firearmId == selectedFirearmId;
         return matchesPractice && matchesCaliber && matchesFirearm;
       }).toList();
 
@@ -128,216 +134,235 @@ class ProgressScreenState extends State<ProgressScreen> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final primaryColor = themeProvider.primaryColor;
-    final isDark = Theme
-        .of(context)
-        .brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (bool didPop, dynamic result) async {
-          if (didPop) {
-            return;
-          }
-          if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-        child: Scaffold(
-          backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-          drawer: const AppDrawer(currentRoute: 'progress'),
-          appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Progress Graph',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) {
+          return;
+        }
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+        drawer: const AppDrawer(currentRoute: 'progress'),
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text(
+            'Progress Graph',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [primaryColor, primaryColor.withValues(alpha: 0.8)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        actions: const [
-          HelpIconButton(
-            title: 'Progress Graph Help',
-            content: HelpContent.progressScreen,
-          ),
-        ],
-      ),
-      body: SafeArea(
-        bottom: true,
-        child: Column(
-        children: [
-          // Compact Filter Section
-          Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(16),
+          centerTitle: true,
+          flexibleSpace: Container(
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey[850] : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // First Row: Filters label + Practice dropdown
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                          Icons.filter_list, color: primaryColor, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "Filters",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: _buildPracticeDropdown(primaryColor, isDark)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Second Row: Caliber (33%) + FirearmID (66%)
-                Row(
-                  children: [
-                    Expanded(
-                        flex: 1,
-                        child: _buildCaliberDropdown(primaryColor, isDark)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        flex: 2,
-                        child: _buildFirearmDropdown(primaryColor, isDark)),
-                  ],
-                ),
-              ],
+              gradient: LinearGradient(
+                colors: [primaryColor, primaryColor.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
           ),
-
-          // Chart Type Selector
-          if (filteredEntries.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey[850] : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.show_chart, color: primaryColor, size: 20),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Chart Style:',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<ChartType>(
-                      initialValue: selectedChartType,
-                      isDense: true,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: primaryColor, width: 2),
-                        ),
-                        filled: true,
-                        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                      ),
-                      items: ChartType.values
-                          .map((type) =>
-                          DropdownMenuItem(
-                            value: type,
-                            child: Text(
-                              _getChartTypeLabel(type),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            selectedChartType = value;
-                            selectedLineChartIndex = null;
-                            selectedBarChartIndex = null;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
+          actions: const [
+            HelpIconButton(
+              title: 'Progress Graph Help',
+              content: HelpContent.progressScreen,
             ),
-
-          const SizedBox(height: 12),
-
-          // Chart Section
-          Expanded(
-            child: filteredEntries.isEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.auto_graph,
-                    size: 64,
-                    color: primaryColor.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Select filters to display graph',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            )
-                : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildChart(primaryColor, isDark),
-            ),
-          ),
-        ],
+          ],
         ),
-      ),
+        body: SafeArea(
+          bottom: true,
+          child: Column(
+            children: [
+              // Compact Filter Section
+              Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[850] : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // First Row: Filters label + Practice dropdown
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.filter_list,
+                            color: primaryColor,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          "Filters",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildPracticeDropdown(primaryColor, isDark),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Second Row: Calibre (33%) + FirearmID (66%)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: _buildCalibreDropdown(primaryColor, isDark),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: _buildFirearmDropdown(primaryColor, isDark),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Chart Type Selector
+              if (filteredEntries.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[850] : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.show_chart, color: primaryColor, size: 20),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Chart Style:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<ChartType>(
+                          initialValue: selectedChartType,
+                          isDense: true,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.grey[800]
+                                : Colors.grey[50],
+                          ),
+                          items: ChartType.values
+                              .map(
+                                (type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(
+                                    _getChartTypeLabel(type),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                selectedChartType = value;
+                                selectedLineChartIndex = null;
+                                selectedBarChartIndex = null;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 12),
+
+              // Chart Section
+              Expanded(
+                child: filteredEntries.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_graph,
+                              size: 64,
+                              color: primaryColor.withValues(alpha: 0.3),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Select filters to display graph',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: _buildChart(primaryColor, isDark),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -355,10 +380,10 @@ class ProgressScreenState extends State<ProgressScreen> {
         labelText: 'Practice',
         labelStyle: const TextStyle(fontSize: 12),
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          horizontal: 12,
+          vertical: 10,
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -371,11 +396,12 @@ class ProgressScreenState extends State<ProgressScreen> {
         fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
       ),
       items: practiceFilterList
-          .map((p) =>
-          DropdownMenuItem(
-            value: p,
-            child: Text(p, style: const TextStyle(fontSize: 13)),
-          ))
+          .map(
+            (p) => DropdownMenuItem(
+              value: p,
+              child: Text(p, style: const TextStyle(fontSize: 13)),
+            ),
+          )
           .toList(),
       onChanged: (v) {
         setState(() => selectedPractice = (v == 'All') ? null : v);
@@ -384,7 +410,7 @@ class ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildCaliberDropdown(Color primaryColor, bool isDark) {
+  Widget _buildCalibreDropdown(Color primaryColor, bool isDark) {
     return DropdownButtonFormField<String>(
       initialValue: selectedCaliber,
       isDense: true,
@@ -394,13 +420,13 @@ class ProgressScreenState extends State<ProgressScreen> {
         color: isDark ? Colors.white : Colors.black,
       ),
       decoration: InputDecoration(
-        labelText: 'Caliber',
+        labelText: 'Calibre',
         labelStyle: const TextStyle(fontSize: 12),
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          horizontal: 12,
+          vertical: 10,
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -413,11 +439,12 @@ class ProgressScreenState extends State<ProgressScreen> {
         fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
       ),
       items: caliberFilterList
-          .map((c) =>
-          DropdownMenuItem(
-            value: c,
-            child: Text(c, style: const TextStyle(fontSize: 13)),
-          ))
+          .map(
+            (c) => DropdownMenuItem(
+              value: c,
+              child: Text(c, style: const TextStyle(fontSize: 13)),
+            ),
+          )
           .toList(),
       onChanged: (v) {
         setState(() => selectedCaliber = (v == 'All') ? null : v);
@@ -439,10 +466,10 @@ class ProgressScreenState extends State<ProgressScreen> {
         labelText: 'Firearm',
         labelStyle: const TextStyle(fontSize: 12),
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          horizontal: 12,
+          vertical: 10,
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -455,11 +482,12 @@ class ProgressScreenState extends State<ProgressScreen> {
         fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
       ),
       items: firearmIdFilterList
-          .map((f) =>
-          DropdownMenuItem(
-            value: f,
-            child: Text(f, style: const TextStyle(fontSize: 13)),
-          ))
+          .map(
+            (f) => DropdownMenuItem(
+              value: f,
+              child: Text(f, style: const TextStyle(fontSize: 13)),
+            ),
+          )
           .toList(),
       onChanged: (v) {
         setState(() => selectedFirearmId = (v == 'All') ? null : v);
@@ -534,49 +562,49 @@ class ProgressScreenState extends State<ProgressScreen> {
                   enabled: true,
                   handleBuiltInTouches: false,
                   touchSpotThreshold: 30,
-                  touchCallback: (FlTouchEvent event,
-                      LineTouchResponse? touchResponse) {
-                    if (event is FlTapUpEvent || event is FlPanEndEvent) {
-                      if (touchResponse != null &&
-                          touchResponse.lineBarSpots != null &&
-                          touchResponse.lineBarSpots!.isNotEmpty) {
-                        final spot = touchResponse.lineBarSpots!.first;
-                        setState(() {
-                          if (selectedLineChartIndex == spot.x.toInt()) {
-                            selectedLineChartIndex = null;
+                  touchCallback:
+                      (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                        if (event is FlTapUpEvent || event is FlPanEndEvent) {
+                          if (touchResponse != null &&
+                              touchResponse.lineBarSpots != null &&
+                              touchResponse.lineBarSpots!.isNotEmpty) {
+                            final spot = touchResponse.lineBarSpots!.first;
+                            setState(() {
+                              if (selectedLineChartIndex == spot.x.toInt()) {
+                                selectedLineChartIndex = null;
+                              } else {
+                                selectedLineChartIndex = spot.x.toInt();
+                              }
+                            });
                           } else {
-                            selectedLineChartIndex = spot.x.toInt();
+                            // Tapped on empty area, clear selection
+                            setState(() {
+                              selectedLineChartIndex = null;
+                            });
                           }
-                        });
-                      } else {
-                        // Tapped on empty area, clear selection
-                        setState(() {
-                          selectedLineChartIndex = null;
-                        });
-                      }
-                    }
-                  },
-                  getTouchedSpotIndicator: (LineChartBarData barData,
-                      List<int> spotIndexes) {
-                    return spotIndexes.map((index) {
-                      return TouchedSpotIndicatorData(
-                        FlLine(
-                          color: primaryColor.withValues(alpha: 0.5),
-                          strokeWidth: 2,
-                        ),
-                        FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) =>
-                              FlDotCirclePainter(
-                                radius: 6,
-                                color: primaryColor,
-                                strokeWidth: 3,
-                                strokeColor: Colors.white,
-                              ),
-                        ),
-                      );
-                    }).toList();
-                  },
+                        }
+                      },
+                  getTouchedSpotIndicator:
+                      (LineChartBarData barData, List<int> spotIndexes) {
+                        return spotIndexes.map((index) {
+                          return TouchedSpotIndicatorData(
+                            FlLine(
+                              color: primaryColor.withValues(alpha: 0.5),
+                              strokeWidth: 2,
+                            ),
+                            FlDotData(
+                              show: true,
+                              getDotPainter: (spot, percent, barData, index) =>
+                                  FlDotCirclePainter(
+                                    radius: 6,
+                                    color: primaryColor,
+                                    strokeWidth: 3,
+                                    strokeColor: Colors.white,
+                                  ),
+                            ),
+                          );
+                        }).toList();
+                      },
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (touchedSpot) =>
                         primaryColor.withValues(alpha: 0.8),
@@ -584,10 +612,11 @@ class ProgressScreenState extends State<ProgressScreen> {
                       return touchedSpots.map((spot) {
                         final date = dates[spot.x.toInt()];
                         return LineTooltipItem(
-                          'Score: ${spot.y.toInt()}\n${date.day}/${date
-                              .month}/${date.year}',
+                          'Score: ${spot.y.toInt()}\n${date.day}/${date.month}/${date.year}',
                           const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         );
                       }).toList();
                     },
@@ -595,23 +624,25 @@ class ProgressScreenState extends State<ProgressScreen> {
                 ),
                 showingTooltipIndicators: selectedLineChartIndex != null
                     ? [
-                  ShowingTooltipIndicators([
-                    LineBarSpot(
-                      LineChartBarData(
-                        spots: spots,
-                        color: primaryColor,
-                        isCurved: selectedChartType == ChartType.curved,
-                        curveSmoothness: selectedChartType == ChartType.curved
-                            ? 0.3
-                            : 0,
-                        isStepLineChart: selectedChartType == ChartType.stepped,
-                        barWidth: 3,
-                      ),
-                      0,
-                      spots[selectedLineChartIndex!],
-                    ),
-                  ])
-                ]
+                        ShowingTooltipIndicators([
+                          LineBarSpot(
+                            LineChartBarData(
+                              spots: spots,
+                              color: primaryColor,
+                              isCurved: selectedChartType == ChartType.curved,
+                              curveSmoothness:
+                                  selectedChartType == ChartType.curved
+                                  ? 0.3
+                                  : 0,
+                              isStepLineChart:
+                                  selectedChartType == ChartType.stepped,
+                              barWidth: 3,
+                            ),
+                            0,
+                            spots[selectedLineChartIndex!],
+                          ),
+                        ]),
+                      ]
                     : [],
                 gridData: FlGridData(
                   show: true,
@@ -627,11 +658,14 @@ class ProgressScreenState extends State<ProgressScreen> {
                 clipData: FlClipData.all(),
                 titlesData: FlTitlesData(
                   topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   leftTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -648,8 +682,9 @@ class ProgressScreenState extends State<ProgressScreen> {
                               dayMonth,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: isDark ? Colors.grey[400] : Colors
-                                    .grey[600],
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
                               ),
                             ),
                           );
@@ -663,11 +698,13 @@ class ProgressScreenState extends State<ProgressScreen> {
                   show: true,
                   border: Border(
                     left: BorderSide(
-                        color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                        width: 1),
+                      color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                      width: 1,
+                    ),
                     bottom: BorderSide(
-                        color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                        width: 1),
+                      color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                      width: 1,
+                    ),
                   ),
                 ),
                 minX: 0,
@@ -734,10 +771,7 @@ class ProgressScreenState extends State<ProgressScreen> {
     minY = minY - yRange * 0.1;
     maxY = maxY + yRange * 0.1;
 
-    final barGroups = filteredEntries
-        .asMap()
-        .entries
-        .map((entry) {
+    final barGroups = filteredEntries.asMap().entries.map((entry) {
       return BarChartGroupData(
         x: entry.key,
         barRods: [
@@ -747,10 +781,7 @@ class ProgressScreenState extends State<ProgressScreen> {
             width: 16,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
             gradient: LinearGradient(
-              colors: [
-                primaryColor,
-                primaryColor.withValues(alpha: 0.7),
-              ],
+              colors: [primaryColor, primaryColor.withValues(alpha: 0.7)],
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
             ),
@@ -794,36 +825,38 @@ class ProgressScreenState extends State<ProgressScreen> {
                 barTouchData: BarTouchData(
                   enabled: true,
                   handleBuiltInTouches: true,
-                  touchCallback: (FlTouchEvent event,
-                      BarTouchResponse? touchResponse) {
-                    if (event is FlTapUpEvent) {
-                      if (touchResponse != null && touchResponse.spot != null) {
-                        final barIndex = touchResponse.spot!
-                            .touchedBarGroupIndex;
-                        setState(() {
-                          if (selectedBarChartIndex == barIndex) {
-                            selectedBarChartIndex = null;
+                  touchCallback:
+                      (FlTouchEvent event, BarTouchResponse? touchResponse) {
+                        if (event is FlTapUpEvent) {
+                          if (touchResponse != null &&
+                              touchResponse.spot != null) {
+                            final barIndex =
+                                touchResponse.spot!.touchedBarGroupIndex;
+                            setState(() {
+                              if (selectedBarChartIndex == barIndex) {
+                                selectedBarChartIndex = null;
+                              } else {
+                                selectedBarChartIndex = barIndex;
+                              }
+                            });
                           } else {
-                            selectedBarChartIndex = barIndex;
+                            setState(() {
+                              selectedBarChartIndex = null;
+                            });
                           }
-                        });
-                      } else {
-                        setState(() {
-                          selectedBarChartIndex = null;
-                        });
-                      }
-                    }
-                  },
+                        }
+                      },
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (group) => primaryColor.withValues(
-                        alpha: 0.8),
+                    getTooltipColor: (group) =>
+                        primaryColor.withValues(alpha: 0.8),
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       final date = dates[group.x.toInt()];
                       return BarTooltipItem(
-                        'Score: ${rod.toY.toInt()}\n${date.day}/${date
-                            .month}/${date.year}',
+                        'Score: ${rod.toY.toInt()}\n${date.day}/${date.month}/${date.year}',
                         const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       );
                     },
                   ),
@@ -831,11 +864,14 @@ class ProgressScreenState extends State<ProgressScreen> {
                 titlesData: FlTitlesData(
                   show: true,
                   topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   leftTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -851,8 +887,9 @@ class ProgressScreenState extends State<ProgressScreen> {
                               dayMonth,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: isDark ? Colors.grey[400] : Colors
-                                    .grey[600],
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
                               ),
                             ),
                           );

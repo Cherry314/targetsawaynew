@@ -25,10 +25,10 @@ This is where you record your shooting sessions.
 
 How to use:
 • Select the Date of your session, you can back-date if desired.
-• Choose your Practice type (configure favorites via the settings icon to the side.)
+• Choose your Practice type (configure favourites via the settings icon to the side.)
 • You can see the event if to tap the 'Show Event' button.
-• If you have set up your own Firearms in your Personal page, you can select which Firearm used in the 'Select Firearm' Box. (this will automatically select the Caliber and FirearmID).
-• Or you can select your firearm's Caliber and Firearm ID manually
+• If you have set up your own Firearms in your Personal page, you can select which Firearm used in the 'Select Firearm' Box. (this will automatically select the Calibre and FirearmID).
+• Or you can select your firearm's Calibre and Firearm ID manually
 • If you want to record a breakdown of your score, select the 'Score Calculator' Or you can enter a basic score / X by pressing the 'Basic Score' button.
 • You can enter any notes for this particular event. 
 • Capture a Target photo if desired
@@ -46,7 +46,7 @@ Previous Targets Screen
 View and manage all your shooting session history.
 
 How to use:
-• Use the filters at the top to narrow results by Practice, Caliber, or Firearm
+• Use the filters at the top to narrow results by Practice, Calibre, or Firearm
 • Scroll through your entries sorted by date (newest first)
 • Tap any entry to view the full-size target image (if captured), and specific zone scores if you used the custom calculator.
 • Swipe left on an entry to delete it
@@ -64,7 +64,7 @@ Progress Graph Screen
 Visualize your shooting performance over time.
 
 How to use:
-• Use the filter dropdowns to select specific Practice, Caliber, or Firearm
+• Use the filter dropdowns to select specific Practice, Calibre, or Firearm
 • Tap the chart type button to switch between:
   - Straight Line (linear connections)
   - Curved Line (smooth bezier curves)
@@ -109,7 +109,7 @@ Manage your firearms collection and membership cards.
 Two tabs available:
 
 ARMORY TAB:
-• Add firearms with details: Nickname, Make, Model, Caliber, Scope
+• Add firearms with details: Nickname, Make, Model, Calibre, Scope
 • Mark firearms as "Owned" or just wish list items
 • Capture photos of each firearm
 • Add notes for maintenance or specifications
@@ -172,7 +172,7 @@ How to use:
 • Fill in details:
   - Nickname (for easy identification)
   - Make and Model
-  - Caliber
+  - Calibre
   - Scope Size (optional)
   - Notes (maintenance, modifications, etc.)
 • Mark "Owned" checkbox for firearms you own

@@ -20,12 +20,16 @@ class RoundsCounterEntry extends HiveObject {
   @HiveField(4)
   String? event;
 
+  @HiveField(5)
+  String? calibre;
+
   RoundsCounterEntry({
     required this.date,
     required this.rounds,
     required this.reason,
     this.notes,
     this.event,
+    this.calibre,
   });
 
   /// Convert to JSON
@@ -35,14 +39,17 @@ class RoundsCounterEntry extends HiveObject {
     'reason': reason,
     'notes': notes,
     'event': event,
+    'calibre': calibre,
   };
 
   /// Create from JSON
-  factory RoundsCounterEntry.fromJson(Map<String, dynamic> json) => RoundsCounterEntry(
-    date: DateTime.parse(json['date']),
-    rounds: json['rounds'],
-    reason: json['reason'],
-    notes: json['notes'],
-    event: json['event'],
-  );
+  factory RoundsCounterEntry.fromJson(Map<String, dynamic> json) =>
+      RoundsCounterEntry(
+        date: DateTime.parse(json['date']),
+        rounds: json['rounds'],
+        reason: json['reason'],
+        notes: json['notes'],
+        event: json['event'],
+        calibre: json['calibre'],
+      );
 }

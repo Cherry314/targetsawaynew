@@ -470,7 +470,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
     if (selectedCaliber == null || selectedCaliber!.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Please select a Caliber")));
+      ).showSnackBar(const SnackBar(content: Text("Please select a Calibre")));
       return;
     }
     if (selectedFirearmId == null || selectedFirearmId!.isEmpty) {
@@ -801,6 +801,10 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     final roundsBox = Hive.box<RoundsCounterEntry>(
                       'rounds_counter',
                     );
+                    final roundsCalibre =
+                        selectedCaliber?.trim().isNotEmpty == true
+                        ? selectedCaliber!.trim()
+                        : null;
 
                     // Create entry for practice rounds
                     final practiceEntry = RoundsCounterEntry(
@@ -813,6 +817,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                       event: selectedPractice?.isNotEmpty == true
                           ? selectedPractice
                           : null,
+                      calibre: roundsCalibre,
                     );
                     await roundsBox.add(practiceEntry);
 
@@ -828,6 +833,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                         event: selectedPractice?.isNotEmpty == true
                             ? selectedPractice
                             : null,
+                        calibre: roundsCalibre,
                       );
                       await roundsBox.add(sightersEntry);
                     }
@@ -1096,7 +1102,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
             (p) => DropdownMenuItem(
               value: p,
               child: Text(
-                p.isEmpty ? 'Please select a Favorite' : p,
+                p.isEmpty ? 'Please select a Favourite' : p,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: p.isEmpty
@@ -1348,7 +1354,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                               ),
                               child: IconButton(
                                 icon: Icon(Icons.favorite, color: primaryColor),
-                                tooltip: "Select Favorite Practices",
+                                tooltip: "Select Favourite Practices",
                                 onPressed: () async {
                                   await showPracticeSelectionDialog(
                                     context: context,
@@ -1609,7 +1615,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                               value: c,
                                               child: Text(
                                                 c.isEmpty
-                                                    ? 'Please select a Favorite'
+                                                    ? 'Please select a Favourite'
                                                     : c,
                                                 style: TextStyle(
                                                   fontSize: 14,
@@ -1632,7 +1638,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                         }
                                       },
                                       decoration: InputDecoration(
-                                        labelText: "Caliber",
+                                        labelText: "Calibre",
                                         labelStyle: const TextStyle(
                                           fontSize: 13,
                                         ),
@@ -1689,7 +1695,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                         color: primaryColor,
                                         size: 20,
                                       ),
-                                      tooltip: "Manage Favorite Calibers",
+                                      tooltip: "Manage Favourite Calibres",
                                       onPressed: () async {
                                         await showCaliberSelectionDialog(
                                           context: context,
@@ -1734,7 +1740,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                               value: id,
                                               child: Text(
                                                 id.isEmpty
-                                                    ? 'Please select a Favorite'
+                                                    ? 'Please select a Favourite'
                                                     : id,
                                                 style: TextStyle(
                                                   fontSize: 14,
@@ -1850,7 +1856,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                                         color: primaryColor,
                                         size: 20,
                                       ),
-                                      tooltip: "Select Favorite Firearms",
+                                      tooltip: "Select Favourite Firearms",
                                       onPressed: () async {
                                         await showFirearmSelectionDialog(
                                           context: context,
@@ -2621,7 +2627,7 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Starred firearms are in your favorites - tap to select',
+                        'Starred firearms are in your favourites - tap to select',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,

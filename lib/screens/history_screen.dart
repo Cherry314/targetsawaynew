@@ -25,13 +25,13 @@ class HistoryScreenState extends State<HistoryScreen> {
   String selectedPractice = 'All';
   String selectedCaliber = 'All';
   String selectedFirearmId = 'All';
-  
+
   @override
   void initState() {
     super.initState();
     _loadFavoritesFromPrefs();
   }
-  
+
   Future<void> _loadFavoritesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -61,26 +61,32 @@ class HistoryScreenState extends State<HistoryScreen> {
           .cast<int>()
           .toList();
     }
-    
+
     // Update UI after loading favorites
     if (mounted) {
       setState(() {});
     }
   }
-  
+
   // Get filter lists with "All" option
   List<String> get practiceFilterList {
-    final favorites = DropdownValues.practices.where((p) => p.isNotEmpty).toList();
+    final favorites = DropdownValues.practices
+        .where((p) => p.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
-  
+
   List<String> get caliberFilterList {
-    final favorites = DropdownValues.calibers.where((c) => c.isNotEmpty).toList();
+    final favorites = DropdownValues.calibers
+        .where((c) => c.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
-  
+
   List<String> get firearmIdFilterList {
-    final favorites = DropdownValues.firearmIds.where((f) => f.isNotEmpty).toList();
+    final favorites = DropdownValues.firearmIds
+        .where((f) => f.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
 
@@ -89,407 +95,482 @@ class HistoryScreenState extends State<HistoryScreen> {
     final box = Hive.box<ScoreEntry>('scores');
 
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = Theme
-        .of(context)
-        .brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = themeProvider.primaryColor;
 
     return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (bool didPop, dynamic result) async {
-          if (didPop) {
-            return;
-          }
-          if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-        child: Scaffold(
-          backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
-          drawer: const AppDrawer(currentRoute: 'history'),
-          appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'History',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) {
+          return;
+        }
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+        drawer: const AppDrawer(currentRoute: 'history'),
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text(
+            'History',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [primaryColor, primaryColor.withValues(alpha: 0.8)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        actions: const [
-          HelpIconButton(
-            title: 'History Help',
-            content: HelpContent.historyScreen,
-          ),
-        ],
-      ),
-      body: SafeArea(
-        bottom: true,
-        child: Column(
-        children: [
-          // Compact Filter Section
-          Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(16),
+          centerTitle: true,
+          flexibleSpace: Container(
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey[850] : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // First Row: Filters label + Practice dropdown
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                          Icons.filter_list, color: primaryColor, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "Filters",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selectedPractice,
-                        isDense: true,
-                        isExpanded: true,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Practice',
-                          labelStyle: const TextStyle(fontSize: 12),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                                color: primaryColor, width: 2),
-                          ),
-                          filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                        ),
-                        items: practiceFilterList
-                            .map((p) =>
-                            DropdownMenuItem(
-                              value: p,
-                              child: Text(
-                                  p, style: const TextStyle(fontSize: 13)),
-                            ))
-                            .toList(),
-                        onChanged: (v) => setState(() => selectedPractice = v!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Second Row: Caliber (33%) + FirearmID (66%)
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selectedCaliber,
-                        isDense: true,
-                        isExpanded: true,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Caliber',
-                          labelStyle: const TextStyle(fontSize: 12),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                                color: primaryColor, width: 2),
-                          ),
-                          filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                        ),
-                        items: caliberFilterList
-                            .map((c) =>
-                            DropdownMenuItem(
-                              value: c,
-                              child: Text(
-                                  c, style: const TextStyle(fontSize: 13)),
-                            ))
-                            .toList(),
-                        onChanged: (v) => setState(() => selectedCaliber = v!),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selectedFirearmId,
-                        isDense: true,
-                        isExpanded: true,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Firearm',
-                          labelStyle: const TextStyle(fontSize: 12),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                                color: primaryColor, width: 2),
-                          ),
-                          filled: true,
-                          fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
-                        ),
-                        items: firearmIdFilterList
-                            .map((f) =>
-                            DropdownMenuItem(
-                              value: f,
-                              child: Text(
-                                  f, style: const TextStyle(fontSize: 13)),
-                            ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => selectedFirearmId = v!),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              gradient: LinearGradient(
+                colors: [primaryColor, primaryColor.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
           ),
-
-          // List of entries
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: box.listenable(),
-              builder: (context, Box<ScoreEntry> box, _) {
-                if (box.values.isEmpty) {
-                  return const Center(child: Text('No scores found'));
-                }
-
-                List<ScoreEntry> entries = box.values.toList().cast<
-                    ScoreEntry>();
-
-                // Apply filters
-                entries = entries.where((entry) {
-                  final matchesPractice = (selectedPractice == 'All' ||
-                      entry.practice == selectedPractice);
-                  final matchesCaliber = (selectedCaliber == 'All' ||
-                      entry.caliber == selectedCaliber);
-                  final matchesFirearm = (selectedFirearmId == 'All' ||
-                      entry.firearmId == selectedFirearmId);
-                  return matchesPractice && matchesCaliber && matchesFirearm;
-                }).toList();
-
-                entries.sort((a, b) => b.date.compareTo(a.date));
-
-                if (entries.isEmpty) {
-                  return const Center(child: Text('No scores found'));
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    final formattedDate = formatUKDate(entry.date);
-
-                    final multiTargetCount = entry.targetFilePaths
-                            ?.where((p) => p.isNotEmpty)
-                            .length ??
-                        0;
-                    final hasMultipleTargets = multiTargetCount > 1;
-
-                    Widget leading;
-                    if (hasMultipleTargets) {
-                      leading = ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          'assets/multi.jpg',
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
+          actions: const [
+            HelpIconButton(
+              title: 'History Help',
+              content: HelpContent.historyScreen,
+            ),
+          ],
+        ),
+        body: SafeArea(
+          bottom: true,
+          child: Column(
+            children: [
+              // Compact Filter Section
+              Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[850] : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // First Row: Filters label + Practice dropdown
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.filter_list,
+                            color: primaryColor,
+                            size: 18,
+                          ),
                         ),
-                      );
-                    } else if (entry.thumbnailFilePath != null &&
-                        File(entry.thumbnailFilePath!).existsSync()) {
-                      leading = ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(File(entry.thumbnailFilePath!),
-                            width: 60, height: 60, fit: BoxFit.cover),
-                      );
-                    } else if (entry.targetFilePath != null &&
-                        File(entry.targetFilePath!).existsSync()) {
-                      leading = ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(File(entry.targetFilePath!),
-                            width: 60, height: 60, fit: BoxFit.cover),
-                      );
-                    } else {
-                      leading = Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                        const SizedBox(width: 12),
+                        const Text(
+                          "Filters",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        child: Icon(Icons.image_not_supported, size: 30,
-                            color: primaryColor.withValues(alpha: 0.5)),
-                      );
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedPractice,
+                            isDense: true,
+                            isExpanded: true,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Practice',
+                              labelStyle: const TextStyle(fontSize: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[50],
+                            ),
+                            items: practiceFilterList
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text(
+                                      p,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => selectedPractice = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Second Row: Calibre (33%) + FirearmID (66%)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedCaliber,
+                            isDense: true,
+                            isExpanded: true,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Calibre',
+                              labelStyle: const TextStyle(fontSize: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[50],
+                            ),
+                            items: caliberFilterList
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(
+                                      c,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => selectedCaliber = v!),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedFirearmId,
+                            isDense: true,
+                            isExpanded: true,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Firearm',
+                              labelStyle: const TextStyle(fontSize: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[50],
+                            ),
+                            items: firearmIdFilterList
+                                .map(
+                                  (f) => DropdownMenuItem(
+                                    value: f,
+                                    child: Text(
+                                      f,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => selectedFirearmId = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // List of entries
+              Expanded(
+                child: ValueListenableBuilder(
+                  valueListenable: box.listenable(),
+                  builder: (context, Box<ScoreEntry> box, _) {
+                    if (box.values.isEmpty) {
+                      return const Center(child: Text('No scores found'));
                     }
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[850] : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                    List<ScoreEntry> entries = box.values
+                        .toList()
+                        .cast<ScoreEntry>();
+
+                    // Apply filters
+                    entries = entries.where((entry) {
+                      final matchesPractice =
+                          (selectedPractice == 'All' ||
+                          entry.practice == selectedPractice);
+                      final matchesCaliber =
+                          (selectedCaliber == 'All' ||
+                          entry.caliber == selectedCaliber);
+                      final matchesFirearm =
+                          (selectedFirearmId == 'All' ||
+                          entry.firearmId == selectedFirearmId);
+                      return matchesPractice &&
+                          matchesCaliber &&
+                          matchesFirearm;
+                    }).toList();
+
+                    entries.sort((a, b) => b.date.compareTo(a.date));
+
+                    if (entries.isEmpty) {
+                      return const Center(child: Text('No scores found'));
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        final formattedDate = formatUKDate(entry.date);
+
+                        final multiTargetCount =
+                            entry.targetFilePaths
+                                ?.where((p) => p.isNotEmpty)
+                                .length ??
+                            0;
+                        final hasMultipleTargets = multiTargetCount > 1;
+
+                        Widget leading;
+                        if (hasMultipleTargets) {
+                          leading = ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.asset(
+                              'assets/multi.jpg',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        } else if (entry.thumbnailFilePath != null &&
+                            File(entry.thumbnailFilePath!).existsSync()) {
+                          leading = ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(entry.thumbnailFilePath!),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        } else if (entry.targetFilePath != null &&
+                            File(entry.targetFilePath!).existsSync()) {
+                          leading = ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(entry.targetFilePath!),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        } else {
+                          leading = Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 30,
+                              color: primaryColor.withValues(alpha: 0.5),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Dismissible(
-                        key: Key(entry.id),
-                        background: Container(
-                          color: Colors.red,
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        secondaryBackground: Container(
-                          color: Colors.green,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: const Icon(Icons.edit, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          if (direction == DismissDirection.startToEnd) {
-                            return await showDialog(
-                              context: context,
-                              builder: (context) =>
-                                  AlertDialog(
+                          child: Dismissible(
+                            key: Key(entry.id),
+                            background: Container(
+                              color: Colors.red,
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                            secondaryBackground: Container(
+                              color: Colors.green,
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: const Icon(
+                                Icons.edit,
+                                color: Colors.white,
+                              ),
+                            ),
+                            confirmDismiss: (direction) async {
+                              if (direction == DismissDirection.startToEnd) {
+                                return await showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
                                     title: const Text('Delete Entry?'),
                                     content: const Text(
-                                        'Are you sure you want to delete this score entry?'),
+                                      'Are you sure you want to delete this score entry?',
+                                    ),
                                     actions: [
-                                      TextButton(onPressed: () =>
-                                          Navigator.of(context).pop(false),
-                                          child: const Text('Cancel')),
-                                      TextButton(onPressed: () =>
-                                          Navigator.of(context).pop(true),
-                                          child: const Text('Delete',
-                                              style: TextStyle(
-                                                  color: Colors.red))),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
                                     ],
                                   ),
-                            );
-                          } else if (direction == DismissDirection.endToStart) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) =>
-                                  EnterScoreScreen(editEntry: entry)),
-                            );
-                            return false;
-                          }
-                          return false;
-                        },
-                        onDismissed: (direction) async {
-                          if (direction == DismissDirection.startToEnd) {
-                            // Delete the calendar entry first
-                            await CalendarScoreService().deleteScoreAppointment(
-                                entry.id);
-                            // Then delete the score
-                            box.delete(entry.id);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Score entry deleted')));
-                            }
-                          }
-                        },
-                        child: ListTile(
-                          leading: leading,
-                          title: Text(
-                            '${entry.practice} - ${entry.caliber}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                              'Score: ${entry.score} | Date: $formattedDate'),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ScoreDetailScreen(entry: entry),
+                                );
+                              } else if (direction ==
+                                  DismissDirection.endToStart) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        EnterScoreScreen(editEntry: entry),
+                                  ),
+                                );
+                                return false;
+                              }
+                              return false;
+                            },
+                            onDismissed: (direction) async {
+                              if (direction == DismissDirection.startToEnd) {
+                                // Delete the calendar entry first
+                                await CalendarScoreService()
+                                    .deleteScoreAppointment(entry.id);
+                                // Then delete the score
+                                box.delete(entry.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Score entry deleted'),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: ListTile(
+                              leading: leading,
+                              title: Text(
+                                '${entry.practice} - ${entry.caliber}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                              subtitle: Text(
+                                'Score: ${entry.score} | Date: $formattedDate',
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        ScoreDetailScreen(entry: entry),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }

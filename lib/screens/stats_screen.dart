@@ -23,13 +23,13 @@ class StatsScreenState extends State<StatsScreen> {
   String selectedCaliber = 'All';
   String selectedFirearmId = 'All';
   String selectedDateRange = 'All';
-  
+
   DateTime? customFromDate;
   DateTime? customToDate;
-  
+
   final TextEditingController fromDateController = TextEditingController();
   final TextEditingController toDateController = TextEditingController();
-  
+
   bool isFiltersExpanded = false;
 
   @override
@@ -67,7 +67,7 @@ class StatsScreenState extends State<StatsScreen> {
           .cast<int>()
           .toList();
     }
-    
+
     // Update UI after loading favorites
     if (mounted) {
       setState(() {});
@@ -83,17 +83,23 @@ class StatsScreenState extends State<StatsScreen> {
 
   // Get filter lists with "All" option
   List<String> get practiceFilterList {
-    final favorites = DropdownValues.practices.where((p) => p.isNotEmpty).toList();
+    final favorites = DropdownValues.practices
+        .where((p) => p.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
 
   List<String> get caliberFilterList {
-    final favorites = DropdownValues.calibers.where((c) => c.isNotEmpty).toList();
+    final favorites = DropdownValues.calibers
+        .where((c) => c.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
 
   List<String> get firearmIdFilterList {
-    final favorites = DropdownValues.firearmIds.where((f) => f.isNotEmpty).toList();
+    final favorites = DropdownValues.firearmIds
+        .where((f) => f.isNotEmpty)
+        .toList();
     return ['All', ...favorites];
   }
 
@@ -139,13 +145,20 @@ class StatsScreenState extends State<StatsScreen> {
     final endDate = _getDateRangeEnd();
 
     return allEntries.where((entry) {
-      final matchesPractice = (selectedPractice == 'All' || entry.practice == selectedPractice);
-      final matchesCaliber = (selectedCaliber == 'All' || entry.caliber == selectedCaliber);
-      final matchesFirearm = (selectedFirearmId == 'All' || entry.firearmId == selectedFirearmId);
-      final matchesDateRange = entry.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+      final matchesPractice =
+          (selectedPractice == 'All' || entry.practice == selectedPractice);
+      final matchesCaliber =
+          (selectedCaliber == 'All' || entry.caliber == selectedCaliber);
+      final matchesFirearm =
+          (selectedFirearmId == 'All' || entry.firearmId == selectedFirearmId);
+      final matchesDateRange =
+          entry.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
           entry.date.isBefore(endDate.add(const Duration(days: 1)));
-      
-      return matchesPractice && matchesCaliber && matchesFirearm && matchesDateRange;
+
+      return matchesPractice &&
+          matchesCaliber &&
+          matchesFirearm &&
+          matchesDateRange;
     }).toList();
   }
 
@@ -203,7 +216,7 @@ class StatsScreenState extends State<StatsScreen> {
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isFromDate 
+      initialDate: isFromDate
           ? (customFromDate ?? DateTime.now())
           : (customToDate ?? DateTime.now()),
       firstDate: DateTime(2000),
@@ -214,10 +227,12 @@ class StatsScreenState extends State<StatsScreen> {
       setState(() {
         if (isFromDate) {
           customFromDate = picked;
-          fromDateController.text = '${picked.day}/${picked.month}/${picked.year}';
+          fromDateController.text =
+              '${picked.day}/${picked.month}/${picked.year}';
         } else {
           customToDate = picked;
-          toDateController.text = '${picked.day}/${picked.month}/${picked.year}';
+          toDateController.text =
+              '${picked.day}/${picked.month}/${picked.year}';
         }
       });
     }
@@ -250,10 +265,7 @@ class StatsScreenState extends State<StatsScreen> {
           elevation: 0,
           title: const Text(
             'Score Stats',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -268,7 +280,8 @@ class StatsScreenState extends State<StatsScreen> {
           actions: const [
             HelpIconButton(
               title: 'Score Stats Help',
-              content: HelpContent.historyScreen, // You may want to add specific help content
+              content: HelpContent
+                  .historyScreen, // You may want to add specific help content
             ),
           ],
         ),
@@ -310,7 +323,11 @@ class StatsScreenState extends State<StatsScreen> {
                                 color: primaryColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(Icons.filter_list, color: primaryColor, size: 18),
+                              child: Icon(
+                                Icons.filter_list,
+                                color: primaryColor,
+                                size: 18,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             const Text(
@@ -322,7 +339,9 @@ class StatsScreenState extends State<StatsScreen> {
                             ),
                             const Spacer(),
                             Icon(
-                              isFiltersExpanded ? Icons.expand_less : Icons.expand_more,
+                              isFiltersExpanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
                               color: primaryColor,
                               size: 24,
                             ),
@@ -342,20 +361,22 @@ class StatsScreenState extends State<StatsScreen> {
                               label: 'Practice',
                               value: selectedPractice,
                               items: practiceFilterList,
-                              onChanged: (v) => setState(() => selectedPractice = v!),
+                              onChanged: (v) =>
+                                  setState(() => selectedPractice = v!),
                               primaryColor: primaryColor,
                               isDark: isDark,
                             ),
                             const SizedBox(height: 12),
-                            // Second row - Caliber + Firearm
+                            // Second row - Calibre + Firearm
                             Row(
                               children: [
                                 Expanded(
                                   child: _buildDropdown(
-                                    label: 'Caliber',
+                                    label: 'Calibre',
                                     value: selectedCaliber,
                                     items: caliberFilterList,
-                                    onChanged: (v) => setState(() => selectedCaliber = v!),
+                                    onChanged: (v) =>
+                                        setState(() => selectedCaliber = v!),
                                     primaryColor: primaryColor,
                                     isDark: isDark,
                                   ),
@@ -367,7 +388,8 @@ class StatsScreenState extends State<StatsScreen> {
                                     label: 'Firearm',
                                     value: selectedFirearmId,
                                     items: firearmIdFilterList,
-                                    onChanged: (v) => setState(() => selectedFirearmId = v!),
+                                    onChanged: (v) =>
+                                        setState(() => selectedFirearmId = v!),
                                     primaryColor: primaryColor,
                                     isDark: isDark,
                                   ),
@@ -403,27 +425,52 @@ class StatsScreenState extends State<StatsScreen> {
                                       readOnly: true,
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: isDark ? Colors.white : Colors.black,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
                                       ),
                                       decoration: InputDecoration(
                                         labelText: 'From Date',
-                                        labelStyle: const TextStyle(fontSize: 12),
+                                        labelStyle: const TextStyle(
+                                          fontSize: 12,
+                                        ),
                                         hintText: 'Select date',
-                                        suffixIcon: Icon(Icons.calendar_today, color: primaryColor, size: 16),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        suffixIcon: Icon(
+                                          Icons.calendar_today,
+                                          color: primaryColor,
+                                          size: 16,
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: BorderSide(color: Colors.grey.shade300),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: BorderSide(color: primaryColor, width: 2),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: primaryColor,
+                                            width: 2,
+                                          ),
                                         ),
                                         filled: true,
-                                        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                                        fillColor: isDark
+                                            ? Colors.grey[800]
+                                            : Colors.grey[50],
                                       ),
                                       onTap: () => _selectDate(context, true),
                                     ),
@@ -435,27 +482,52 @@ class StatsScreenState extends State<StatsScreen> {
                                       readOnly: true,
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: isDark ? Colors.white : Colors.black,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
                                       ),
                                       decoration: InputDecoration(
                                         labelText: 'To Date',
-                                        labelStyle: const TextStyle(fontSize: 12),
+                                        labelStyle: const TextStyle(
+                                          fontSize: 12,
+                                        ),
                                         hintText: 'Select date',
-                                        suffixIcon: Icon(Icons.calendar_today, color: primaryColor, size: 16),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        suffixIcon: Icon(
+                                          Icons.calendar_today,
+                                          color: primaryColor,
+                                          size: 16,
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: BorderSide(color: Colors.grey.shade300),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: BorderSide(color: primaryColor, width: 2),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: primaryColor,
+                                            width: 2,
+                                          ),
                                         ),
                                         filled: true,
-                                        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                                        fillColor: isDark
+                                            ? Colors.grey[800]
+                                            : Colors.grey[50],
                                       ),
                                       onTap: () => _selectDate(context, false),
                                     ),
@@ -502,7 +574,9 @@ class StatsScreenState extends State<StatsScreen> {
                                 'No data available for selected filters',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
                                 ),
                               ),
                             ],
@@ -513,7 +587,11 @@ class StatsScreenState extends State<StatsScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.table_chart, color: primaryColor, size: 20),
+                                Icon(
+                                  Icons.table_chart,
+                                  color: primaryColor,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Score Zone Statistics',
@@ -535,7 +613,13 @@ class StatsScreenState extends State<StatsScreen> {
                             ),
                             const SizedBox(height: 16),
                             Expanded(
-                              child: _buildScrollableStatsTable(filteredEntries, zoneTotals, totalScore, primaryColor, isDark),
+                              child: _buildScrollableStatsTable(
+                                filteredEntries,
+                                zoneTotals,
+                                totalScore,
+                                primaryColor,
+                                isDark,
+                              ),
                             ),
                           ],
                         ),
@@ -567,10 +651,11 @@ class StatsScreenState extends State<StatsScreen> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(fontSize: 12),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -582,15 +667,25 @@ class StatsScreenState extends State<StatsScreen> {
         filled: true,
         fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
       ),
-      items: items.map((item) => DropdownMenuItem(
-        value: item,
-        child: Text(item, style: const TextStyle(fontSize: 13)),
-      )).toList(),
+      items: items
+          .map(
+            (item) => DropdownMenuItem(
+              value: item,
+              child: Text(item, style: const TextStyle(fontSize: 13)),
+            ),
+          )
+          .toList(),
       onChanged: onChanged,
     );
   }
 
-  Widget _buildScrollableStatsTable(List<ScoreEntry> entries, Map<String, int> zoneTotals, int totalScore, Color primaryColor, bool isDark) {
+  Widget _buildScrollableStatsTable(
+    List<ScoreEntry> entries,
+    Map<String, int> zoneTotals,
+    int totalScore,
+    Color primaryColor,
+    bool isDark,
+  ) {
     final zones = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
     final totalHits = zoneTotals.values.fold<int>(0, (sum, hits) => sum + hits);
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey[300]!;
@@ -675,7 +770,7 @@ class StatsScreenState extends State<StatsScreen> {
               ],
             ),
           ),
-          
+
           // Scrollable middle section - Individual targets
           Expanded(
             child: SingleChildScrollView(
@@ -687,10 +782,24 @@ class StatsScreenState extends State<StatsScreen> {
                   ...entries.asMap().entries.map((entry) {
                     final index = entry.key;
                     final scoreEntry = entry.value;
-                    return _buildTargetColumn(scoreEntry, index + 1, zones, primaryColor, isDark, borderColor);
+                    return _buildTargetColumn(
+                      scoreEntry,
+                      index + 1,
+                      zones,
+                      primaryColor,
+                      isDark,
+                      borderColor,
+                    );
                   }),
                   // Total column
-                  _buildTotalColumn(zoneTotals, totalHits, zones, primaryColor, isDark, borderColor),
+                  _buildTotalColumn(
+                    zoneTotals,
+                    totalHits,
+                    zones,
+                    primaryColor,
+                    isDark,
+                    borderColor,
+                  ),
                 ],
               ),
             ),
@@ -700,7 +809,14 @@ class StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildTargetColumn(ScoreEntry entry, int targetNumber, List<String> zones, Color primaryColor, bool isDark, Color borderColor) {
+  Widget _buildTargetColumn(
+    ScoreEntry entry,
+    int targetNumber,
+    List<String> zones,
+    Color primaryColor,
+    bool isDark,
+    Color borderColor,
+  ) {
     // Calculate totals for this entry
     final entryZoneTotals = {
       'X': entry.scoreX ?? 0,
@@ -716,8 +832,11 @@ class StatsScreenState extends State<StatsScreen> {
       '1': entry.score1 ?? 0,
       '0': entry.score0 ?? 0,
     };
-    
-    final totalHits = entryZoneTotals.values.fold<int>(0, (sum, hits) => sum + hits);
+
+    final totalHits = entryZoneTotals.values.fold<int>(
+      0,
+      (sum, hits) => sum + hits,
+    );
     // Calculate total excluding X for percentage calculations
     final totalHitsExcludingX = totalHits - (entryZoneTotals['X'] ?? 0);
 
@@ -755,7 +874,7 @@ class StatsScreenState extends State<StatsScreen> {
           // Data rows
           ...zones.map((zone) {
             final hits = entryZoneTotals[zone] ?? 0;
-            
+
             // X zone shows just the count, no percentage
             // Other zones show count with percentage (calculated excluding X)
             String displayText;
@@ -767,7 +886,7 @@ class StatsScreenState extends State<StatsScreen> {
                   : '0.0';
               displayText = hits > 0 ? '$hits ($percentage%)' : '-';
             }
-            
+
             return Container(
               width: 90,
               height: 48,
@@ -811,10 +930,17 @@ class StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildTotalColumn(Map<String, int> zoneTotals, int totalHits, List<String> zones, Color primaryColor, bool isDark, Color borderColor) {
+  Widget _buildTotalColumn(
+    Map<String, int> zoneTotals,
+    int totalHits,
+    List<String> zones,
+    Color primaryColor,
+    bool isDark,
+    Color borderColor,
+  ) {
     // Calculate total excluding X for percentage calculations
     final totalHitsExcludingX = totalHits - (zoneTotals['X'] ?? 0);
-    
+
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -853,7 +979,7 @@ class StatsScreenState extends State<StatsScreen> {
           // Data rows
           ...zones.map((zone) {
             final hits = zoneTotals[zone] ?? 0;
-            
+
             // X zone shows just the count, no percentage
             // Other zones show count with percentage (calculated excluding X)
             String displayText;
@@ -865,7 +991,7 @@ class StatsScreenState extends State<StatsScreen> {
                   : '0.0';
               displayText = hits > 0 ? '$hits ($percentage%)' : '-';
             }
-            
+
             return Container(
               width: 90,
               height: 48,
@@ -908,6 +1034,4 @@ class StatsScreenState extends State<StatsScreen> {
       ),
     );
   }
-
-
 }

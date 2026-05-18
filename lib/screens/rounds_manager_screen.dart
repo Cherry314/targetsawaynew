@@ -13,8 +13,15 @@ import '../main.dart';
 import '../models/rounds_counter_entry.dart';
 import '../widgets/app_drawer.dart';
 
-class RoundsManagerScreen extends StatelessWidget {
+class RoundsManagerScreen extends StatefulWidget {
   const RoundsManagerScreen({super.key});
+
+  @override
+  State<RoundsManagerScreen> createState() => _RoundsManagerScreenState();
+}
+
+class _RoundsManagerScreenState extends State<RoundsManagerScreen> {
+  String selectedCalibreFilter = 'All';
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +46,7 @@ class RoundsManagerScreen extends StatelessWidget {
           elevation: 0,
           title: const Text(
             'Rounds Manager',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -65,9 +69,17 @@ class RoundsManagerScreen extends StatelessWidget {
         body: SafeArea(
           bottom: true,
           child: ValueListenableBuilder(
-            valueListenable: Hive.box<RoundsCounterEntry>('rounds_counter').listenable(),
+            valueListenable: Hive.box<RoundsCounterEntry>(
+              'rounds_counter',
+            ).listenable(),
             builder: (context, Box<RoundsCounterEntry> box, _) {
-              final entries = box.values.toList();
+              final allEntries = box.values.toList();
+              final calibreOptions = _buildCalibreFilterOptions(allEntries);
+              if (!calibreOptions.contains(selectedCalibreFilter)) {
+                selectedCalibreFilter = 'All';
+              }
+
+              final entries = _filterEntriesByCalibre(allEntries);
 
               // Sort by date descending
               entries.sort((a, b) => b.date.compareTo(a.date));
@@ -75,7 +87,7 @@ class RoundsManagerScreen extends StatelessWidget {
               // Group entries by month/year
               final groupedEntries = _groupEntriesByMonth(entries);
 
-              if (entries.isEmpty) {
+              if (allEntries.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -100,99 +112,122 @@ class RoundsManagerScreen extends StatelessWidget {
 
               return Column(
                 children: [
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: groupedEntries.length,
-                      itemBuilder: (context, index) {
-                        final group = groupedEntries[index];
-                        final monthYear = group['monthYear'] as String;
-                        final monthEntries = group['entries'] as List<RoundsCounterEntry>;
-                        final monthlyTotal = group['total'] as int;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.grey[850] : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                  _buildCalibreFilter(
+                    context: context,
+                    options: calibreOptions,
+                    primaryColor: primaryColor,
+                    isDark: isDark,
+                  ),
+                  if (entries.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'No rounds for $selectedCalibreFilter calibre',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Month header with total
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(16),
-                                    topRight: Radius.circular(16),
-                                  ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: groupedEntries.length,
+                        itemBuilder: (context, index) {
+                          final group = groupedEntries[index];
+                          final monthYear = group['monthYear'] as String;
+                          final monthEntries =
+                              group['entries'] as List<RoundsCounterEntry>;
+                          final monthlyTotal = group['total'] as int;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.grey[850] : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.calendar_month,
-                                          color: primaryColor,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          monthYear,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Month header with total
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.1),
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(16),
+                                      topRight: Radius.circular(16),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_month,
                                             color: primaryColor,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            monthYear,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: primaryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: primaryColor,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        '$monthlyTotal rounds',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                        child: Text(
+                                          '$monthlyTotal rounds',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              // List of entries for this month
-                              ...monthEntries.map((entry) {
-                                return _buildEntryRow(
-                                  entry: entry,
-                                  primaryColor: primaryColor,
-                                  isDark: isDark,
-                                  context: context,
-                                );
-                              }),
-                            ],
-                          ),
-                        );
-                      },
+                                // List of entries for this month
+                                ...monthEntries.map((entry) {
+                                  return _buildEntryRow(
+                                    entry: entry,
+                                    primaryColor: primaryColor,
+                                    isDark: isDark,
+                                    context: context,
+                                  );
+                                }),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
                   // Manual Entry Button
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -228,8 +263,154 @@ class RoundsManagerScreen extends StatelessWidget {
     );
   }
 
+  List<String> _buildCalibreFilterOptions(List<RoundsCounterEntry> entries) {
+    final calibres =
+        entries
+            .map((entry) => _calibreLabel(entry))
+            .where((calibre) => calibre.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return ['All', ...calibres];
+  }
+
+  List<RoundsCounterEntry> _filterEntriesByCalibre(
+    List<RoundsCounterEntry> entries,
+  ) {
+    if (selectedCalibreFilter == 'All') {
+      return List<RoundsCounterEntry>.from(entries);
+    }
+
+    return entries
+        .where((entry) => _calibreLabel(entry) == selectedCalibreFilter)
+        .toList();
+  }
+
+  Widget _buildCalibreFilter({
+    required BuildContext context,
+    required List<String> options,
+    required Color primaryColor,
+    required bool isDark,
+  }) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        initialValue: selectedCalibreFilter,
+        decoration: InputDecoration(
+          labelText: 'Filter',
+          prefixIcon: Icon(Icons.filter_list, color: primaryColor),
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        items: options
+            .map(
+              (calibre) => DropdownMenuItem<String>(
+                value: calibre,
+                child: Text(calibre == 'All' ? 'All calibres' : calibre),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() => selectedCalibreFilter = value);
+        },
+      ),
+    );
+  }
+
+  String _calibreLabel(RoundsCounterEntry entry) {
+    return entry.calibre?.trim() ?? '';
+  }
+
+  String _reportCalibreLabel(RoundsCounterEntry entry) {
+    final calibre = _calibreLabel(entry);
+    return calibre.isEmpty ? 'Unspecified calibre' : calibre;
+  }
+
+  String _csvEscape(String value) {
+    return '"${value.replaceAll('"', '""')}"';
+  }
+
+  List<RoundsCounterEntry> _groupEntriesByDateAndCalibre(
+    List<RoundsCounterEntry> entries,
+  ) {
+    final grouped = <String, List<RoundsCounterEntry>>{};
+    for (final entry in entries) {
+      final dayKey = DateFormat('yyyy-MM-dd').format(entry.date);
+      final calibreKey = _reportCalibreLabel(entry).toLowerCase();
+      grouped.putIfAbsent('$dayKey|$calibreKey', () => []).add(entry);
+    }
+
+    final groupedEntries = grouped.values.map((dayCalibreEntries) {
+      final first = dayCalibreEntries.first;
+      final totalRounds = dayCalibreEntries.fold<int>(
+        0,
+        (sum, entry) => sum + entry.rounds,
+      );
+      final reasons = dayCalibreEntries
+          .map((entry) => entry.reason)
+          .where((reason) => reason.isNotEmpty)
+          .toSet()
+          .join(' / ');
+      final events = dayCalibreEntries
+          .map((entry) => entry.event ?? '')
+          .where((event) => event.isNotEmpty)
+          .toSet()
+          .join(' / ');
+      final notes = dayCalibreEntries
+          .map((entry) => entry.notes ?? '')
+          .where((note) => note.isNotEmpty)
+          .toSet()
+          .join(' / ');
+
+      return RoundsCounterEntry(
+        date: DateTime(first.date.year, first.date.month, first.date.day),
+        rounds: totalRounds,
+        reason: reasons.isNotEmpty ? reasons : first.reason,
+        event: events.isNotEmpty ? events : null,
+        notes: notes.isNotEmpty ? notes : null,
+        calibre: _reportCalibreLabel(first),
+      );
+    }).toList()..sort((a, b) => b.date.compareTo(a.date));
+
+    return groupedEntries;
+  }
+
+  Map<String, int> _calibreTotals(List<RoundsCounterEntry> entries) {
+    final totals = <String, int>{};
+    for (final entry in entries) {
+      final calibre = _reportCalibreLabel(entry);
+      totals[calibre] = (totals[calibre] ?? 0) + entry.rounds;
+    }
+
+    return Map.fromEntries(
+      totals.entries.toList()
+        ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase())),
+    );
+  }
+
+  String _formatCalibreTotals(Map<String, int> totals) {
+    return totals.entries
+        .map((entry) => '${entry.value} x ${entry.key} calibre')
+        .join('; ');
+  }
+
   List<Map<String, dynamic>> _groupEntriesByMonth(
-      List<RoundsCounterEntry> entries) {
+    List<RoundsCounterEntry> entries,
+  ) {
     final groups = <String, List<RoundsCounterEntry>>{};
 
     for (final entry in entries) {
@@ -239,11 +420,7 @@ class RoundsManagerScreen extends StatelessWidget {
 
     return groups.entries.map((e) {
       final total = e.value.fold<int>(0, (sum, entry) => sum + entry.rounds);
-      return {
-        'monthYear': e.key,
-        'entries': e.value,
-        'total': total,
-      };
+      return {'monthYear': e.key, 'entries': e.value, 'total': total};
     }).toList();
   }
 
@@ -255,6 +432,7 @@ class RoundsManagerScreen extends StatelessWidget {
   }) {
     final hasNotes = entry.notes != null && entry.notes!.isNotEmpty;
     final hasEvent = entry.event != null && entry.event!.isNotEmpty;
+    final calibre = _calibreLabel(entry);
 
     return Container(
       decoration: BoxDecoration(
@@ -299,51 +477,52 @@ class RoundsManagerScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Reason
+            // Reason and calibre
             Expanded(
-              child: Text(
-                entry.reason,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.reason,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  if (calibre.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      calibre,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             // Event icon (only if event exists)
             if (hasEvent)
               IconButton(
-                icon: Icon(
-                  Icons.track_changes,
-                  color: primaryColor,
-                  size: 20,
-                ),
+                icon: Icon(Icons.track_changes, color: primaryColor, size: 20),
                 onPressed: () {
                   _showEventDialog(context, entry);
                 },
                 tooltip: 'View Event',
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
             // Notes icon (only if notes exist)
             if (hasNotes)
               IconButton(
-                icon: Icon(
-                  Icons.note,
-                  color: primaryColor,
-                  size: 20,
-                ),
+                icon: Icon(Icons.note, color: primaryColor, size: 20),
                 onPressed: () {
                   _showNotesDialog(context, entry);
                 },
                 tooltip: 'View Notes',
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
           ],
         ),
@@ -363,7 +542,10 @@ class RoundsManagerScreen extends StatelessWidget {
 
   void _showNotesDialog(BuildContext context, RoundsCounterEntry entry) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
 
     showDialog(
       context: context,
@@ -425,7 +607,10 @@ class RoundsManagerScreen extends StatelessWidget {
 
   void _showEventDialog(BuildContext context, RoundsCounterEntry entry) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
 
     showDialog(
       context: context,
@@ -498,7 +683,10 @@ class RoundsManagerScreen extends StatelessWidget {
   // Export dialog - Step 1: Choose Format
   void _showExportDialog(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
 
     showModalBottomSheet(
       context: context,
@@ -515,7 +703,9 @@ class RoundsManagerScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? Colors.grey[850] : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -588,7 +778,10 @@ class RoundsManagerScreen extends StatelessWidget {
   // Export dialog - Step 2: Choose Date Range
   void _showDateRangeDialog(BuildContext context, ExportFormat format) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
 
     showModalBottomSheet(
       context: context,
@@ -605,7 +798,9 @@ class RoundsManagerScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? Colors.grey[850] : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -638,7 +833,9 @@ class RoundsManagerScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  format == ExportFormat.csv ? 'Export as CSV' : 'Export as PDF',
+                  format == ExportFormat.csv
+                      ? 'Export as CSV'
+                      : 'Export as PDF',
                   style: TextStyle(
                     fontSize: 14,
                     color: primaryColor,
@@ -659,7 +856,9 @@ class RoundsManagerScreen extends StatelessWidget {
                 _buildExportOption(
                   context,
                   'Last Month',
-                  DateFormat('MMMM yyyy').format(DateTime.now().subtract(const Duration(days: 30))),
+                  DateFormat(
+                    'MMMM yyyy',
+                  ).format(DateTime.now().subtract(const Duration(days: 30))),
                   Icons.calendar_month,
                   primaryColor,
                   isDark,
@@ -781,7 +980,10 @@ class RoundsManagerScreen extends StatelessWidget {
   // Custom date range dialog
   void _showCustomDateRangeDialog(BuildContext context, ExportFormat format) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
 
     DateTime? startDate;
     DateTime? endDate;
@@ -827,7 +1029,11 @@ class RoundsManagerScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, color: primaryColor, size: 20),
+                          Icon(
+                            Icons.calendar_today,
+                            color: primaryColor,
+                            size: 20,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -837,20 +1043,26 @@ class RoundsManagerScreen extends StatelessWidget {
                                   'Start Date',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   startDate != null
-                                      ? DateFormat('dd/MM/yyyy').format(startDate!)
+                                      ? DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(startDate!)
                                       : 'Select date',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: startDate != null
                                         ? (isDark ? Colors.white : Colors.black)
-                                        : (isDark ? Colors.grey[500] : Colors.grey[500]),
+                                        : (isDark
+                                              ? Colors.grey[500]
+                                              : Colors.grey[500]),
                                   ),
                                 ),
                               ],
@@ -886,7 +1098,11 @@ class RoundsManagerScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, color: primaryColor, size: 20),
+                          Icon(
+                            Icons.calendar_today,
+                            color: primaryColor,
+                            size: 20,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -896,20 +1112,26 @@ class RoundsManagerScreen extends StatelessWidget {
                                   'End Date',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   endDate != null
-                                      ? DateFormat('dd/MM/yyyy').format(endDate!)
+                                      ? DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(endDate!)
                                       : 'Select date',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: endDate != null
                                         ? (isDark ? Colors.white : Colors.black)
-                                        : (isDark ? Colors.grey[500] : Colors.grey[500]),
+                                        : (isDark
+                                              ? Colors.grey[500]
+                                              : Colors.grey[500]),
                                   ),
                                 ),
                               ],
@@ -974,29 +1196,47 @@ class RoundsManagerScreen extends StatelessWidget {
         break;
       case ExportRange.lastMonth:
         final lastMonth = DateTime(now.year, now.month - 1, now.day);
-        filteredEntries = allEntries.where((e) => e.date.isAfter(lastMonth)).toList();
+        filteredEntries = allEntries
+            .where((e) => e.date.isAfter(lastMonth))
+            .toList();
         periodLabel = 'Last Month';
         break;
       case ExportRange.lastQuarter:
         final lastQuarter = now.subtract(const Duration(days: 90));
-        filteredEntries = allEntries.where((e) => e.date.isAfter(lastQuarter)).toList();
+        filteredEntries = allEntries
+            .where((e) => e.date.isAfter(lastQuarter))
+            .toList();
         periodLabel = 'Last Quarter';
         break;
       case ExportRange.last6Months:
         final last6Months = now.subtract(const Duration(days: 180));
-        filteredEntries = allEntries.where((e) => e.date.isAfter(last6Months)).toList();
+        filteredEntries = allEntries
+            .where((e) => e.date.isAfter(last6Months))
+            .toList();
         periodLabel = 'Last 6 Months';
         break;
       case ExportRange.custom:
         if (customStart != null && customEnd != null) {
-          final start = DateTime(customStart.year, customStart.month, customStart.day);
-          final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+          final start = DateTime(
+            customStart.year,
+            customStart.month,
+            customStart.day,
+          );
+          final end = DateTime(
+            customEnd.year,
+            customEnd.month,
+            customEnd.day,
+            23,
+            59,
+            59,
+          );
           filteredEntries = allEntries.where((e) {
             return e.date.isAtSameMomentAs(start) ||
-                   e.date.isAtSameMomentAs(end) ||
-                   (e.date.isAfter(start) && e.date.isBefore(end));
+                e.date.isAtSameMomentAs(end) ||
+                (e.date.isAfter(start) && e.date.isBefore(end));
           }).toList();
-          periodLabel = '${DateFormat('dd/MM/yyyy').format(customStart)} - ${DateFormat('dd/MM/yyyy').format(customEnd)}';
+          periodLabel =
+              '${DateFormat('dd/MM/yyyy').format(customStart)} - ${DateFormat('dd/MM/yyyy').format(customEnd)}';
         } else {
           filteredEntries = [];
           periodLabel = 'Custom Range';
@@ -1043,21 +1283,28 @@ class RoundsManagerScreen extends StatelessWidget {
     String periodLabel,
     BuildContext context,
   ) async {
-    final grouped = _groupEntriesByMonth(entries);
+    final reportEntries = _groupEntriesByDateAndCalibre(entries);
+    final grouped = _groupEntriesByMonth(reportEntries);
     final grandTotal = entries.fold<int>(0, (sum, e) => sum + e.rounds);
+    final calibreTotals = _calibreTotals(entries);
 
     final csv = StringBuffer();
     csv.writeln('Date,Rounds,Reason,Event,Notes');
-    
-    for (final entry in entries) {
+
+    for (final entry in reportEntries) {
       final dateStr = DateFormat('dd/MM/yyyy').format(entry.date);
       final roundsStr = entry.rounds.toString();
-      final reasonStr = '"${entry.reason.replaceAll('"', '""')}"';
-      final eventStr = '"${(entry.event ?? '').replaceAll('"', '""')}"';
-      final notesStr = '"${(entry.notes ?? '').replaceAll('"', '""')}"';
+      final reasonStr = _csvEscape(entry.reason);
+      final eventStr = _csvEscape(entry.event ?? '');
+      final calibre = _reportCalibreLabel(entry);
+      final notes = [
+        '${entry.rounds} x $calibre calibre',
+        if ((entry.notes ?? '').isNotEmpty) entry.notes!,
+      ].join(' - ');
+      final notesStr = _csvEscape(notes);
       csv.writeln('$dateStr,$roundsStr,$reasonStr,$eventStr,$notesStr');
     }
-    
+
     csv.writeln();
     csv.writeln('MONTHLY TOTALS');
     csv.writeln('Month,Total Rounds');
@@ -1066,15 +1313,27 @@ class RoundsManagerScreen extends StatelessWidget {
       final total = group['total'] as int;
       csv.writeln('"$monthYear",$total');
     }
-    
+
+    csv.writeln();
+    csv.writeln('CALIBRE TOTALS');
+    csv.writeln('Calibre,Total Rounds');
+    calibreTotals.forEach((calibre, total) {
+      csv.writeln('${_csvEscape(calibre)},$total');
+    });
     csv.writeln();
     csv.writeln('GRAND TOTAL,$grandTotal');
+    csv.writeln(
+      'TOTAL BREAKDOWN,${_csvEscape(_formatCalibreTotals(calibreTotals))}',
+    );
     csv.writeln();
     csv.writeln('Export Period,$periodLabel');
-    csv.writeln('Export Date,${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+    csv.writeln(
+      'Export Date,${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+    );
 
     final tempDir = await getTemporaryDirectory();
-    final fileName = 'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
+    final fileName =
+        'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
     final file = File('${tempDir.path}/$fileName');
     await file.writeAsString(csv.toString());
 
@@ -1100,8 +1359,10 @@ class RoundsManagerScreen extends StatelessWidget {
     String periodLabel,
     BuildContext context,
   ) async {
-    final grouped = _groupEntriesByMonth(entries);
+    final reportEntries = _groupEntriesByDateAndCalibre(entries);
+    final grouped = _groupEntriesByMonth(reportEntries);
     final grandTotal = entries.fold<int>(0, (sum, e) => sum + e.rounds);
+    final calibreTotals = _calibreTotals(entries);
 
     final pdf = pw.Document();
     final exportDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
@@ -1144,13 +1405,28 @@ class RoundsManagerScreen extends StatelessWidget {
                       color: PdfColors.blue100,
                       borderRadius: pw.BorderRadius.circular(4),
                     ),
-                    child: pw.Text(
-                      'Total: $grandTotal rounds',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blue800,
-                      ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Grand Total: $grandTotal rounds',
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blue800,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        ...calibreTotals.entries.map(
+                          (entry) => pw.Text(
+                            '${entry.value} x ${entry.key} calibre',
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: PdfColors.blue800,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1167,14 +1443,18 @@ class RoundsManagerScreen extends StatelessWidget {
               // Monthly sections with entries
               ...grouped.expand((group) {
                 final monthYear = group['monthYear'] as String;
-                final monthEntries = group['entries'] as List<RoundsCounterEntry>;
+                final monthEntries =
+                    group['entries'] as List<RoundsCounterEntry>;
                 final monthlyTotal = group['total'] as int;
 
                 return [
                   // Month header with total
                   pw.Container(
                     width: double.infinity,
-                    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    padding: const pw.EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
                     decoration: pw.BoxDecoration(
                       color: PdfColors.blue50,
                       borderRadius: pw.BorderRadius.circular(4),
@@ -1215,7 +1495,9 @@ class RoundsManagerScreen extends StatelessWidget {
                     children: [
                       // Table Header
                       pw.TableRow(
-                        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.grey200,
+                        ),
                         children: [
                           _buildPdfHeaderCell('Date'),
                           _buildPdfHeaderCell('Rounds'),
@@ -1225,15 +1507,24 @@ class RoundsManagerScreen extends StatelessWidget {
                         ],
                       ),
                       // Data Rows
-                      ...monthEntries.map((entry) => pw.TableRow(
-                        children: [
-                          _buildPdfCell(DateFormat('dd/MM/yyyy').format(entry.date)),
-                          _buildPdfCell(entry.rounds.toString(), isNumber: true),
-                          _buildPdfCell(entry.reason),
-                          _buildPdfCell(entry.event ?? ''),
-                          _buildPdfCell(entry.notes ?? ''),
-                        ],
-                      )),
+                      ...monthEntries.map(
+                        (entry) => pw.TableRow(
+                          children: [
+                            _buildPdfCell(
+                              DateFormat('dd/MM/yyyy').format(entry.date),
+                            ),
+                            _buildPdfCell(
+                              entry.rounds.toString(),
+                              isNumber: true,
+                            ),
+                            _buildPdfCell(entry.reason),
+                            _buildPdfCell(entry.event ?? ''),
+                            _buildPdfCell(
+                              '${entry.rounds} x ${_reportCalibreLabel(entry)} calibre${(entry.notes ?? '').isNotEmpty ? ' - ${entry.notes}' : ''}',
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   pw.SizedBox(height: 16),
@@ -1261,13 +1552,26 @@ class RoundsManagerScreen extends StatelessWidget {
                         color: PdfColors.white,
                       ),
                     ),
-                    pw.Text(
-                      '$grandTotal rounds',
-                      style: pw.TextStyle(
-                        fontSize: 16,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                      ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          '$grandTotal rounds',
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          _formatCalibreTotals(calibreTotals),
+                          style: pw.TextStyle(
+                            fontSize: 9,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1280,10 +1584,7 @@ class RoundsManagerScreen extends StatelessWidget {
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
                   'Exported: $exportDate',
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    color: PdfColors.grey500,
-                  ),
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500),
                 ),
               ),
             ],
@@ -1293,7 +1594,8 @@ class RoundsManagerScreen extends StatelessWidget {
     );
 
     final tempDir = await getTemporaryDirectory();
-    final fileName = 'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+    final fileName =
+        'rounds_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
     final file = File('${tempDir.path}/$fileName');
     await file.writeAsBytes(await pdf.save());
 
@@ -1318,10 +1620,7 @@ class RoundsManagerScreen extends StatelessWidget {
       padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
         text,
-        style: pw.TextStyle(
-          fontWeight: pw.FontWeight.bold,
-          fontSize: 10,
-        ),
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
       ),
     );
   }
@@ -1331,32 +1630,21 @@ class RoundsManagerScreen extends StatelessWidget {
       padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
         text,
-        style: pw.TextStyle(
-          fontSize: 9,
-        ),
+        style: pw.TextStyle(fontSize: 9),
         textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
       ),
     );
   }
 }
 
-enum ExportFormat {
-  csv,
-  pdf,
-}
+enum ExportFormat { csv, pdf }
 
-enum ExportRange {
-  all,
-  lastMonth,
-  lastQuarter,
-  last6Months,
-  custom,
-}
+enum ExportRange { all, lastMonth, lastQuarter, last6Months, custom }
 
 // Separate screen for manual entry
 class _ManualEntryScreen extends StatefulWidget {
   const _ManualEntryScreen();
-  
+
   @override
   State<_ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
@@ -1365,24 +1653,26 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
   DateTime selectedDate = DateTime.now();
   final dateController = TextEditingController();
   final roundsController = TextEditingController();
+  final calibreController = TextEditingController();
   final notesController = TextEditingController();
   String? errorMessage;
   bool isLoading = false;
-  
+
   @override
   void initState() {
     super.initState();
     dateController.text = DateFormat('dd/MM/yyyy').format(selectedDate);
   }
-  
+
   @override
   void dispose() {
     dateController.dispose();
     roundsController.dispose();
+    calibreController.dispose();
     notesController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -1398,17 +1688,17 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
       });
     }
   }
-  
+
   Future<void> _saveEntry() async {
     setState(() {
       errorMessage = null;
       isLoading = true;
     });
-    
+
     try {
       // Validate rounds field
       final roundsText = roundsController.text.trim();
-      
+
       if (roundsText.isEmpty) {
         setState(() {
           errorMessage = 'Please enter the number of rounds';
@@ -1418,10 +1708,11 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
       }
 
       final rounds = int.tryParse(roundsText);
-      
+
       if (rounds == null || rounds == 0) {
         setState(() {
-          errorMessage = 'Please enter a valid number of rounds (positive or negative)';
+          errorMessage =
+              'Please enter a valid number of rounds (positive or negative)';
           isLoading = false;
         });
         return;
@@ -1429,7 +1720,7 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
 
       // Add entry to rounds counter
       final roundsBox = Hive.box<RoundsCounterEntry>('rounds_counter');
-      
+
       final newEntry = RoundsCounterEntry(
         date: selectedDate,
         rounds: rounds,
@@ -1437,10 +1728,13 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
         notes: notesController.text.trim().isNotEmpty
             ? notesController.text.trim()
             : null,
+        calibre: calibreController.text.trim().isNotEmpty
+            ? calibreController.text.trim()
+            : null,
       );
-      
+
       await roundsBox.add(newEntry);
-      
+
       if (mounted) {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1450,7 +1744,7 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // Close the screen
         Navigator.pop(context);
       }
@@ -1463,22 +1757,22 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Provider.of<ThemeProvider>(context, listen: false).primaryColor;
-    
+    final primaryColor = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).primaryColor;
+
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
       appBar: AppBar(
         elevation: 0,
         title: const Text(
           'Manual Entry',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
         centerTitle: true,
         flexibleSpace: Container(
@@ -1527,13 +1821,16 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                         Expanded(
                           child: Text(
                             errorMessage!,
-                            style: const TextStyle(color: Colors.red, fontSize: 14),
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                
+
                 // Date Field
                 TextField(
                   controller: dateController,
@@ -1550,11 +1847,13 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                   onTap: _pickDate,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Rounds Field
                 TextField(
                   controller: roundsController,
-                  keyboardType: const TextInputType.numberWithOptions(signed: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Rounds',
                     prefixIcon: Icon(Icons.track_changes, color: primaryColor),
@@ -1570,7 +1869,20 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                
+
+                // Calibre Field
+                TextField(
+                  controller: calibreController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'Calibre',
+                    prefixIcon: Icon(Icons.straighten, color: primaryColor),
+                    border: const OutlineInputBorder(),
+                    hintText: 'e.g. .22, 9mm, .357',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Notes Field
                 TextField(
                   controller: notesController,
@@ -1584,23 +1896,22 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Buttons
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: isLoading ? null : () => Navigator.pop(context),
+                        onPressed: isLoading
+                            ? null
+                            : () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(color: primaryColor),
                         ),
                         child: Text(
                           'Cancel',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: primaryColor,
-                          ),
+                          style: TextStyle(fontSize: 16, color: primaryColor),
                         ),
                       ),
                     ),

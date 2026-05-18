@@ -9,7 +9,6 @@ import '../../main.dart';
 import '../../data/dropdown_values.dart';
 import 'armory_tab_full_screen.dart';
 
-
 class ArmoryTab extends StatefulWidget {
   final Color primaryColor;
   const ArmoryTab({super.key, required this.primaryColor});
@@ -30,19 +29,25 @@ class _ArmoryTabState extends State<ArmoryTab> {
   Future<void> _addOrEditFirearm({FirearmEntry? entry}) async {
     File? imageFile = entry?.imagePath != null ? File(entry!.imagePath!) : null;
 
-    final TextEditingController nicknameController =
-    TextEditingController(text: entry?.nickname ?? '');
-    final TextEditingController makeController =
-    TextEditingController(text: entry?.make ?? '');
-    final TextEditingController modelController =
-    TextEditingController(text: entry?.model ?? '');
+    final TextEditingController nicknameController = TextEditingController(
+      text: entry?.nickname ?? '',
+    );
+    final TextEditingController makeController = TextEditingController(
+      text: entry?.make ?? '',
+    );
+    final TextEditingController modelController = TextEditingController(
+      text: entry?.model ?? '',
+    );
     String? selectedMyFirearmID = entry?.myFirearmID;
-    final TextEditingController caliberController =
-    TextEditingController(text: entry?.caliber ?? '');
-    final TextEditingController scopeController =
-    TextEditingController(text: entry?.scopeSize ?? '');
-    final TextEditingController notesController =
-    TextEditingController(text: entry?.notes ?? '');
+    final TextEditingController caliberController = TextEditingController(
+      text: entry?.caliber ?? '',
+    );
+    final TextEditingController scopeController = TextEditingController(
+      text: entry?.scopeSize ?? '',
+    );
+    final TextEditingController notesController = TextEditingController(
+      text: entry?.notes ?? '',
+    );
     bool owned = entry?.owned ?? false;
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -112,7 +117,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
                 },
               ),
               const SizedBox(height: 8),
-              _buildTextField(caliberController, 'Caliber *'),
+              _buildTextField(caliberController, 'Calibre *'),
               const SizedBox(height: 8),
               _buildTextField(scopeController, 'Scope Size (optional)'),
               const SizedBox(height: 8),
@@ -133,13 +138,16 @@ class _ArmoryTabState extends State<ArmoryTab> {
                 Image.file(imageFile!, width: 100, height: 100),
               ElevatedButton.icon(
                 onPressed: () async {
-                  final imageQualityProvider = Provider.of<
-                      ImageQualityProvider>(context, listen: false);
+                  final imageQualityProvider =
+                      Provider.of<ImageQualityProvider>(context, listen: false);
                   final picker = ImagePicker();
                   final picked = await picker.pickImage(
-                      source: ImageSource.camera,
-                      imageQuality: imageQualityProvider.qualityPercentage);
-                  if (picked != null) setState(() => imageFile = File(picked.path));
+                    source: ImageSource.camera,
+                    imageQuality: imageQualityProvider.qualityPercentage,
+                  );
+                  if (picked != null) {
+                    setState(() => imageFile = File(picked.path));
+                  }
                 },
                 icon: const Icon(Icons.camera_alt),
                 label: const Text('Capture Image'),
@@ -168,7 +176,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
               }
               if (caliberController.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Caliber is required')),
+                  const SnackBar(content: Text('Calibre is required')),
                 );
                 return;
               }
@@ -180,7 +188,9 @@ class _ArmoryTabState extends State<ArmoryTab> {
               }
 
               final newEntry = FirearmEntry(
-                id: entry?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                id:
+                    entry?.id ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
                 nickname: nicknameController.text.trim(),
                 make: makeController.text.trim(),
                 model: modelController.text.trim(),
@@ -241,94 +251,110 @@ class _ArmoryTabState extends State<ArmoryTab> {
           Expanded(
             child: firearms.isEmpty
                 ? Center(
-              child: ElevatedButton(
-                onPressed: () => _addOrEditFirearm(),
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: primaryColor,
-                  backgroundColor:
-                  primaryColor.withAlpha((0.1 * 255).round()),
-                ),
-                child: const Text('Add First Firearm'),
-              ),
-            )
-                : ListView.builder(
-              itemCount: firearms.length,
-              itemBuilder: (_, index) {
-                final firearm = firearms[index];
-                return Dismissible(
-                  key: Key(firearm.id),
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.only(left: 16),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  secondaryBackground: Container(
-                    color: Colors.blue,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    child: const Icon(Icons.edit, color: Colors.white),
-                  ),
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.startToEnd) {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Firearm?'),
-                          content: const Text(
-                              'Are you sure you want to delete this firearm?'),
-                          actions: [
-                            TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text('Cancel')),
-                            TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                child: const Text('Delete',
-                                    style:
-                                    TextStyle(color: Colors.red))),
-                          ],
+                    child: ElevatedButton(
+                      onPressed: () => _addOrEditFirearm(),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        backgroundColor: primaryColor.withAlpha(
+                          (0.1 * 255).round(),
                         ),
-                      );
-                      if (confirm == true) {
-                        _firearmBox.delete(firearm.id);
-                      }
-                      return confirm;
-                    } else if (direction == DismissDirection.endToStart) {
-                      await _addOrEditFirearm(entry: firearm);
-                      return false;
-                    }
-                    return false;
-                  },
-                  child: ListTile(
-                    leading: firearm.imagePath != null
-                        ? Image.file(File(firearm.imagePath!),
-                        width: 50, height: 50, fit: BoxFit.cover)
-                        : null,
-                    title: Text(firearm.nickname ?? 'Unnamed',
-                        style: TextStyle(color: primaryColor)),
-                    subtitle: Text('${firearm.make} ${firearm.model}',
-                        style:
-                        TextStyle(color: primaryColor.withValues(alpha: 0.7))),
-                    onTap: () {
-                      // Navigate to full-screen page with fade animation
-                      Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (_, _, _) =>
-                              ArmoryFullScreen(entry: firearm),
-                          transitionsBuilder: (_, animation, _, child) {
-                            return FadeTransition(
-                                opacity: animation, child: child);
+                      ),
+                      child: const Text('Add First Firearm'),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: firearms.length,
+                    itemBuilder: (_, index) {
+                      final firearm = firearms[index];
+                      return Dismissible(
+                        key: Key(firearm.id),
+                        background: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 16),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        secondaryBackground: Container(
+                          color: Colors.blue,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 16),
+                          child: const Icon(Icons.edit, color: Colors.white),
+                        ),
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.startToEnd) {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Firearm?'),
+                                content: const Text(
+                                  'Are you sure you want to delete this firearm?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              _firearmBox.delete(firearm.id);
+                            }
+                            return confirm;
+                          } else if (direction == DismissDirection.endToStart) {
+                            await _addOrEditFirearm(entry: firearm);
+                            return false;
+                          }
+                          return false;
+                        },
+                        child: ListTile(
+                          leading: firearm.imagePath != null
+                              ? Image.file(
+                                  File(firearm.imagePath!),
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          title: Text(
+                            firearm.nickname ?? 'Unnamed',
+                            style: TextStyle(color: primaryColor),
+                          ),
+                          subtitle: Text(
+                            '${firearm.make} ${firearm.model}',
+                            style: TextStyle(
+                              color: primaryColor.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          onTap: () {
+                            // Navigate to full-screen page with fade animation
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                pageBuilder: (_, _, _) =>
+                                    ArmoryFullScreen(entry: firearm),
+                                transitionsBuilder: (_, animation, _, child) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+                              ),
+                            );
                           },
                         ),
                       );
                     },
                   ),
-                );
-              },
-            ),
           ),
 
           // Add Another Firearm button

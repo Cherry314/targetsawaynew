@@ -11,18 +11,14 @@ Future<void> showPracticeSelectionDialog({
   await showDialog(
     context: context,
     builder: (context) =>
-        _PracticeSelectionDialog(
-          onSelectionChanged: onSelectionChanged,
-        ),
+        _PracticeSelectionDialog(onSelectionChanged: onSelectionChanged),
   );
 }
 
 class _PracticeSelectionDialog extends StatefulWidget {
   final Function() onSelectionChanged;
 
-  const _PracticeSelectionDialog({
-    required this.onSelectionChanged,
-  });
+  const _PracticeSelectionDialog({required this.onSelectionChanged});
 
   @override
   State<_PracticeSelectionDialog> createState() =>
@@ -64,34 +60,31 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
 
     final result = await showDialog<String>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: const Text('Add Custom Practice'),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Practice Name',
-                border: OutlineInputBorder(),
-              ),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (controller.text
-                      .trim()
-                      .isNotEmpty) {
-                    Navigator.pop(context, controller.text.trim());
-                  }
-                },
-                child: const Text('Add'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Add Custom Practice'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Practice Name',
+            border: OutlineInputBorder(),
           ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
 
     if (result != null && result.isNotEmpty) {
@@ -110,8 +103,7 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
     final prefs = await SharedPreferences.getInstance();
 
     // Sort practices alphabetically (setter will filter out 'All' automatically)
-    final sortedPractices = selectedPractices.toList()
-      ..sort();
+    final sortedPractices = selectedPractices.toList()..sort();
 
     await prefs.setStringList('favoritePractices', sortedPractices);
     await prefs.setStringList('customPractices', customPractices);
@@ -125,103 +117,103 @@ class _PracticeSelectionDialogState extends State<_PracticeSelectionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Favorite Events'),
+      title: const Text('Favourite Events'),
       content: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SizedBox(
-        width: double.maxFinite,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            // Freestyle - Always available and non-removable
-            CheckboxListTile(
-              title: Row(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
                 children: [
-                  const Expanded(child: Text('Freestyle')),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: Icon(
-                      Icons.stars,
-                      size: 16,
-                      color: Colors.amber[700],
+                  // Freestyle - Always available and non-removable
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        const Expanded(child: Text('Freestyle')),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Icon(
+                            Icons.stars,
+                            size: 16,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
                     ),
+                    subtitle: const Text(
+                      'Always available - Default scoring',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    value: true,
+                    onChanged: null, // Disabled - always selected
+                    dense: true,
                   ),
+                  const Divider(thickness: 2),
+
+                  // Custom practices section
+                  if (customPractices.isNotEmpty) ...[
+                    ...customPractices.map((practice) {
+                      final isSelected = selectedPractices.contains(practice);
+                      return CheckboxListTile(
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(practice)),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8.0),
+                              child: Icon(
+                                Icons.edit,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              selectedPractices.add(practice);
+                            } else {
+                              selectedPractices.remove(practice);
+                            }
+                          });
+                        },
+                        dense: true,
+                      );
+                    }),
+                    const Divider(thickness: 2),
+                  ],
+
+                  // Master practices section
+                  ...DropdownValues.masterPractices.map((practice) {
+                    final isSelected = selectedPractices.contains(practice);
+                    return CheckboxListTile(
+                      title: Text(practice),
+                      value: isSelected,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) {
+                            selectedPractices.add(practice);
+                          } else {
+                            selectedPractices.remove(practice);
+                          }
+                        });
+                      },
+                      dense: true,
+                    );
+                  }),
                 ],
               ),
-              subtitle: const Text(
-                'Always available - Default scoring',
-                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
-              ),
-              value: true,
-              onChanged: null, // Disabled - always selected
-              dense: true,
             ),
-            const Divider(thickness: 2),
-            
-            // Custom practices section
-            if (customPractices.isNotEmpty) ...[
-              ...customPractices.map((practice) {
-                final isSelected = selectedPractices.contains(practice);
-                return CheckboxListTile(
-                  title: Row(
-                    children: [
-                      Expanded(child: Text(practice)),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Icon(
-                          Icons.edit,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  value: isSelected,
-                  onChanged: (bool? value) {
-                    setState(() {
-                      if (value == true) {
-                        selectedPractices.add(practice);
-                      } else {
-                        selectedPractices.remove(practice);
-                      }
-                    });
-                  },
-                  dense: true,
-                );
-              }),
-              const Divider(thickness: 2),
-            ],
-
-            // Master practices section
-            ...DropdownValues.masterPractices.map((practice) {
-              final isSelected = selectedPractices.contains(practice);
-              return CheckboxListTile(
-                title: Text(practice),
-                value: isSelected,
-                onChanged: (bool? value) {
-                  setState(() {
-                    if (value == true) {
-                      selectedPractices.add(practice);
-                    } else {
-                      selectedPractices.remove(practice);
-                    }
-                  });
-                },
-                dense: true,
-              );
-            }),
-          ],
-        ),
-      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        TextButton(
-          onPressed: _addCustomPractice,
-          child: const Text('Custom'),
-        ),
+        TextButton(onPressed: _addCustomPractice, child: const Text('Custom')),
         ElevatedButton(
           onPressed: () async {
             await _saveSelectedPractices();

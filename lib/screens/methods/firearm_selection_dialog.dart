@@ -10,21 +10,19 @@ Future<void> showFirearmSelectionDialog({
 }) async {
   await showDialog(
     context: context,
-    builder: (context) => _FirearmSelectionDialog(
-      onSelectionChanged: onSelectionChanged,
-    ),
+    builder: (context) =>
+        _FirearmSelectionDialog(onSelectionChanged: onSelectionChanged),
   );
 }
 
 class _FirearmSelectionDialog extends StatefulWidget {
   final Function() onSelectionChanged;
 
-  const _FirearmSelectionDialog({
-    required this.onSelectionChanged,
-  });
+  const _FirearmSelectionDialog({required this.onSelectionChanged});
 
   @override
-  State<_FirearmSelectionDialog> createState() => _FirearmSelectionDialogState();
+  State<_FirearmSelectionDialog> createState() =>
+      _FirearmSelectionDialogState();
 }
 
 class _FirearmSelectionDialogState extends State<_FirearmSelectionDialog> {
@@ -84,7 +82,7 @@ class _FirearmSelectionDialogState extends State<_FirearmSelectionDialog> {
     }
 
     return AlertDialog(
-      title: const Text('Select Favorite Firearms'),
+      title: const Text('Select Favourite Firearms'),
       content: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SizedBox(
@@ -92,14 +90,18 @@ class _FirearmSelectionDialogState extends State<_FirearmSelectionDialog> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
- // Display firearms grouped by type
+                  // Display firearms grouped by type
                   ...groupedFirearms.entries.map((entry) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Group header
                         Padding(
-                          padding: const EdgeInsets.only(top: 12, bottom: 4, left: 8),
+                          padding: const EdgeInsets.only(
+                            top: 12,
+                            bottom: 4,
+                            left: 8,
+                          ),
                           child: Text(
                             entry.key,
                             style: const TextStyle(
@@ -111,7 +113,9 @@ class _FirearmSelectionDialogState extends State<_FirearmSelectionDialog> {
                         ),
                         // Firearms in this group
                         ...entry.value.map((firearm) {
-                          final isSelected = selectedFirearmIds.contains(firearm.id);
+                          final isSelected = selectedFirearmIds.contains(
+                            firearm.id,
+                          );
                           return CheckboxListTile(
                             title: Text('${firearm.code} '),
                             value: isSelected,

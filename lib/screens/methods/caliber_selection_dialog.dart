@@ -10,21 +10,19 @@ Future<void> showCaliberSelectionDialog({
 }) async {
   await showDialog(
     context: context,
-    builder: (context) => _CaliberSelectionDialog(
-      onSelectionChanged: onSelectionChanged,
-    ),
+    builder: (context) =>
+        _CaliberSelectionDialog(onSelectionChanged: onSelectionChanged),
   );
 }
 
 class _CaliberSelectionDialog extends StatefulWidget {
   final Function() onSelectionChanged;
 
-  const _CaliberSelectionDialog({
-    required this.onSelectionChanged,
-  });
+  const _CaliberSelectionDialog({required this.onSelectionChanged});
 
   @override
-  State<_CaliberSelectionDialog> createState() => _CaliberSelectionDialogState();
+  State<_CaliberSelectionDialog> createState() =>
+      _CaliberSelectionDialogState();
 }
 
 class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
@@ -58,13 +56,13 @@ class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Caliber'),
+        title: const Text('Add Calibre'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            labelText: 'Caliber (e.g., .22, 9mm, .357)',
+            labelText: 'Calibre (e.g., .22, 9mm, .357)',
             border: OutlineInputBorder(),
-            hintText: 'Enter caliber',
+            hintText: 'Enter calibre',
           ),
           autofocus: true,
         ),
@@ -95,9 +93,9 @@ class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
     }
   }
 
-  Future<void> _removeCaliber(String caliber) async {
+  Future<void> _removeCaliber(String calibre) async {
     setState(() {
-      calibers.remove(caliber);
+      calibers.remove(calibre);
     });
   }
 
@@ -118,7 +116,7 @@ class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Manage Favorite Calibers'),
+      title: const Text('Manage Favourite Calibres'),
       content: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SizedBox(
@@ -127,24 +125,24 @@ class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Show helpful note if no calibers yet
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: calibers.length,
-                        itemBuilder: (context, index) {
-                          final caliber = calibers[index];
-                          return ListTile(
-                            title: Text(caliber),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _removeCaliber(caliber),
-                            ),
-                            dense: true,
-                          );
-                        },
-                      ),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: calibers.length,
+                      itemBuilder: (context, index) {
+                        final calibre = calibers[index];
+                        return ListTile(
+                          title: Text(calibre),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _removeCaliber(calibre),
+                          ),
+                          dense: true,
+                        );
+                      },
                     ),
-                  ],
+                  ),
+                ],
               ),
             ),
       actions: [
@@ -155,19 +153,19 @@ class _CaliberSelectionDialogState extends State<_CaliberSelectionDialog> {
               child: const Text('Cancel'),
             ),
 
-        TextButton(
-          onPressed: _addCaliber,
-          child: const Text('Add Caliber'),
+            TextButton(
+              onPressed: _addCaliber,
+              child: const Text('Add Calibre'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _saveCalibers();
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        ElevatedButton(
-          onPressed: () async {
-            await _saveCalibers();
-            if (context.mounted) Navigator.pop(context);
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    ),
       ],
     );
   }

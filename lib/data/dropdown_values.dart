@@ -5,7 +5,7 @@ import '../models/hive/event.dart';
 class DropdownValues {
   // Freestyle constant - always available at the top of the list
   static const String freestyle = 'Freestyle';
-  
+
   // Internal list for user-selected favorite practices (without 'All')
   // Starts empty - users should select favorites from the full events list
   static List<String> _favoritePractices = [];
@@ -24,7 +24,10 @@ class DropdownValues {
   // Setter to update favorite practices (removes 'All' and 'Freestyle' if present)
   static set practices(List<String> value) {
     // Filter out 'All' and 'Freestyle' (it's always added by getter) and remove any duplicates
-    final filtered = value.where((p) => p != 'All' && p != freestyle).toSet().toList();
+    final filtered = value
+        .where((p) => p != 'All' && p != freestyle)
+        .toSet()
+        .toList();
     _favoritePractices = filtered;
   }
 
@@ -102,7 +105,7 @@ class DropdownValues {
     '50m Precision Benched',
     'America Match',
     'Timed & Precision 1',
-    'Timed & Precision 1 Air Piston',
+    'Timed & Precision 1 Air Pistol',
     'Timed & Precision 1 Shotgun',
     'Timed & Precision 1 Shotgun Classic',
     'Timed & Precision 1 Muzzle Loading',
@@ -168,7 +171,7 @@ class DropdownValues {
       // Try to open the events box
       if (Hive.isBoxOpen('events')) {
         final eventBox = Hive.box<Event>('events');
-        
+
         // If box is empty, use default list
         if (eventBox.isEmpty) {
           return List.from(_defaultMasterPractices);
@@ -207,8 +210,16 @@ class DropdownValues {
     FirearmInfo(id: 21, code: 'LBP', gunType: 'Gallery Rifle & Pistol'),
     FirearmInfo(id: 22, code: 'LBR', gunType: 'Gallery Rifle & Pistol'),
     FirearmInfo(id: 23, code: 'AP', gunType: 'Gallery Rifle & Pistol'),
-    FirearmInfo(id: 24, code: 'LBP - Iron Sight', gunType: 'Gallery Rifle & Pistol'),
-    FirearmInfo(id: 25, code: 'LBR - Iron Sight', gunType: 'Gallery Rifle & Pistol'),
+    FirearmInfo(
+      id: 24,
+      code: 'LBP - Iron Sight',
+      gunType: 'Gallery Rifle & Pistol',
+    ),
+    FirearmInfo(
+      id: 25,
+      code: 'LBR - Iron Sight',
+      gunType: 'Gallery Rifle & Pistol',
+    ),
     FirearmInfo(id: 30, code: 'SGSV', gunType: 'Shotgun'),
     FirearmInfo(id: 31, code: 'SGMB', gunType: 'Shotgun'),
     FirearmInfo(id: 34, code: 'SG', gunType: 'Shotgun'),
@@ -219,24 +230,60 @@ class DropdownValues {
     FirearmInfo(id: 42, code: 'MLR', gunType: 'Muzzle Loading'),
     FirearmInfo(id: 62, code: 'Hunter Classic', gunType: 'Long Range Pistol'),
     FirearmInfo(id: 63, code: 'Free Pistol A', gunType: 'Long Range Pistol'),
-    FirearmInfo(id: 65, code: 'Production Free Pistol A', gunType: 'Long Range Pistol'),
-    FirearmInfo(id: 66, code: 'Production Free Pistol B', gunType: 'Long Range Pistol'),
-    FirearmInfo(id: 67, code: 'Allcomer Revolver', gunType: 'Long Range Pistol'),
+    FirearmInfo(
+      id: 65,
+      code: 'Production Free Pistol A',
+      gunType: 'Long Range Pistol',
+    ),
+    FirearmInfo(
+      id: 66,
+      code: 'Production Free Pistol B',
+      gunType: 'Long Range Pistol',
+    ),
+    FirearmInfo(
+      id: 67,
+      code: 'Allcomer Revolver',
+      gunType: 'Long Range Pistol',
+    ),
     FirearmInfo(id: 68, code: 'Free Pistol', gunType: 'Long Range Pistol'),
-    FirearmInfo(id: 69, code: 'Production Free Revolver', gunType: 'Long Range Pistol'),
+    FirearmInfo(
+      id: 69,
+      code: 'Production Free Revolver',
+      gunType: 'Long Range Pistol',
+    ),
     FirearmInfo(id: 80, code: 'Any Fullbore Rifle', gunType: 'Fullbore Rifle'),
     FirearmInfo(id: 81, code: 'SR(a) Pre-1955', gunType: 'Fullbore Rifle'),
     FirearmInfo(id: 82, code: 'SR(b) Pre-1955', gunType: 'Fullbore Rifle'),
     FirearmInfo(id: 83, code: 'SR Open Pre-1955', gunType: 'Fullbore Rifle'),
-    FirearmInfo(id: 84, code: 'Bolt Action Centerfire Rifle', gunType: 'Fullbore Rifle'),
+    FirearmInfo(
+      id: 84,
+      code: 'Bolt Action Centerfire Rifle',
+      gunType: 'Fullbore Rifle',
+    ),
     FirearmInfo(id: 85, code: 'Sporting Rifle', gunType: 'Fullbore Rifle'),
     FirearmInfo(id: 86, code: 'F Class', gunType: 'Fullbore Rifle'),
-    FirearmInfo(id: 87, code: 'Black Powder Cartridge', gunType: 'Fullbore Rifle'),
+    FirearmInfo(
+      id: 87,
+      code: 'Black Powder Cartridge',
+      gunType: 'Fullbore Rifle',
+    ),
     FirearmInfo(id: 88, code: 'FTR', gunType: 'Fullbore Rifle'),
     FirearmInfo(id: 90, code: 'Issued Sniper Rifle', gunType: 'Fullbore Rifle'),
-    FirearmInfo(id: 91, code: 'SR Post 1955 Iron Sight', gunType: 'Fullbore Rifle'),
-    FirearmInfo(id: 92, code: 'SR Post 1955 Service Optic', gunType: 'Fullbore Rifle'),
-    FirearmInfo(id: 93, code: 'SR Post 1955 Practical Optic', gunType: 'Fullbore Rifle'),
+    FirearmInfo(
+      id: 91,
+      code: 'SR Post 1955 Iron Sight',
+      gunType: 'Fullbore Rifle',
+    ),
+    FirearmInfo(
+      id: 92,
+      code: 'SR Post 1955 Service Optic',
+      gunType: 'Fullbore Rifle',
+    ),
+    FirearmInfo(
+      id: 93,
+      code: 'SR Post 1955 Practical Optic',
+      gunType: 'Fullbore Rifle',
+    ),
   ];
 }
 
