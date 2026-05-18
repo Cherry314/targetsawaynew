@@ -9,9 +9,9 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../main.dart';
 import '../../../models/comp_history_entry.dart';
-import '../../../models/hive/event.dart';
 import '../../../widgets/help_icon_button.dart';
 import '../../../utils/help_content.dart';
+import '../../../utils/score_calculator_utils.dart';
 import '../../methods/score_calculator_dialog.dart';
 
 class ShooterScoreScreen extends StatefulWidget {
@@ -65,27 +65,29 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
         .doc(widget.competitionId)
         .snapshots()
         .listen((snapshot) {
-      if (!snapshot.exists) return;
+          if (!snapshot.exists) return;
 
-      final data = snapshot.data();
-      if (data == null) return;
+          final data = snapshot.data();
+          if (data == null) return;
 
-      // Check if competition has ended
-      final status = data['status'] as String?;
-      if (status == 'completed' && !resultsReceived) {
-        _processCompetitionResults(data);
-      }
-    });
+          // Check if competition has ended
+          final status = data['status'] as String?;
+          if (status == 'completed' && !resultsReceived) {
+            _processCompetitionResults(data);
+          }
+        });
   }
 
   /// Process competition results and save to Hive
   Future<void> _processCompetitionResults(Map<String, dynamic> data) async {
-    final participants = (data['participants'] as List<dynamic>?)
+    final participants =
+        (data['participants'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>() ??
         [];
 
     // Get full results from Firestore
-    final finalResults = (data['finalResults'] as List<dynamic>?)
+    final finalResults =
+        (data['finalResults'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>() ??
         [];
 
@@ -106,9 +108,13 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
     if (position > 0 && totalShooters > 0) {
       // Check if already saved to avoid duplicates
       final box = Hive.box<CompHistoryEntry>('comp_history');
-      final alreadyExists = box.values.any((entry) =>
-          entry.event == widget.eventName &&
-          entry.date.isAfter(DateTime.now().subtract(const Duration(hours: 24))));
+      final alreadyExists = box.values.any(
+        (entry) =>
+            entry.event == widget.eventName &&
+            entry.date.isAfter(
+              DateTime.now().subtract(const Duration(hours: 24)),
+            ),
+      );
 
       if (!alreadyExists) {
         final entry = CompHistoryEntry(
@@ -147,7 +153,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
   Future<void> _openScoreCalculator() async {
     // Get total rounds for this event
     final totalRounds = _getTotalRoundsForEvent();
-    
+
     final result = await showScoreCalculatorDialog(
       context: context,
       totalRounds: totalRounds,
@@ -164,39 +170,9 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
     }
   }
 
-  /// Get total rounds for the event from courseOfFire
+  /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
-    // Return null if event name is empty
-    if (widget.eventName.isEmpty) {
-      return null;
-    }
-
-    try {
-      // Check if events box is open
-      if (!Hive.isBoxOpen('events')) {
-        return null;
-      }
-
-      final eventBox = Hive.box<Event>('events');
-
-      // Find the event by matching the event name
-      Event? matchedEvent;
-      for (final event in eventBox.values) {
-        if (event.name == widget.eventName) {
-          matchedEvent = event;
-          break;
-        }
-      }
-
-      if (matchedEvent == null) {
-        return null;
-      }
-
-      // Get total rounds from base content's courseOfFire
-      return matchedEvent.baseContent.courseOfFire.totalRounds;
-    } catch (e) {
-      return null;
-    }
+    return ScoreCalculatorUtils.getTotalRounds(eventName: widget.eventName);
   }
 
   Future<void> _submitScore() async {
@@ -220,7 +196,8 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           .get();
 
       final data = doc.data();
-      final participants = (data?['participants'] as List<dynamic>?)
+      final participants =
+          (data?['participants'] as List<dynamic>?)
               ?.cast<Map<String, dynamic>>() ??
           [];
 
@@ -228,13 +205,12 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
       // Note: Using DateTime.now() instead of FieldValue.serverTimestamp()
       // because server timestamps can't be used inside array elements
       final now = DateTime.now();
-      
-      // Convert score breakdown to string keys for Firestore compatibility
-      // Firestore doesn't support integer keys in maps
-      final breakdownForFirestore = scoreBreakdown?.map(
-        (key, value) => MapEntry(key.toString(), value),
+
+      // Convert score breakdown to string keys for Firestore compatibility.
+      final breakdownForFirestore = ScoreCalculatorUtils.breakdownForFirestore(
+        scoreBreakdown,
       );
-      
+
       final updatedParticipants = participants.map((p) {
         if (p['name'] == widget.shooterName) {
           return {
@@ -252,9 +228,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
       await FirebaseFirestore.instance
           .collection('competitions')
           .doc(widget.competitionId)
-          .update({
-        'participants': updatedParticipants,
-      });
+          .update({'participants': updatedParticipants});
 
       if (mounted) {
         setState(() {
@@ -286,7 +260,8 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
             builder: (context) => AlertDialog(
               title: const Text('Leave Without Submitting?'),
               content: const Text(
-                  'You have entered a score but not submitted it. Are you sure you want to leave?'),
+                'You have entered a score but not submitted it. Are you sure you want to leave?',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
@@ -313,10 +288,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           elevation: 0,
           title: const Text(
             'Enter Score',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -348,7 +320,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                     gradient: LinearGradient(
                       colors: [
                         primaryColor,
-                        primaryColor.withValues(alpha: 0.8)
+                        primaryColor.withValues(alpha: 0.8),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -432,7 +404,9 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                             icon: const Icon(Icons.calculate),
                             label: const Text('Open Score Calculator'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor.withValues(alpha: 0.1),
+                              backgroundColor: primaryColor.withValues(
+                                alpha: 0.1,
+                              ),
                               foregroundColor: primaryColor,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -457,14 +431,17 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                                 ),
                                 decoration: InputDecoration(
                                   labelText: 'Score',
-                                  prefixIcon:
-                                      Icon(Icons.military_tech, color: primaryColor),
+                                  prefixIcon: Icon(
+                                    Icons.military_tech,
+                                    color: primaryColor,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   filled: true,
-                                  fillColor:
-                                      isDark ? Colors.grey[800] : Colors.grey[50],
+                                  fillColor: isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[50],
                                 ),
                               ),
                             ),
@@ -479,15 +456,18 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                                 decoration: InputDecoration(
-                                  prefixIcon:
-                                      Icon(Icons.gps_fixed, color: primaryColor),
+                                  prefixIcon: Icon(
+                                    Icons.gps_fixed,
+                                    color: primaryColor,
+                                  ),
                                   labelText: 'X',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   filled: true,
-                                  fillColor:
-                                      isDark ? Colors.grey[800] : Colors.grey[50],
+                                  fillColor: isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[50],
                                 ),
                               ),
                             ),
@@ -555,10 +535,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                           SizedBox(height: 8),
                           Text(
                             'Your score has been sent to the competition runner.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.green,
-                            ),
+                            style: TextStyle(fontSize: 14, color: Colors.green),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -639,11 +616,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           ),
           child: Column(
             children: [
-              Icon(
-                positionIcon,
-                size: 48,
-                color: positionColor,
-              ),
+              Icon(positionIcon, size: 48, color: positionColor),
               const SizedBox(height: 12),
               Text(
                 'Competition Complete!',
@@ -655,7 +628,10 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: positionColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -951,9 +927,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           height: 32,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(8),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: Center(
             child: Text(
@@ -975,10 +949,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
             borderRadius: const BorderRadius.vertical(
               bottom: Radius.circular(8),
             ),
-            border: Border.all(
-              color: color.withValues(alpha: 0.5),
-              width: 2,
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
           ),
         ),
       ],
@@ -1046,10 +1017,15 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
               decoration: BoxDecoration(
                 color: isCurrentUser
                     ? primaryColor.withValues(alpha: 0.1)
-                    : isDark ? Colors.grey[800] : Colors.grey[100],
+                    : isDark
+                    ? Colors.grey[800]
+                    : Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
                 border: isCurrentUser
-                    ? Border.all(color: primaryColor.withValues(alpha: 0.5), width: 1)
+                    ? Border.all(
+                        color: primaryColor.withValues(alpha: 0.5),
+                        width: 1,
+                      )
                     : null,
               ),
               child: Row(
@@ -1080,7 +1056,9 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                       name,
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isCurrentUser
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
@@ -1097,11 +1075,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                     ),
                     if (xCount > 0) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.gps_fixed,
-                        size: 14,
-                        color: Colors.amber[700],
-                      ),
+                      Icon(Icons.gps_fixed, size: 14, color: Colors.amber[700]),
                       Text(
                         xCount.toString(),
                         style: TextStyle(

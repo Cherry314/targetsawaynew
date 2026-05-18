@@ -3,10 +3,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
-import '../../../models/hive/event.dart';
+import '../../../utils/score_calculator_utils.dart';
 import '../../methods/score_calculator_dialog.dart';
 
 class EnterScoreDialog extends StatefulWidget {
@@ -57,35 +56,9 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
     super.dispose();
   }
 
-  /// Get total rounds for the event from courseOfFire
+  /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
-    if (widget.eventName.isEmpty) {
-      return null;
-    }
-
-    try {
-      if (!Hive.isBoxOpen('events')) {
-        return null;
-      }
-
-      final eventBox = Hive.box<Event>('events');
-
-      Event? matchedEvent;
-      for (final event in eventBox.values) {
-        if (event.name == widget.eventName) {
-          matchedEvent = event;
-          break;
-        }
-      }
-
-      if (matchedEvent == null) {
-        return null;
-      }
-
-      return matchedEvent.baseContent.courseOfFire.totalRounds;
-    } catch (e) {
-      return null;
-    }
+    return ScoreCalculatorUtils.getTotalRounds(eventName: widget.eventName);
   }
 
   Future<void> _openScoreCalculator() async {
@@ -103,7 +76,9 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
       if (mounted) {
         setState(() {
           _scoreController.text = result.score.toString();
-          _xCountController.text = result.xCount > 0 ? result.xCount.toString() : '';
+          _xCountController.text = result.xCount > 0
+              ? result.xCount.toString()
+              : '';
           _scoreBreakdown = result.scoreCounts;
           _mode = 'basic'; // Switch to basic view to show the entered values
         });
@@ -124,9 +99,9 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
       final score = int.parse(_scoreController.text.trim());
       final xCount = int.tryParse(_xCountController.text.trim()) ?? 0;
 
-      // Convert score breakdown to string keys for Firestore compatibility
-      final breakdownForFirestore = _scoreBreakdown?.map(
-        (key, value) => MapEntry(key.toString(), value),
+      // Convert score breakdown to string keys for Firestore compatibility.
+      final breakdownForFirestore = ScoreCalculatorUtils.breakdownForFirestore(
+        _scoreBreakdown,
       );
 
       // Get current manual entries
@@ -136,7 +111,8 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
           .get();
 
       final data = doc.data();
-      final manualEntries = (data?['manualEntries'] as List<dynamic>?)
+      final manualEntries =
+          (data?['manualEntries'] as List<dynamic>?)
               ?.cast<Map<String, dynamic>>() ??
           [];
 
@@ -158,9 +134,7 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
       await FirebaseFirestore.instance
           .collection('competitions')
           .doc(widget.competitionId)
-          .update({
-        'manualEntries': updatedEntries,
-      });
+          .update({'manualEntries': updatedEntries});
 
       // Success - close the dialog immediately
       if (mounted) {
@@ -282,9 +256,7 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
   }) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -309,11 +281,7 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
                   color: color.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 28,
-                  color: color,
-                ),
+                child: Icon(icon, size: 28, color: color),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -339,11 +307,7 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: color,
-                size: 20,
-              ),
+              Icon(Icons.arrow_forward_ios, color: color, size: 20),
             ],
           ),
         ),

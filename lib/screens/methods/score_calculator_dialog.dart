@@ -2,12 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../../main.dart';
-import '../../models/hive/event.dart';
-import '../../models/hive/firearm.dart';
 import '../../models/hive/target_info.dart';
-import '../../data/dropdown_values.dart';
+import '../../utils/score_calculator_utils.dart';
 
 /// Result class to return score, X count, and score breakdown from the calculator
 class ScoreCalculatorResult {
@@ -60,13 +57,16 @@ class _ScoreCalculatorDialog extends StatefulWidget {
 class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
   // List of score zones (with string scores like "X", "10", "V", etc.)
   List<String> _scoreZones = [];
-  
+
   // Map to store count of rounds for each score zone
   Map<String, int> _scoreZoneCounts = {};
-  
+
   // Separate X/tie-breaker count
   String? _xZoneLabel; // The label for X count (could be "X", "V", etc.)
   int _xCount = 0;
+
+  // Up = count hits up from zero. Down = start at max score and allocate down.
+  bool _scoreDown = false;
 
   @override
   void initState() {
@@ -79,36 +79,43 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
     try {
       // Try to get target info from the selected event
       final targetInfo = _getTargetInfoForEvent();
-      
+
       if (targetInfo != null && targetInfo.zones.isNotEmpty) {
         // Sort zones by score (descending)
         final sortedZones = List.from(targetInfo.zones);
         sortedZones.sort((a, b) {
           // Handle X/V as highest score
-          if (a.score.toUpperCase() == 'X' || a.score.toUpperCase() == 'V') return -1;
-          if (b.score.toUpperCase() == 'X' || b.score.toUpperCase() == 'V') return 1;
-          
+          if (a.score.toUpperCase() == 'X' || a.score.toUpperCase() == 'V') {
+            return -1;
+          }
+          if (b.score.toUpperCase() == 'X' || b.score.toUpperCase() == 'V') {
+            return 1;
+          }
+
           // Try to parse as numbers
           final aNum = int.tryParse(a.score);
           final bNum = int.tryParse(b.score);
-          
+
           if (aNum != null && bNum != null) {
             return bNum.compareTo(aNum); // Descending order
           }
-          
+
           return a.score.compareTo(b.score);
         });
-        
+
         // Check if first zone is X or V (tie-breaker)
         final firstScore = sortedZones.first.score.toUpperCase();
         if (firstScore == 'X' || firstScore == 'V') {
           _xZoneLabel = sortedZones.first.score;
-          _scoreZones = sortedZones.skip(1).map((z) => z.score as String).toList();
+          _scoreZones = sortedZones
+              .skip(1)
+              .map((z) => z.score as String)
+              .toList();
         } else {
           _xZoneLabel = null;
           _scoreZones = sortedZones.map((z) => z.score as String).toList();
         }
-        
+
         // Add '0' at the bottom if it's not already in the zones (for missed shots)
         if (!_scoreZones.contains('0')) {
           _scoreZones.add('0');
@@ -123,85 +130,17 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
       _xZoneLabel = 'X';
       _scoreZones = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0'];
     }
-    
+
     // Initialize score counts
     _scoreZoneCounts = {for (var zone in _scoreZones) zone: 0};
   }
 
-  /// Get TargetInfo for the selected event
+  /// Get TargetInfo for the selected event.
   TargetInfo? _getTargetInfoForEvent() {
-    if (widget.selectedPractice == null || widget.selectedPractice!.isEmpty ||
-        widget.selectedFirearmId == null || widget.selectedFirearmId!.isEmpty) {
-      return null;
-    }
-
-    try {
-      // Check if boxes are open
-      if (!Hive.isBoxOpen('events') || !Hive.isBoxOpen('target_info')) {
-        return null;
-      }
-      
-      final eventBox = Hive.box<Event>('events');
-      final targetInfoBox = Hive.box<TargetInfo>('target_info');
-
-      // Find the event by matching the practice name to event name
-      Event? matchedEvent;
-      for (final event in eventBox.values) {
-        if (event.name == widget.selectedPractice) {
-          matchedEvent = event;
-          break;
-        }
-      }
-
-      if (matchedEvent == null) {
-        return null;
-      }
-
-      // Get the firearm ID from the code
-      final firearmId = DropdownValues.getFirearmIdByCode(widget.selectedFirearmId!);
-
-      if (firearmId == null) {
-        return null;
-      }
-
-      // Create a Firearm object to get the correct content (with overrides)
-      final firearm = Firearm(
-        id: firearmId,
-        code: widget.selectedFirearmId!,
-        gunType: '',
-      );
-
-      // Get the content for this firearm (applies overrides automatically)
-      final content = matchedEvent.getContentForFirearm(firearm);
-
-      // Check if we have targets
-      if (content.targets.isEmpty) {
-        return null;
-      }
-
-      // Get the first target and check both title and text fields
-      final firstTarget = content.targets.first;
-
-      // Try to get target name from title first, then text
-      String? targetName = firstTarget.title ?? firstTarget.text;
-
-      if (targetName == null || targetName.isEmpty) {
-        return null;
-      }
-
-      // Find matching TargetInfo
-      TargetInfo? foundMatch;
-      for (final targetInfo in targetInfoBox.values) {
-        if (targetInfo.targetName == targetName) {
-          foundMatch = targetInfo;
-          break;
-        }
-      }
-
-      return foundMatch;
-    } catch (e) {
-      return null;
-    }
+    return ScoreCalculatorUtils.getTargetInfo(
+      eventName: widget.selectedPractice,
+      firearmCode: widget.selectedFirearmId,
+    );
   }
 
   int get _totalScore {
@@ -217,18 +156,88 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
     return _scoreZoneCounts.values.fold(0, (sum, count) => sum + count);
   }
 
+  String? get _highestScoreZone {
+    for (final zone in _scoreZones) {
+      if (int.tryParse(zone) != null) {
+        return zone;
+      }
+    }
+    return _scoreZones.isNotEmpty ? _scoreZones.first : null;
+  }
+
+  void _setScoreDirection(bool scoreDown) {
+    if (_scoreDown == scoreDown) {
+      return;
+    }
+
+    setState(() {
+      _scoreDown = scoreDown;
+      if (_scoreDown) {
+        _allocateRoundsToHighestScore();
+      } else {
+        _scoreZoneCounts = {for (var zone in _scoreZones) zone: 0};
+      }
+    });
+  }
+
+  void _allocateRoundsToHighestScore() {
+    _scoreZoneCounts = {for (var zone in _scoreZones) zone: 0};
+    final highestScoreZone = _highestScoreZone;
+    final totalRounds = widget.totalRounds;
+    if (highestScoreZone != null && totalRounds != null && totalRounds > 0) {
+      _scoreZoneCounts[highestScoreZone] = totalRounds;
+    }
+  }
+
   void _incrementScore(String score) {
     setState(() {
-      _scoreZoneCounts[score] = (_scoreZoneCounts[score] ?? 0) + 1;
+      if (_scoreDown) {
+        _moveRoundFromHighestScore(toScore: score);
+      } else {
+        _scoreZoneCounts[score] = (_scoreZoneCounts[score] ?? 0) + 1;
+      }
     });
   }
 
   void _decrementScore(String score) {
     setState(() {
-      if ((_scoreZoneCounts[score] ?? 0) > 0) {
+      if (_scoreDown) {
+        _moveRoundToHighestScore(fromScore: score);
+      } else if ((_scoreZoneCounts[score] ?? 0) > 0) {
         _scoreZoneCounts[score] = _scoreZoneCounts[score]! - 1;
       }
     });
+  }
+
+  void _moveRoundFromHighestScore({required String toScore}) {
+    final highestScoreZone = _highestScoreZone;
+    if (highestScoreZone == null || toScore == highestScoreZone) {
+      return;
+    }
+
+    final highestCount = _scoreZoneCounts[highestScoreZone] ?? 0;
+    if (highestCount <= 0) {
+      return;
+    }
+
+    _scoreZoneCounts[highestScoreZone] = highestCount - 1;
+    _scoreZoneCounts[toScore] = (_scoreZoneCounts[toScore] ?? 0) + 1;
+  }
+
+  void _moveRoundToHighestScore({required String fromScore}) {
+    final highestScoreZone = _highestScoreZone;
+    if (highestScoreZone == null || fromScore == highestScoreZone) {
+      return;
+    }
+
+    final fromCount = _scoreZoneCounts[fromScore] ?? 0;
+    if (fromCount <= 0) {
+      return;
+    }
+
+    _scoreZoneCounts[fromScore] = fromCount - 1;
+    _scoreZoneCounts[highestScoreZone] =
+        (_scoreZoneCounts[highestScoreZone] ?? 0) + 1;
   }
 
   void _incrementX() {
@@ -252,13 +261,11 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Check if all rounds are accounted for
-    final bool allRoundsAccountedFor = widget.totalRounds != null &&
-        _totalRoundsCounted == widget.totalRounds;
+    final bool allRoundsAccountedFor =
+        widget.totalRounds != null && _totalRoundsCounted == widget.totalRounds;
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 700),
         child: Column(
@@ -282,12 +289,36 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                 children: [
                   const Icon(Icons.calculate, color: Colors.white, size: 24),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Score Calculator',
-                    style: TextStyle(
+                  const Expanded(
+                    child: Text(
+                      'Score Calculator',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _scoreDown ? 'Down' : 'Up',
+                    style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: 0.82,
+                    child: Switch(
+                      value: _scoreDown,
+                      onChanged: widget.totalRounds == null
+                          ? null
+                          : _setScoreDirection,
+                      activeColor: Colors.white,
+                      activeTrackColor: Colors.white.withValues(alpha: 0.45),
+                      inactiveThumbColor: Colors.white,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.25),
                     ),
                   ),
                 ],
@@ -307,8 +338,8 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: widget.totalRounds != null 
-                      ? MainAxisAlignment.spaceBetween 
+                  mainAxisAlignment: widget.totalRounds != null
+                      ? MainAxisAlignment.spaceBetween
                       : MainAxisAlignment.center,
                   children: [
                     // Show "Total Rounds" only if totalRounds is provided
@@ -337,8 +368,8 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                       ),
                     // Always show "Counted"
                     Column(
-                      crossAxisAlignment: widget.totalRounds != null 
-                          ? CrossAxisAlignment.end 
+                      crossAxisAlignment: widget.totalRounds != null
+                          ? CrossAxisAlignment.end
                           : CrossAxisAlignment.center,
                       children: [
                         Text(
@@ -357,10 +388,11 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                             fontWeight: FontWeight.bold,
                             color: widget.totalRounds != null
                                 ? (allRoundsAccountedFor
-                                    ? Colors.green
-                                    : (_totalRoundsCounted > widget.totalRounds!
-                                        ? Colors.red
-                                        : primaryColor))
+                                      ? Colors.green
+                                      : (_totalRoundsCounted >
+                                                widget.totalRounds!
+                                            ? Colors.red
+                                            : primaryColor))
                                 : primaryColor,
                           ),
                         ),
@@ -378,7 +410,6 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     // X Counter (separate from score) - at the top
                     if (_xZoneLabel != null)
                       Container(
@@ -422,7 +453,10 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
 
                             // Decrement button
                             IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, size: 22),
+                              icon: const Icon(
+                                Icons.remove_circle_outline,
+                                size: 22,
+                              ),
                               color: _xCount > 0 ? primaryColor : Colors.grey,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
@@ -450,7 +484,10 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
 
                             // Increment button
                             IconButton(
-                              icon: const Icon(Icons.add_circle_outline, size: 22),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                size: 22,
+                              ),
                               color: primaryColor,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
@@ -469,7 +506,9 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white60 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white60
+                                      : Colors.black54,
                                   fontStyle: FontStyle.italic,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -490,6 +529,15 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                         final scoreStr = _scoreZones[index];
                         final count = _scoreZoneCounts[scoreStr] ?? 0;
                         final scoreValue = int.tryParse(scoreStr) ?? 0;
+                        final isHighestScore = scoreStr == _highestScoreZone;
+                        final canDecrease = _scoreDown
+                            ? !isHighestScore && count > 0
+                            : count > 0;
+                        final canIncrease = _scoreDown
+                            ? !isHighestScore &&
+                                  ((_scoreZoneCounts[_highestScoreZone] ?? 0) >
+                                      0)
+                            : true;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -531,14 +579,17 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
 
                               // Decrement button
                               IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 22),
-                                color: count > 0 ? primaryColor : Colors.grey,
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  size: 22,
+                                ),
+                                color: canDecrease ? primaryColor : Colors.grey,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(
                                   minWidth: 40,
                                   minHeight: 40,
                                 ),
-                                onPressed: count > 0
+                                onPressed: canDecrease
                                     ? () => _decrementScore(scoreStr)
                                     : null,
                               ),
@@ -561,14 +612,19 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
 
                               // Increment button
                               IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 22),
-                                color: primaryColor,
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                  size: 22,
+                                ),
+                                color: canIncrease ? primaryColor : Colors.grey,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(
                                   minWidth: 40,
                                   minHeight: 40,
                                 ),
-                                onPressed: () => _incrementScore(scoreStr),
+                                onPressed: canIncrease
+                                    ? () => _incrementScore(scoreStr)
+                                    : null,
                               ),
 
                               const Spacer(),
@@ -582,7 +638,9 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white70 : Colors.black54,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black54,
                                     ),
                                   ),
                                 ),
@@ -599,7 +657,10 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [primaryColor, primaryColor.withValues(alpha: 0.7)],
+                          colors: [
+                            primaryColor,
+                            primaryColor.withValues(alpha: 0.7),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -629,7 +690,6 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                     ),
 
                     // Warning if rounds don't match
-
                   ],
                 ),
               ),
@@ -672,7 +732,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                     child: ElevatedButton(
                       onPressed: () async {
                         // Check if rounds counted is MORE than total rounds
-                        if (widget.totalRounds != null && 
+                        if (widget.totalRounds != null &&
                             _totalRoundsCounted > widget.totalRounds!) {
                           // Show error dialog - cannot proceed
                           await showDialog(
@@ -685,7 +745,8 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                 ),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.of(dialogContext).pop(),
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
                                     child: const Text('OK'),
                                   ),
                                 ],
@@ -697,7 +758,7 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                         }
 
                         // Check if rounds counted is less than total rounds
-                        if (widget.totalRounds != null && 
+                        if (widget.totalRounds != null &&
                             _totalRoundsCounted < widget.totalRounds!) {
                           // Show confirmation dialog
                           final shouldReturn = await showDialog<bool>(
@@ -710,11 +771,13 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                                 ),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(false),
                                     child: const Text('No'),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(true),
                                     child: const Text('Yes'),
                                   ),
                                 ],
@@ -737,8 +800,8 @@ class _ScoreCalculatorDialogState extends State<_ScoreCalculatorDialog> {
                             intScoreCounts[scoreValue] = count;
                           }
                         });
-                        
-                        if (!mounted) return;
+
+                        if (!context.mounted) return;
                         Navigator.of(context).pop(
                           ScoreCalculatorResult(
                             score: _totalScore,
