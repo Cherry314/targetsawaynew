@@ -11,7 +11,7 @@ class DataSyncService {
   static const String metadataCollection = 'metadata';
   static const String localVersionKey = 'local_data_version';
   static const String localImporterVersionKey = 'local_importer_schema_version';
-  static const int currentImporterSchemaVersion = 2;
+  static const int currentImporterSchemaVersion = 3;
 
   /// Check if there's a new version available on Firebase
   /// Returns true if an update is available

@@ -73,18 +73,30 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       return 'Selected ID: none | Overrides: ${overrideIds.isEmpty ? 'none' : overrideIds}';
     }
 
-    final override = widget.event.getOverrideForFirearmId(firearmId);
-    final overrideTargets = override?.changes.targets;
-    final hasChanges =
-        override != null && _overrideHasAnyChanges(override.changes);
-    final targetText = overrideTargets == null
+    final matchingOverrides = widget.event.getOverridesForFirearmId(firearmId);
+    final overrideTargets = matchingOverrides
+        .map((override) => override.changes.targets)
+        .whereType<List<Target>>()
+        .where((targets) => targets.isNotEmpty)
+        .toList();
+    final hasChanges = matchingOverrides.any(
+      (override) => _overrideHasAnyChanges(override.changes),
+    );
+    final targetText = overrideTargets.isEmpty
         ? 'none'
-        : _targetSummary(overrideTargets);
-    final staleDataHint = override != null && !hasChanges
+        : overrideTargets.map(_targetSummary).join(' -> ');
+    final classificationOverrides = matchingOverrides
+        .where(
+          (override) => override.changes.classifications?.isNotEmpty == true,
+        )
+        .length;
+    final effectiveClassifications =
+        getCurrentContent().classifications?.length ?? 0;
+    final staleDataHint = matchingOverrides.isNotEmpty && !hasChanges
         ? ' | Override changes empty - re-upload/re-import event data'
         : '';
 
-    return 'Selected ID: $firearmId | Overrides: ${overrideIds.isEmpty ? 'none' : overrideIds} | Match: ${override == null ? 'no' : 'yes'} | Override target: $targetText$staleDataHint';
+    return 'Selected ID: $firearmId | Overrides: ${overrideIds.isEmpty ? 'none' : overrideIds} | Matches: ${matchingOverrides.length} | Override target: $targetText | Classification overrides: $classificationOverrides | Effective classes: $effectiveClassifications$staleDataHint';
   }
 
   bool _overrideHasAnyChanges(dynamic changes) {

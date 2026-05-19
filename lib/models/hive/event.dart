@@ -52,43 +52,47 @@ class Event extends HiveObject {
   /// button is a numeric firearm ID (for example, GRCF = 2), and event
   /// overrides are keyed by numeric firearmIds.
   EventContent getContentForFirearmId(int firearmId) {
-    final override = getOverrideForFirearmId(firearmId);
-    if (override == null) {
+    final matchingOverrides = getOverridesForFirearmId(firearmId);
+    if (matchingOverrides.isEmpty) {
       return baseContent;
     }
 
-    return mergeContentWithOverride(override);
+    var content = baseContent;
+    for (final override in matchingOverrides) {
+      content = mergeContentWithOverride(override, base: content);
+    }
+    return content;
   }
 
   /// Get EventContent for a specific firearm.
   EventContent getContentForFirearm(Firearm firearm) {
-    final override = getOverrideForFirearm(firearm);
-    if (override == null) {
+    final matchingOverrides = getOverridesForFirearm(firearm);
+    if (matchingOverrides.isEmpty) {
       return baseContent;
     }
 
-    return mergeContentWithOverride(override);
+    var content = baseContent;
+    for (final override in matchingOverrides) {
+      content = mergeContentWithOverride(override, base: content);
+    }
+    return content;
   }
 
-  /// Get the override for a numeric firearm ID.
-  EventOverride? getOverrideForFirearmId(int firearmId) {
-    for (final override in overrides) {
+  /// Get all overrides for a numeric firearm ID, in declaration order.
+  ///
+  /// Some imported data may preserve firearm identifiers as codes rather than
+  /// numeric IDs, so this matches both the selected ID and its mapped code.
+  List<EventOverride> getOverridesForFirearmId(int firearmId) {
+    final firearmCode = _firearmCodeForId(firearmId)?.trim().toLowerCase();
+    return overrides.where((override) {
       if (override.firearmIds.contains(firearmId)) {
-        return override;
+        return true;
       }
-    }
-    return null;
-  }
 
-  /// Get the override for a firearm by numeric ID or code.
-  EventOverride? getOverrideForFirearm(Firearm firearm) {
-    final idOverride = getOverrideForFirearmId(firearm.id);
-    if (idOverride != null) {
-      return idOverride;
-    }
+      if (firearmCode == null || firearmCode.isEmpty) {
+        return false;
+      }
 
-    final firearmCode = firearm.code.trim().toLowerCase();
-    for (final override in overrides) {
       final overrideCodes = {
         ...override.firearmCodes.map((code) => code.trim().toLowerCase()),
         ...override.firearmIds
@@ -96,13 +100,44 @@ class Event extends HiveObject {
             .whereType<String>()
             .map((code) => code.trim().toLowerCase()),
       };
-      final matchesCode =
-          firearmCode.isNotEmpty && overrideCodes.contains(firearmCode);
-      if (matchesCode) {
-        return override;
-      }
+      return overrideCodes.contains(firearmCode);
+    }).toList();
+  }
+
+  /// Get the first override for a numeric firearm ID.
+  EventOverride? getOverrideForFirearmId(int firearmId) {
+    final matchingOverrides = getOverridesForFirearmId(firearmId);
+    if (matchingOverrides.isEmpty) return null;
+    return matchingOverrides.first;
+  }
+
+  /// Get all overrides for a firearm by numeric ID or code, in declaration order.
+  List<EventOverride> getOverridesForFirearm(Firearm firearm) {
+    final idOverrides = getOverridesForFirearmId(firearm.id);
+    if (idOverrides.isNotEmpty) {
+      return idOverrides;
     }
-    return null;
+
+    final firearmCode = firearm.code.trim().toLowerCase();
+    if (firearmCode.isEmpty) return [];
+
+    return overrides.where((override) {
+      final overrideCodes = {
+        ...override.firearmCodes.map((code) => code.trim().toLowerCase()),
+        ...override.firearmIds
+            .map(_firearmCodeForId)
+            .whereType<String>()
+            .map((code) => code.trim().toLowerCase()),
+      };
+      return overrideCodes.contains(firearmCode);
+    }).toList();
+  }
+
+  /// Get the first override for a firearm by numeric ID or code.
+  EventOverride? getOverrideForFirearm(Firearm firearm) {
+    final matchingOverrides = getOverridesForFirearm(firearm);
+    if (matchingOverrides.isEmpty) return null;
+    return matchingOverrides.first;
   }
 
   String? _firearmCodeForId(int firearmId) {
@@ -116,40 +151,62 @@ class Event extends HiveObject {
     return overrideList;
   }
 
-  EventContent mergeContentWithOverride(EventOverride override) {
+  List<T>? _overrideNullableListOrBase<T>(
+    List<T>? overrideList,
+    List<T>? baseList,
+  ) {
+    if (overrideList == null || overrideList.isEmpty) {
+      return baseList;
+    }
+    return overrideList;
+  }
+
+  EventContent mergeContentWithOverride(
+    EventOverride override, {
+    EventContent? base,
+  }) {
+    final source = base ?? baseContent;
     final changes = override.changes;
     return EventContent(
-      targets: _overrideListOrBase(changes.targets, baseContent.targets),
-      ammunition: changes.ammunition ?? baseContent.ammunition,
-      sights: _overrideListOrBase(changes.sights, baseContent.sights),
-      positions: _overrideListOrBase(changes.positions, baseContent.positions),
+      targets: _overrideListOrBase(changes.targets, source.targets),
+      ammunition: changes.ammunition ?? source.ammunition,
+      sights: _overrideListOrBase(changes.sights, source.sights),
+      positions: _overrideListOrBase(changes.positions, source.positions),
       readyPositions: _overrideListOrBase(
         changes.readyPositions,
-        baseContent.readyPositions,
+        source.readyPositions,
       ),
       rangeCommands: _overrideListOrBase(
         changes.rangeCommands,
-        baseContent.rangeCommands,
+        source.rangeCommands,
       ),
-      notes: changes.notes ?? baseContent.notes,
-      ties: changes.ties ?? baseContent.ties,
+      notes: changes.notes ?? source.notes,
+      ties: changes.ties ?? source.ties,
       proceduralPenalties:
-          changes.proceduralPenalties ?? baseContent.proceduralPenalties,
-      classifications: changes.classifications ?? baseContent.classifications,
-      targetPositions: changes.targetPositions ?? baseContent.targetPositions,
-      courseOfFire: changes.courseOfFire ?? baseContent.courseOfFire,
-      sighters: changes.sighters ?? baseContent.sighters,
-      practices: _overrideListOrBase(changes.practices, baseContent.practices),
-      targetIds: changes.targetIds ?? baseContent.targetIds,
-      generalNotes: changes.generalNotes ?? baseContent.generalNotes,
-      scoring: changes.scoring ?? baseContent.scoring,
-      loading: changes.loading ?? baseContent.loading,
-      magazine: changes.magazine ?? baseContent.magazine,
-      reloading: changes.reloading ?? baseContent.reloading,
-      equipment: changes.equipment ?? baseContent.equipment,
-      rangeEquipment: changes.rangeEquipment ?? baseContent.rangeEquipment,
-      changingPosition:
-          changes.changingPosition ?? baseContent.changingPosition,
+          changes.proceduralPenalties ?? source.proceduralPenalties,
+      classifications: _overrideNullableListOrBase(
+        changes.classifications,
+        source.classifications,
+      ),
+      targetPositions: _overrideNullableListOrBase(
+        changes.targetPositions,
+        source.targetPositions,
+      ),
+      courseOfFire: changes.courseOfFire ?? source.courseOfFire,
+      sighters: _overrideNullableListOrBase(changes.sighters, source.sighters),
+      practices: _overrideListOrBase(changes.practices, source.practices),
+      targetIds: _overrideNullableListOrBase(
+        changes.targetIds,
+        source.targetIds,
+      ),
+      generalNotes: changes.generalNotes ?? source.generalNotes,
+      scoring: changes.scoring ?? source.scoring,
+      loading: changes.loading ?? source.loading,
+      magazine: _overrideNullableListOrBase(changes.magazine, source.magazine),
+      reloading: changes.reloading ?? source.reloading,
+      equipment: changes.equipment ?? source.equipment,
+      rangeEquipment: changes.rangeEquipment ?? source.rangeEquipment,
+      changingPosition: changes.changingPosition ?? source.changingPosition,
     );
   }
 }

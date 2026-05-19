@@ -7,6 +7,8 @@ import '../models/hive/event_override.dart';
 import '../models/hive/override_content.dart';
 import '../models/hive/firearm.dart';
 import '../models/hive/target.dart';
+import '../models/hive/target_position.dart';
+import '../models/hive/target_id.dart';
 import '../models/hive/ammunition.dart';
 import '../models/hive/sight.dart';
 import '../models/hive/position.dart';
@@ -264,7 +266,9 @@ class DataImporter {
       classifications: _mapToClassifications(
         data['classifications'] as List<dynamic>?,
       ),
-      targetPositions: null, // Not stored in Firestore
+      targetPositions: _mapToTargetPositions(
+        data['targetPositions'] as List<dynamic>?,
+      ),
       courseOfFire: data['courseOfFire'] != null
           ? _mapToCourseOfFire(data['courseOfFire'] as Map<String, dynamic>)
           : CourseOfFire(
@@ -277,7 +281,7 @@ class DataImporter {
       practices: data['practices'] != null
           ? _mapToPractices(data['practices'] as List<dynamic>)
           : [],
-      targetIds: null, // Not stored in Firestore
+      targetIds: _mapToTargetIds(data['targetIds'] as List<dynamic>?),
       generalNotes: _mapToNotes(data['generalNotes'] as Map<String, dynamic>?),
       scoring: _mapToScoring(data['scoring'] as Map<String, dynamic>?),
       loading: _mapToLoading(data['loading'] as Map<String, dynamic>?),
@@ -322,7 +326,9 @@ class DataImporter {
       classifications: _mapToClassifications(
         data['classifications'] as List<dynamic>?,
       ),
-      targetPositions: null,
+      targetPositions: _mapToTargetPositions(
+        data['targetPositions'] as List<dynamic>?,
+      ),
       courseOfFire: data['courseOfFire'] != null
           ? _mapToCourseOfFire(data['courseOfFire'] as Map<String, dynamic>)
           : null,
@@ -330,7 +336,7 @@ class DataImporter {
       practices: data['practices'] != null
           ? _mapToPractices(data['practices'] as List<dynamic>)
           : null,
-      targetIds: null,
+      targetIds: _mapToTargetIds(data['targetIds'] as List<dynamic>?),
       generalNotes: _mapToNotes(data['generalNotes'] as Map<String, dynamic>?),
       scoring: _mapToScoring(data['scoring'] as Map<String, dynamic>?),
       loading: _mapToLoading(data['loading'] as Map<String, dynamic>?),
@@ -474,6 +480,34 @@ class DataImporter {
     }
 
     return (ids: ids.toList(), codes: codes.toList());
+  }
+
+  /// Convert Firestore list to target positions
+  List<TargetPosition>? _mapToTargetPositions(List<dynamic>? targetPositions) {
+    if (targetPositions == null) return null;
+    return targetPositions.map((targetPositionData) {
+      if (targetPositionData is Map<String, dynamic>) {
+        return TargetPosition(
+          title: targetPositionData['title'] as String?,
+          text: targetPositionData['text'] as String?,
+        );
+      }
+      return TargetPosition();
+    }).toList();
+  }
+
+  /// Convert Firestore list to target IDs
+  List<TargetID>? _mapToTargetIds(List<dynamic>? targetIds) {
+    if (targetIds == null) return null;
+    return targetIds.map((targetIdData) {
+      if (targetIdData is Map<String, dynamic>) {
+        return TargetID(
+          title: targetIdData['title'] as String?,
+          imageLocation: targetIdData['imageLocation'] as String?,
+        );
+      }
+      return TargetID();
+    }).toList();
   }
 
   /// Convert Firestore list to targets
