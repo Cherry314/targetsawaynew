@@ -17,12 +17,14 @@ import '../../methods/score_calculator_dialog.dart';
 class ShooterScoreScreen extends StatefulWidget {
   final String competitionId;
   final String eventName;
+  final String? firearmCode;
   final String shooterName;
 
   const ShooterScoreScreen({
     super.key,
     required this.competitionId,
     required this.eventName,
+    this.firearmCode,
     required this.shooterName,
   });
 
@@ -158,7 +160,7 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
       context: context,
       totalRounds: totalRounds,
       selectedPractice: widget.eventName,
-      selectedFirearmId: null,
+      selectedFirearmId: widget.firearmCode,
     );
 
     if (result != null && mounted) {
@@ -172,7 +174,10 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
 
   /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
-    return ScoreCalculatorUtils.getTotalRounds(eventName: widget.eventName);
+    return ScoreCalculatorUtils.getTotalRounds(
+      eventName: widget.eventName,
+      firearmCode: widget.firearmCode,
+    );
   }
 
   Future<void> _submitScore() async {
@@ -344,6 +349,18 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (widget.firearmCode?.isNotEmpty == true) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.firearmCode!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         'Shooter: ${widget.shooterName}',

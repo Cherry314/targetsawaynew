@@ -14,6 +14,7 @@ class EnterScoreDialog extends StatefulWidget {
   final int? currentScore;
   final int? currentXCount;
   final String eventName;
+  final String? firearmCode;
 
   const EnterScoreDialog({
     super.key,
@@ -22,6 +23,7 @@ class EnterScoreDialog extends StatefulWidget {
     this.currentScore,
     this.currentXCount,
     required this.eventName,
+    this.firearmCode,
   });
 
   @override
@@ -58,7 +60,10 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
 
   /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
-    return ScoreCalculatorUtils.getTotalRounds(eventName: widget.eventName);
+    return ScoreCalculatorUtils.getTotalRounds(
+      eventName: widget.eventName,
+      firearmCode: widget.firearmCode,
+    );
   }
 
   Future<void> _openScoreCalculator() async {
@@ -68,7 +73,7 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
       context: context,
       totalRounds: totalRounds,
       selectedPractice: widget.eventName,
-      selectedFirearmId: null,
+      selectedFirearmId: widget.firearmCode,
     );
 
     if (result != null) {

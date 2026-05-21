@@ -24,10 +24,14 @@ const Duration _heartbeatInterval = Duration(minutes: 5);
 
 class CompetitionRunnerScreen extends StatefulWidget {
   final String eventName;
+  final int firearmId;
+  final String firearmCode;
 
   const CompetitionRunnerScreen({
     super.key,
     required this.eventName,
+    required this.firearmId,
+    required this.firearmCode,
   });
 
   @override
@@ -140,6 +144,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           .doc(competitionId)
           .set({
         'eventName': widget.eventName,
+        'firearmId': widget.firearmId,
+        'firearmCode': widget.firearmCode,
         'createdBy': currentUser.uid,
         'createdAt': now,
         'status': 'active',
@@ -499,6 +505,21 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               color: Colors.white,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              widget.firearmCode,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           // Container(
@@ -962,6 +983,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                     currentScore: score,
                     currentXCount: xCount > 0 ? xCount : null,
                     eventName: widget.eventName,
+                    firearmCode: widget.firearmCode,
                   ),
                 );
               },
@@ -1443,6 +1465,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           MaterialPageRoute(
             builder: (context) => CompetitionResultsScreen(
               eventName: widget.eventName,
+              firearmCode: widget.firearmCode,
               results: leaderboard,
               competitionId: competitionId!,
             ),

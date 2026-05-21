@@ -2405,6 +2405,18 @@ class EnterScoreScreenState extends State<EnterScoreScreen> {
                     onPressed: _confirmSaveEntry,
                     primaryColor: primaryColor,
                   ),
+                  const SizedBox(height: 12),
+                  _buildGradientButton(
+                    label: "Cancel",
+                    icon: Icons.close,
+                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/enter_score',
+                      (route) => false,
+                    ),
+                    primaryColor: Colors.grey,
+                    isOutlined: true,
+                  ),
                 ] else ...[
                   _buildGradientButton(
                     label: "Basic Scoring",

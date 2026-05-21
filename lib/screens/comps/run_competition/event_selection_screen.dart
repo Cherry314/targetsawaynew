@@ -3,9 +3,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../data/dropdown_values.dart';
+import '../../../models/hive/event.dart';
 import '../../../widgets/help_icon_button.dart';
 import '../../../utils/help_content.dart';
 import 'competition_runner_screen.dart';
@@ -56,6 +58,147 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
       availableEvents = DropdownValues.masterPractices;
       isLoading = false;
     });
+  }
+
+  Event? _findSelectedHiveEvent() {
+    final eventName = selectedEvent;
+    if (eventName == null || !Hive.isBoxOpen('events')) {
+      return null;
+    }
+
+    final eventBox = Hive.box<Event>('events');
+    for (final event in eventBox.values) {
+      if (event.name == eventName) {
+        return event;
+      }
+    }
+
+    return null;
+  }
+
+  List<FirearmInfo> _getFirearmOptionsForEvent(Event? event) {
+    if (event == null) {
+      return DropdownValues.masterFirearmTable;
+    }
+
+    final ids = <int>{
+      ...event.applicableFirearmIds,
+      for (final override in event.overrides) ...override.firearmIds,
+      for (final override in event.overrides)
+        ...override.firearmCodes
+            .map(DropdownValues.getFirearmIdByCode)
+            .whereType<int>(),
+    };
+
+    return DropdownValues.masterFirearmTable
+        .where((firearm) => ids.contains(firearm.id))
+        .toList();
+  }
+
+  Future<void> _showFirearmSelectionDialog() async {
+    final eventName = selectedEvent;
+    if (eventName == null) return;
+
+    final event = _findSelectedHiveEvent();
+    final firearmOptions = _getFirearmOptionsForEvent(event);
+    FirearmInfo? selectedFirearm = firearmOptions.isNotEmpty
+        ? firearmOptions.first
+        : null;
+
+    final selected = await showDialog<FirearmInfo>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Select Firearm Type'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      eventName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Choose which firearm option this competition is for.',
+                    ),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: firearmOptions.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Text(
+                                'No firearm options are available for this event.',
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: firearmOptions.length,
+                              itemBuilder: (context, index) {
+                                final firearm = firearmOptions[index];
+                                final hasOverride =
+                                    event?.getOverrideForFirearmId(firearm.id) !=
+                                        null;
+                                return RadioListTile<FirearmInfo>(
+                                  value: firearm,
+                                  groupValue: selectedFirearm,
+                                  onChanged: (value) {
+                                    setDialogState(() {
+                                      selectedFirearm = value;
+                                    });
+                                  },
+                                  title: Text(firearm.code),
+                                  subtitle: Text(
+                                    hasOverride
+                                        ? '${firearm.gunType} - override available'
+                                        : firearm.gunType,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: selectedFirearm == null
+                      ? null
+                      : () => Navigator.pop(dialogContext, selectedFirearm),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start Competition'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CompetitionRunnerScreen(
+          eventName: eventName,
+          firearmId: selected.id,
+          firearmCode: selected.code,
+        ),
+      ),
+    );
   }
 
   @override
@@ -274,16 +417,7 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
                         child: SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CompetitionRunnerScreen(
-                                    eventName: selectedEvent!,
-                                  ),
-                                ),
-                              );
-                            },
+                            onPressed: _showFirearmSelectionDialog,
                             icon: const Icon(Icons.play_arrow),
                             label: const Text(
                               'Start Competition',

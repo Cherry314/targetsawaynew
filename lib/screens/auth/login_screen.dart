@@ -43,18 +43,58 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
-      if (mounted) {
-        // Check if user has passcode or biometric set up
-        final hasPasscode = await authService.hasPasscode();
-        final hasBiometric = await authService.isBiometricEnabled();
+      // Check if user has passcode or biometric set up
+      final hasPasscode = await authService.hasPasscode();
+      final hasBiometric = await authService.isBiometricEnabled();
 
-        if (hasPasscode || hasBiometric) {
-          // Navigate to app unlock screen
-          Navigator.pushReplacementNamed(context, '/app_unlock');
-        } else {
-          // Navigate to security setup
-          Navigator.pushReplacementNamed(context, '/security_setup');
-        }
+      if (!context.mounted) return;
+
+      _navigateAfterLogin(hasPasscode || hasBiometric);
+    } catch (e) {
+      if (mounted) {
+        _showError(e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _navigateAfterLogin(bool hasLocalAuth) {
+    final routeName = hasLocalAuth ? '/app_unlock' : '/security_setup';
+    Navigator.of(context).pushReplacementNamed(routeName);
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showError('Please enter your email address first.');
+      return;
+    }
+
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      _showError('Please enter a valid email address.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await AuthService().sendPasswordResetEmail(email);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset email sent. Please check your inbox.'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -176,7 +216,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _isLoading ? null : _forgotPassword,
+                    child: Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Login Button
                 ElevatedButton(

@@ -1,0 +1,90 @@
+List of all Items in Events
+FirearmID
+Targets
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+      link: fields[2] as String?,
+      qtyNeeded: fields[3] as int?,
+Ammunition
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+
+Sights
+	text: fields[1] as String?,
+Position
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Ready Position
+      text: fields[0] as String?,
+      title: fields[1] as String?,
+Course of fire
+      distanceNotes: fields[1] as String?,
+      totalTime: fields[2] as int?,
+      timeNotes: fields[3] as String?,
+      totalRounds: fields[4] as int?,
+      roundsNotes: fields[5] as String?,
+      maxScore: fields[6] as int?,
+      maxScoreNotes: fields[7] as String?,
+      generalNotes: fields[8] as String?
+Sighters
+      text: fields[0] as String,
+Practice
+      practiceNumber: fields[0] as int,
+      stages: (fields[1] as List).cast<Stage>(),
+      notesHeader: fields[2] as String?,
+      notes: fields[3] as String?,
+      practiceName: fields[4] as String?,
+Stage
+      stageNumber: fields[0] as int,
+      distance: fields[1] as int?,
+      distanceText: fields[2] as String?,
+      rounds: fields[3] as int?,
+      roundsText: fields[4] as String?,
+      time: fields[5] as double?,
+      timeText: fields[6] as String?,
+      notesHeader: fields[7] as String?,
+      notes: fields[8] as String?,
+Range Commands
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Target Positions
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Loading
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Reloading
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Magazine
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Equipment
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Changing Position
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Range Equipment
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Scoring
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+Ties
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+      idx: fields[2] as String?,
+      idxText: fields[3] as String?,
+Procedural Penalties
+      title: fields[0] as String?,
+      text: fields[1] as String?,
+      idx: fields[2] as String?,
+      idxText: fields[3] as String?,
+Classifications
+      className: fields[0] as String,
+      min: fields[1] as int?,
+      max: fields[2] as int?,
+Note
+      title: fields[0] as String?,
+      text: fields[1] as String?,

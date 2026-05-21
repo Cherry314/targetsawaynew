@@ -26,6 +26,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
   String? errorMessage;
   Map<String, dynamic>? competitionData;
   String? eventName;
+  String? firearmCode;
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
       setState(() {
         competitionData = data;
         eventName = data['eventName'] as String?;
+        firearmCode = data['firearmCode'] as String?;
         isLoading = false;
       });
     } catch (e) {
@@ -120,6 +122,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
             builder: (context) => ShooterScoreScreen(
               competitionId: widget.competitionId,
               eventName: eventName ?? 'Unknown Event',
+              firearmCode: firearmCode,
               shooterName: shooterName,
             ),
           ),
@@ -204,6 +207,17 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
                         ],
                       ),
                     ),
+                    if (firearmCode?.isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Firearm: $firearmCode',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     const Text(
                       'Do you wish to join this competition?',

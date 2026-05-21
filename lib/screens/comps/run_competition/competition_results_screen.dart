@@ -10,12 +10,14 @@ import '../../../utils/help_content.dart';
 
 class CompetitionResultsScreen extends StatelessWidget {
   final String eventName;
+  final String? firearmCode;
   final List<Map<String, dynamic>> results;
   final String competitionId;
 
   const CompetitionResultsScreen({
     super.key,
     required this.eventName,
+    this.firearmCode,
     required this.results,
     required this.competitionId,
   });
@@ -158,6 +160,18 @@ class CompetitionResultsScreen extends StatelessWidget {
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (firearmCode?.isNotEmpty == true) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          firearmCode!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         'Final Results',
