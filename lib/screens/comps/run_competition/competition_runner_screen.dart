@@ -4,17 +4,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import '../../../main.dart';
+import '../../../models/hive/event.dart';
 import '../../../services/sound_service.dart';
 import '../../../widgets/help_icon_button.dart';
 import '../../../utils/help_content.dart';
 import 'manual_entry_dialog.dart';
 import 'enter_score_dialog.dart';
+import 'competition_event_overview_screen.dart';
 import 'competition_results_screen.dart';
 
 // Timeout duration for abandoned competitions (3 hours)
@@ -98,6 +101,40 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     }
   }
 
+  Event? _findEvent() {
+    if (!Hive.isBoxOpen('events')) return null;
+
+    final eventBox = Hive.box<Event>('events');
+    for (final event in eventBox.values) {
+      if (event.name == widget.eventName) {
+        return event;
+      }
+    }
+
+    return null;
+  }
+
+  void _openEventOverview() {
+    final event = _findEvent();
+    if (event == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event details could not be loaded.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CompetitionEventOverviewScreen(
+          event: event,
+          content: event.getContentForFirearmId(widget.firearmId),
+          firearmCode: widget.firearmCode,
+        ),
+      ),
+    );
+  }
+
   /// Extend competition expiration (heartbeat)
   Future<void> _extendTimeout() async {
     if (competitionId == null) return;
@@ -106,9 +143,9 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           .collection('competitions')
           .doc(competitionId)
           .update({
-        'expiresAt': DateTime.now().add(_competitionTimeout),
-        'lastActiveAt': FieldValue.serverTimestamp(),
-      });
+            'expiresAt': DateTime.now().add(_competitionTimeout),
+            'lastActiveAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       // If update fails, competition will expire and be cleaned up
     }
@@ -143,18 +180,18 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           .collection('competitions')
           .doc(competitionId)
           .set({
-        'eventName': widget.eventName,
-        'firearmId': widget.firearmId,
-        'firearmCode': widget.firearmCode,
-        'createdBy': currentUser.uid,
-        'createdAt': now,
-        'status': 'active',
-        'participants': [],
-        'manualEntries': [],
-        'entriesClosed': false,
-        'expiresAt': now.add(_competitionTimeout),
-        'lastActiveAt': now,
-      });
+            'eventName': widget.eventName,
+            'firearmId': widget.firearmId,
+            'firearmCode': widget.firearmCode,
+            'createdBy': currentUser.uid,
+            'createdAt': now,
+            'status': 'active',
+            'participants': [],
+            'manualEntries': [],
+            'entriesClosed': false,
+            'expiresAt': now.add(_competitionTimeout),
+            'lastActiveAt': now,
+          });
 
       // QR code data contains competition ID
       qrData = 'targetsaway://competition/$competitionId';
@@ -212,13 +249,14 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         await FirebaseFirestore.instance
             .collection('competitions')
             .doc(competitionId)
-            .update({
-          'entriesClosed': true,
-        });
+            .update({'entriesClosed': true});
 
         setState(() {
           entriesClosed = true;
         });
+
+        if (!mounted) return;
+        _openEventOverview();
       } catch (e) {
         // Silently handle error
       }
@@ -341,10 +379,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           elevation: 0,
           title: const Text(
             'Running Competition',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -381,12 +416,12 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                 builder: (context, snapshot) {
                   final competitionData =
                       snapshot.data?.data() as Map<String, dynamic>?;
-                  final participants = (competitionData?['participants']
-                          as List<dynamic>?)
-                      ?.cast<Map<String, dynamic>>();
-                  final manualEntries = (competitionData?['manualEntries']
-                          as List<dynamic>?)
-                      ?.cast<Map<String, dynamic>>();
+                  final participants =
+                      (competitionData?['participants'] as List<dynamic>?)
+                          ?.cast<Map<String, dynamic>>();
+                  final manualEntries =
+                      (competitionData?['manualEntries'] as List<dynamic>?)
+                          ?.cast<Map<String, dynamic>>();
                   final isEntriesClosed =
                       competitionData?['entriesClosed'] == true;
 
@@ -398,7 +433,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
 
                   // Calculate stats
                   final totalParticipants =
-                      (participants?.length ?? 0) + (manualEntries?.length ?? 0);
+                      (participants?.length ?? 0) +
+                      (manualEntries?.length ?? 0);
                   final submittedScores = leaderboard
                       .where((e) => e['submitted'] == true)
                       .length;
@@ -421,6 +457,14 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                                 if (!isEntriesClosed) ...[
                                   _buildQRCodeSection(primaryColor, isDark),
                                   const SizedBox(height: 20),
+                                ] else ...[
+                                  _buildScoreReceivingCard(
+                                    totalParticipants,
+                                    submittedScores,
+                                    primaryColor,
+                                    isDark,
+                                  ),
+                                  const SizedBox(height: 20),
                                 ],
 
                                 // Stats Card
@@ -434,7 +478,11 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
 
                                 // Leaderboard (always show, sorted by score)
                                 if (leaderboard.isNotEmpty) ...[
-                                  _buildLeaderboard(leaderboard, primaryColor, isDark),
+                                  _buildLeaderboard(
+                                    leaderboard,
+                                    primaryColor,
+                                    isDark,
+                                  ),
                                   const SizedBox(height: 20),
                                 ],
                                 // Bottom padding for scrollable area
@@ -451,7 +499,9 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                               color: isDark ? Colors.grey[850] : Colors.white,
                               border: Border(
                                 top: BorderSide(
-                                  color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                                  color: isDark
+                                      ? Colors.grey[700]!
+                                      : Colors.grey[300]!,
                                   width: 1,
                                 ),
                               ),
@@ -460,6 +510,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                               totalParticipants,
                               submittedScores,
                               primaryColor,
+                              isEntriesClosed,
                             ),
                           ),
                       ],
@@ -617,14 +668,105 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           ),
           const SizedBox(height: 4),
           SelectableText(
-            competitionId != null
-                ? competitionId!.substring(0, 8)
-                : '...',
+            competitionId != null ? competitionId!.substring(0, 8) : '...',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: primaryColor,
               fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreReceivingCard(
+    int totalParticipants,
+    int submittedScores,
+    Color primaryColor,
+    bool isDark,
+  ) {
+    final remainingScores = (totalParticipants - submittedScores)
+        .clamp(0, totalParticipants)
+        .toInt();
+    final allScoresReceived = totalParticipants > 0 && remainingScores == 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: allScoresReceived
+              ? Colors.green.withValues(alpha: 0.4)
+              : primaryColor.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                allScoresReceived ? Icons.check_circle : Icons.cloud_sync,
+                color: allScoresReceived ? Colors.green : primaryColor,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  allScoresReceived
+                      ? 'All Scores Received'
+                      : 'Receiving Scores',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            allScoresReceived
+                ? 'All contestants have submitted scores. You can now show the results.'
+                : 'Waiting for contestants to upload scores via Firebase, or enter them manually below.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.35,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: totalParticipants == 0
+                ? 0
+                : submittedScores / totalParticipants,
+            backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              allScoresReceived ? Colors.green : primaryColor,
+            ),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$submittedScores of $totalParticipants scores received'
+            '${remainingScores > 0 ? ' - $remainingScores remaining' : ''}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white60 : Colors.black54,
             ),
           ),
         ],
@@ -887,7 +1029,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                 },
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -936,7 +1081,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             else
               // Manual entry or no breakdown - not tappable
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
@@ -954,11 +1102,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                     ),
                     if (xCount > 0) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.gps_fixed,
-                        size: 14,
-                        color: Colors.amber[700],
-                      ),
+                      Icon(Icons.gps_fixed, size: 14, color: Colors.amber[700]),
                       Text(
                         xCount.toString(),
                         style: TextStyle(
@@ -988,14 +1132,14 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                 );
               },
               icon: const Icon(Icons.edit, size: 16),
-              label: const Text(
-                'Enter Score',
-                style: TextStyle(fontSize: 12),
-              ),
+              label: const Text('Enter Score', style: TextStyle(fontSize: 12)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
@@ -1036,8 +1180,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       final scoreValue = int.tryParse(e.key) ?? 0;
       final count = e.value is int ? e.value : (e.value as num).toInt();
       return MapEntry(scoreValue, count);
-    }).toList()
-      ..sort((a, b) => b.key.compareTo(a.key));
+    }).toList()..sort((a, b) => b.key.compareTo(a.key));
 
     showDialog(
       context: context,
@@ -1095,10 +1238,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             const SizedBox(height: 16),
             const Text(
               'Score Distribution:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             // Breakdown rows
@@ -1143,8 +1283,15 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                     Expanded(
                       flex: 2,
                       child: LinearProgressIndicator(
-                        value: count / scoreEntries.fold<int>(0, (sum, e) => sum + e.value as int),
-                        backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                        value:
+                            count /
+                            scoreEntries.fold<int>(
+                              0,
+                              (total, e) => total + e.value as int,
+                            ),
+                        backgroundColor: isDark
+                            ? Colors.grey[700]
+                            : Colors.grey[300],
                         valueColor: AlwaysStoppedAnimation<Color>(
                           _getScoreZoneColor(scoreValue),
                         ),
@@ -1182,9 +1329,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         if (competitionId == null) return;
         showDialog(
           context: context,
-          builder: (context) => ManualEntryDialog(
-            competitionId: competitionId!,
-          ),
+          builder: (context) =>
+              ManualEntryDialog(competitionId: competitionId!),
         );
       },
       icon: const Icon(Icons.person_add),
@@ -1196,9 +1342,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1215,9 +1359,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         backgroundColor: Colors.red.shade400,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1227,6 +1369,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     int totalParticipants,
     int submittedScores,
     Color primaryColor,
+    bool isEntriesClosed,
   ) {
     // All scores are in - show End Competition button
     if (totalParticipants > 0 && submittedScores == totalParticipants) {
@@ -1237,7 +1380,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     }
 
     // Entries not closed yet - show Add Shooter and Close Entries
-    if (!entriesClosed) {
+    if (!isEntriesClosed) {
       if (totalParticipants == 0) {
         return SizedBox(
           width: double.infinity,
@@ -1246,13 +1389,9 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       }
       return Row(
         children: [
-          Expanded(
-            child: _buildManualEntryButton(primaryColor),
-          ),
+          Expanded(child: _buildManualEntryButton(primaryColor)),
           const SizedBox(width: 12),
-          Expanded(
-            child: _buildCloseEntriesButton(),
-          ),
+          Expanded(child: _buildCloseEntriesButton()),
         ],
       );
     }
@@ -1277,9 +1416,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1339,9 +1476,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1395,10 +1530,12 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
       final data = doc.data();
       if (data == null) return;
 
-      final participants = (data['participants'] as List<dynamic>?)
+      final participants =
+          (data['participants'] as List<dynamic>?)
               ?.cast<Map<String, dynamic>>() ??
           [];
-      final manualEntries = (data['manualEntries'] as List<dynamic>?)
+      final manualEntries =
+          (data['manualEntries'] as List<dynamic>?)
               ?.cast<Map<String, dynamic>>() ??
           [];
 
@@ -1423,7 +1560,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
 
       final updatedManualEntries = manualEntries.map((e) {
         final name = e['name'] as String;
-        final position = leaderboard.indexWhere((entry) => entry['name'] == name) + 1;
+        final position =
+            leaderboard.indexWhere((entry) => entry['name'] == name) + 1;
 
         return {
           ...e,
@@ -1439,17 +1577,21 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           .collection('competitions')
           .doc(competitionId)
           .update({
-        'status': 'completed',
-        'endedAt': FieldValue.serverTimestamp(),
-        'participants': updatedParticipants,
-        'manualEntries': updatedManualEntries,
-        'finalResults': leaderboard.map((e) => {
-          'name': e['name'],
-          'score': e['score'],
-          'xCount': e['xCount'],
-          'position': leaderboard.indexOf(e) + 1,
-        }).toList(),
-      });
+            'status': 'completed',
+            'endedAt': FieldValue.serverTimestamp(),
+            'participants': updatedParticipants,
+            'manualEntries': updatedManualEntries,
+            'finalResults': leaderboard
+                .map(
+                  (e) => {
+                    'name': e['name'],
+                    'score': e['score'],
+                    'xCount': e['xCount'],
+                    'position': leaderboard.indexOf(e) + 1,
+                  },
+                )
+                .toList(),
+          });
 
       setState(() {
         competitionEnded = true;
