@@ -29,12 +29,14 @@ class CompetitionRunnerScreen extends StatefulWidget {
   final String eventName;
   final int firearmId;
   final String firearmCode;
+  final String scoringMode;
 
   const CompetitionRunnerScreen({
     super.key,
     required this.eventName,
     required this.firearmId,
     required this.firearmCode,
+    this.scoringMode = 'basic',
   });
 
   @override
@@ -101,6 +103,21 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     }
   }
 
+  int _getCompetitionTargetCount() {
+    if (widget.scoringMode != 'full') return 1;
+    final event = _findEvent();
+    if (event == null) return 1;
+    final content = event.getContentForFirearmId(widget.firearmId);
+    final trigger = event.scoreChangeTrigger;
+    if (trigger.mode == 1) {
+      return content.practices.isEmpty ? 1 : content.practices.length;
+    }
+    if (trigger.mode == 2 && trigger.checkpoints.isNotEmpty) {
+      return trigger.checkpoints.length;
+    }
+    return 1;
+  }
+
   Event? _findEvent() {
     if (!Hive.isBoxOpen('events')) return null;
 
@@ -130,6 +147,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           event: event,
           content: event.getContentForFirearmId(widget.firearmId),
           firearmCode: widget.firearmCode,
+          competitionId: competitionId!,
+          scoringMode: widget.scoringMode,
         ),
       ),
     );
@@ -183,6 +202,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
             'eventName': widget.eventName,
             'firearmId': widget.firearmId,
             'firearmCode': widget.firearmCode,
+            'scoringMode': widget.scoringMode,
+            'targetCount': _getCompetitionTargetCount(),
             'createdBy': currentUser.uid,
             'createdAt': now,
             'status': 'active',
@@ -482,6 +503,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                                     leaderboard,
                                     primaryColor,
                                     isDark,
+                                    isEntriesClosed,
                                   ),
                                   const SizedBox(height: 20),
                                 ],
@@ -857,6 +879,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     List<Map<String, dynamic>> entries,
     Color primaryColor,
     bool isDark,
+    bool isEntriesClosed,
   ) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -918,6 +941,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
               entry['breakdown'] as Map<String, dynamic>?,
               primaryColor,
               isDark,
+              isEntriesClosed,
             );
           }),
         ],
@@ -935,6 +959,7 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
     Map<String, dynamic>? breakdown,
     Color primaryColor,
     bool isDark,
+    bool isEntriesClosed,
   ) {
     Color rankColor;
     IconData? rankIcon;
@@ -1115,8 +1140,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                   ],
                 ),
               ),
-          ] else if (isManual) ...[
-            // Enter Score button for manual entries without scores
+          ] else if (isManual && isEntriesClosed) ...[
+            // Enter Score button for manual entries without scores after entries close
             ElevatedButton.icon(
               onPressed: () {
                 showDialog(
@@ -1555,6 +1580,10 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
           'totalShooters': totalShooters,
           'finalScore': p['score'],
           'finalXCount': p['xCount'] ?? 0,
+          'finalTargetScores': p['targetScores'],
+          'finalTargetXCounts': p['targetXCounts'],
+          'finalTargetBreakdowns': p['targetBreakdowns'],
+          'finalTargetBasicScores': p['targetBasicScores'],
         };
       }).toList();
 
@@ -1587,6 +1616,8 @@ class _CompetitionRunnerScreenState extends State<CompetitionRunnerScreen> {
                     'name': e['name'],
                     'score': e['score'],
                     'xCount': e['xCount'],
+                    'targetScores': e['targetScores'],
+                    'targetXCounts': e['targetXCounts'],
                     'position': leaderboard.indexOf(e) + 1,
                   },
                 )

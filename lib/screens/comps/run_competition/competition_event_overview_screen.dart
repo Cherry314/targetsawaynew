@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,17 +7,22 @@ import '../../../models/hive/event.dart';
 import '../../../models/hive/event_content.dart';
 import '../../../models/hive/practice.dart';
 import '../../../models/hive/stage.dart';
+import 'enter_score_dialog.dart';
 
 class CompetitionEventOverviewScreen extends StatelessWidget {
   final Event event;
   final EventContent content;
   final String firearmCode;
+  final String competitionId;
+  final String scoringMode;
 
   const CompetitionEventOverviewScreen({
     super.key,
     required this.event,
     required this.content,
     required this.firearmCode,
+    required this.competitionId,
+    required this.scoringMode,
   });
 
   @override
@@ -25,7 +31,11 @@ class CompetitionEventOverviewScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final rows = _buildOverviewRows();
-    final steps = _buildCompetitionSteps(content.practices);
+    final steps = _buildCompetitionSteps(
+      content.practices,
+      event,
+      scoringMode == 'full',
+    );
     final infoActions = _buildInfoActions(content);
 
     return Scaffold(
@@ -51,8 +61,10 @@ class CompetitionEventOverviewScreen extends StatelessWidget {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CompetitionPracticeStageScreen(
+                    builder: (context) => _CompetitionPracticeStageScreen(
+                      competitionId: competitionId,
                       eventName: event.name,
+                      firearmCode: firearmCode,
                       steps: steps,
                       infoActions: infoActions,
                       currentIndex: 0,
@@ -198,15 +210,18 @@ class CompetitionEventOverviewScreen extends StatelessWidget {
   }
 }
 
-class CompetitionPracticeStageScreen extends StatelessWidget {
+class _CompetitionPracticeStageScreen extends StatelessWidget {
+  final String competitionId;
   final String eventName;
+  final String firearmCode;
   final List<_CompetitionStep> steps;
   final List<_InfoAction> infoActions;
   final int currentIndex;
 
-  const CompetitionPracticeStageScreen({
-    super.key,
+  const _CompetitionPracticeStageScreen({
+    required this.competitionId,
     required this.eventName,
+    required this.firearmCode,
     required this.steps,
     required this.infoActions,
     required this.currentIndex,
@@ -219,6 +234,39 @@ class CompetitionPracticeStageScreen extends StatelessWidget {
     final step = steps[currentIndex];
     final rows = _buildRows(step);
     final hasNext = currentIndex < steps.length - 1;
+    final nextStep = hasNext ? steps[currentIndex + 1] : null;
+    final nextIsScoreCheckpoint = nextStep?.isScoreCheckpoint == true;
+
+    if (step.isScoreCheckpoint) {
+      return _CompetitionScoreWaitingScreen(
+        competitionId: competitionId,
+        eventName: eventName,
+        firearmCode: firearmCode,
+        step: step,
+        primaryColor: primaryColor,
+        isDark: isDark,
+        onContinue: () {
+          if (!hasNext) {
+            Navigator.pop(context);
+            return;
+          }
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => _CompetitionPracticeStageScreen(
+                competitionId: competitionId,
+                eventName: eventName,
+                firearmCode: firearmCode,
+                steps: steps,
+                infoActions: infoActions,
+                currentIndex: currentIndex + 1,
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
@@ -250,7 +298,11 @@ class CompetitionPracticeStageScreen extends StatelessWidget {
               primaryColor: primaryColor,
               infoActions: infoActions,
               enabled: true,
-              label: hasNext ? 'Continue' : 'Finish',
+              label: nextIsScoreCheckpoint
+                  ? 'Score Section'
+                  : hasNext
+                  ? 'Continue'
+                  : 'Finish',
               onPressed: () {
                 if (!hasNext) {
                   Navigator.pop(context);
@@ -260,8 +312,10 @@ class CompetitionPracticeStageScreen extends StatelessWidget {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CompetitionPracticeStageScreen(
+                    builder: (context) => _CompetitionPracticeStageScreen(
+                      competitionId: competitionId,
                       eventName: eventName,
+                      firearmCode: firearmCode,
                       steps: steps,
                       infoActions: infoActions,
                       currentIndex: currentIndex + 1,
@@ -347,6 +401,8 @@ class CompetitionPracticeStageScreen extends StatelessWidget {
     final practice = step.practice;
     final stage = step.stage;
 
+    if (step.isScoreCheckpoint) return rows;
+
     final practiceName = _clean(practice.practiceName);
     if (practiceName != null) {
       rows.add(_DetailRow('Practice Name', practiceName, Icons.label));
@@ -390,6 +446,248 @@ class CompetitionPracticeStageScreen extends StatelessWidget {
     }
 
     return rows;
+  }
+}
+
+class _CompetitionScoreWaitingScreen extends StatelessWidget {
+  final String competitionId;
+  final String eventName;
+  final String firearmCode;
+  final _CompetitionStep step;
+  final Color primaryColor;
+  final bool isDark;
+  final VoidCallback onContinue;
+
+  const _CompetitionScoreWaitingScreen({
+    required this.competitionId,
+    required this.eventName,
+    required this.firearmCode,
+    required this.step,
+    required this.primaryColor,
+    required this.isDark,
+    required this.onContinue,
+  });
+
+  void _activateCheckpoint() {
+    final targetIndex = step.targetIndex;
+    if (targetIndex == null) return;
+
+    FirebaseFirestore.instance
+        .collection('competitions')
+        .doc(competitionId)
+        .update({
+          'activeTargetIndex': targetIndex,
+          'activeCheckpointLabel': step.checkpointLabel,
+          'activeCheckpointStartedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> _clearCheckpoint() async {
+    await FirebaseFirestore.instance
+        .collection('competitions')
+        .doc(competitionId)
+        .update({
+          'activeTargetIndex': FieldValue.delete(),
+          'activeCheckpointLabel': FieldValue.delete(),
+          'activeCheckpointStartedAt': FieldValue.delete(),
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _activateCheckpoint();
+
+    return Scaffold(
+      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
+      appBar: _buildCompetitionAppBar('Waiting for Scores', primaryColor),
+      body: SafeArea(
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('competitions')
+              .doc(competitionId)
+              .snapshots(),
+          builder: (context, snapshot) {
+            final data = snapshot.data?.data() as Map<String, dynamic>?;
+            final participants =
+                (data?['participants'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [];
+            final manualEntries =
+                (data?['manualEntries'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [];
+            final allEntries = [...participants, ...manualEntries];
+            final submitted = allEntries
+                .where((entry) => _hasSubmittedCheckpoint(entry))
+                .length;
+            final total = allEntries.length;
+            final allSubmitted = total > 0 && submitted == total;
+
+            return Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[850] : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              allSubmitted
+                                  ? Icons.check_circle
+                                  : Icons.hourglass_top,
+                              color: allSubmitted ? Colors.green : primaryColor,
+                              size: 56,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              allSubmitted
+                                  ? 'Scores Received'
+                                  : 'Waiting for Scores',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              step.checkpointLabel,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: primaryColor,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            LinearProgressIndicator(
+                              value: total == 0 ? 0 : submitted / total,
+                              minHeight: 8,
+                              borderRadius: BorderRadius.circular(4),
+                              backgroundColor: isDark
+                                  ? Colors.grey[700]
+                                  : Colors.grey[300],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                allSubmitted ? Colors.green : primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '$submitted of $total entries submitted this score',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildManualScoreButtons(context, manualEntries),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                _buildBottomControls(
+                  context: context,
+                  isDark: isDark,
+                  primaryColor: primaryColor,
+                  infoActions: const [],
+                  enabled: allSubmitted,
+                  label: allSubmitted ? step.continueLabel : 'Waiting...',
+                  onPressed: () async {
+                    await _clearCheckpoint();
+                    onContinue();
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildManualScoreButtons(
+    BuildContext context,
+    List<Map<String, dynamic>> manualEntries,
+  ) {
+    final targetIndex = step.targetIndex;
+    if (targetIndex == null || manualEntries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Manual entries',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final entry in manualEntries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: OutlinedButton.icon(
+              onPressed: _hasSubmittedCheckpoint(entry)
+                  ? null
+                  : () => showDialog(
+                      context: context,
+                      builder: (context) => EnterScoreDialog(
+                        competitionId: competitionId,
+                        shooterName: entry['name'] as String? ?? 'Manual Entry',
+                        currentScore: null,
+                        currentXCount: null,
+                        eventName: eventName,
+                        firearmCode: firearmCode,
+                        targetIndex: targetIndex,
+                      ),
+                    ),
+              icon: Icon(
+                _hasSubmittedCheckpoint(entry)
+                    ? Icons.check_circle
+                    : Icons.edit,
+              ),
+              label: Text(
+                _hasSubmittedCheckpoint(entry)
+                    ? '${entry['name']} submitted'
+                    : 'Enter ${entry['name']} score',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  bool _hasSubmittedCheckpoint(Map<String, dynamic> participant) {
+    final targetScores = participant['targetScores'];
+    if (targetScores is! List) return false;
+    final targetIndex = step.targetIndex;
+    if (targetIndex == null ||
+        targetIndex < 0 ||
+        targetIndex >= targetScores.length) {
+      return false;
+    }
+    return targetScores[targetIndex] != null;
   }
 }
 
@@ -479,7 +777,7 @@ Widget _buildInfoIconRow(
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       itemCount: actions.length,
-      separatorBuilder: (_, __) => const SizedBox(width: 8),
+      separatorBuilder: (context, index) => const SizedBox(width: 8),
       itemBuilder: (context, index) {
         final action = actions[index];
         return Tooltip(
@@ -706,10 +1004,15 @@ String? _classificationText(dynamic classification) {
   return parts.join(', ');
 }
 
-List<_CompetitionStep> _buildCompetitionSteps(List<Practice> practices) {
+List<_CompetitionStep> _buildCompetitionSteps(
+  List<Practice> practices,
+  Event event,
+  bool fullCompetitionScoring,
+) {
   final sortedPractices = [...practices]
     ..sort((a, b) => a.practiceNumber.compareTo(b.practiceNumber));
   final steps = <_CompetitionStep>[];
+  var targetIndex = 0;
 
   for (final practice in sortedPractices) {
     final stages = [...practice.stages]
@@ -717,6 +1020,9 @@ List<_CompetitionStep> _buildCompetitionSteps(List<Practice> practices) {
 
     if (stages.isEmpty) {
       steps.add(_CompetitionStep(practice: practice));
+      if (_shouldScoreAfterPractice(event, practice, fullCompetitionScoring)) {
+        steps.add(_CompetitionStep.scoreCheckpoint(practice, targetIndex++));
+      }
       continue;
     }
 
@@ -728,10 +1034,78 @@ List<_CompetitionStep> _buildCompetitionSteps(List<Practice> practices) {
           showStageHeading: stages.length > 1,
         ),
       );
+
+      if (_shouldScoreAfterStage(
+        event,
+        practice,
+        stage,
+        fullCompetitionScoring,
+      )) {
+        steps.add(
+          _CompetitionStep.scoreCheckpoint(
+            practice,
+            targetIndex++,
+            stage: stage,
+          ),
+        );
+      }
+    }
+
+    if (_shouldScoreAfterPractice(event, practice, fullCompetitionScoring)) {
+      steps.add(_CompetitionStep.scoreCheckpoint(practice, targetIndex++));
     }
   }
 
+  for (var i = 0; i < steps.length; i++) {
+    final step = steps[i];
+    if (!step.isScoreCheckpoint) continue;
+    final hasLaterNonCheckpoint = steps
+        .skip(i + 1)
+        .any((nextStep) => !nextStep.isScoreCheckpoint);
+    steps[i] = step.copyWith(
+      continueLabel: hasLaterNonCheckpoint
+          ? 'Continue with Event'
+          : 'Finish Event',
+    );
+  }
+
   return steps;
+}
+
+bool _shouldScoreAfterPractice(
+  Event event,
+  Practice practice,
+  bool fullCompetitionScoring,
+) {
+  if (!fullCompetitionScoring) return false;
+  final trigger = event.scoreChangeTrigger;
+  if (trigger.mode == 1) return true;
+  if (trigger.mode == 2) {
+    return trigger.checkpoints.any(
+      (checkpoint) =>
+          checkpoint.practiceNumber == practice.practiceNumber &&
+          checkpoint.stageNumber == null,
+    );
+  }
+  return false;
+}
+
+bool _shouldScoreAfterStage(
+  Event event,
+  Practice practice,
+  Stage stage,
+  bool fullCompetitionScoring,
+) {
+  if (!fullCompetitionScoring) return false;
+  final trigger = event.scoreChangeTrigger;
+  if (trigger.mode == 2) {
+    return trigger.checkpoints.any(
+      (checkpoint) =>
+          checkpoint.practiceNumber == practice.practiceNumber &&
+          checkpoint.stageNumber == stage.stageNumber,
+    );
+  }
+  return false;
 }
 
 void _addLabelledText(List<String> parts, String label, String? value) {
@@ -895,12 +1269,52 @@ class _CompetitionStep {
   final Practice practice;
   final Stage? stage;
   final bool showStageHeading;
+  final bool isScoreCheckpoint;
+  final int? targetIndex;
+  final String continueLabel;
 
   const _CompetitionStep({
     required this.practice,
     this.stage,
     this.showStageHeading = false,
-  });
+  }) : isScoreCheckpoint = false,
+       targetIndex = null,
+       continueLabel = 'Continue';
+
+  const _CompetitionStep.scoreCheckpoint(
+    this.practice,
+    int this.targetIndex, {
+    this.stage,
+    this.continueLabel = 'Continue with Event',
+  }) : showStageHeading = false,
+       isScoreCheckpoint = true;
+
+  _CompetitionStep copyWith({String? continueLabel}) {
+    if (isScoreCheckpoint) {
+      return _CompetitionStep.scoreCheckpoint(
+        practice,
+        targetIndex ?? 0,
+        stage: stage,
+        continueLabel: continueLabel ?? this.continueLabel,
+      );
+    }
+
+    return _CompetitionStep(
+      practice: practice,
+      stage: stage,
+      showStageHeading: showStageHeading,
+    );
+  }
+
+  String get checkpointLabel {
+    final targetNumber = targetIndex == null
+        ? ''
+        : 'Target ${targetIndex! + 1} - ';
+    if (stage != null) {
+      return '${targetNumber}Practice ${practice.practiceNumber}, Stage ${stage!.stageNumber}';
+    }
+    return '${targetNumber}Practice ${practice.practiceNumber}';
+  }
 }
 
 class _InfoAction {

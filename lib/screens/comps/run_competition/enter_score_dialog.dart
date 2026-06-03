@@ -15,6 +15,7 @@ class EnterScoreDialog extends StatefulWidget {
   final int? currentXCount;
   final String eventName;
   final String? firearmCode;
+  final int? targetIndex;
 
   const EnterScoreDialog({
     super.key,
@@ -24,6 +25,7 @@ class EnterScoreDialog extends StatefulWidget {
     this.currentXCount,
     required this.eventName,
     this.firearmCode,
+    this.targetIndex,
   });
 
   @override
@@ -60,6 +62,15 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
 
   /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
+    final targetIndex = widget.targetIndex;
+    if (targetIndex != null) {
+      return ScoreCalculatorUtils.getRoundsForTarget(
+        eventName: widget.eventName,
+        firearmCode: widget.firearmCode,
+        targetIndex: targetIndex,
+      );
+    }
+
     return ScoreCalculatorUtils.getTotalRounds(
       eventName: widget.eventName,
       firearmCode: widget.firearmCode,
@@ -123,17 +134,64 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
 
       // Find and update this entry
       final updatedEntries = manualEntries.map((entry) {
-        if (entry['name'] == widget.shooterName) {
+        if (entry['name'] != widget.shooterName) return entry;
+
+        if (widget.targetIndex != null) {
+          final targetCount =
+              data?['targetCount'] as int? ??
+              (((data?['activeTargetIndex'] as num?)?.toInt() ??
+                      widget.targetIndex!) +
+                  1);
+          final scores = _copyNullableIntList(
+            entry['targetScores'],
+            targetCount,
+          );
+          final xs = _copyIntList(entry['targetXCounts'], targetCount);
+          final basics = _copyIntList(entry['targetBasicScores'], targetCount);
+          final breakdowns = _copyBreakdownList(
+            entry['targetBreakdowns'],
+            targetCount,
+          );
+          final index = widget.targetIndex!;
+
+          scores[index] = score;
+          xs[index] = xCount;
+          basics[index] = _scoreBreakdown == null ? score : 0;
+          breakdowns[index] = breakdownForFirestore;
+
+          final totalScore = scores.whereType<int>().fold<int>(
+            0,
+            (total, value) => total + value,
+          );
+          final totalX = xs.fold<int>(0, (total, value) => total + value);
+          final allTargetsSubmitted = scores.every(
+            (targetScore) => targetScore != null,
+          );
+
           return {
             ...entry,
-            'score': score,
-            'xCount': xCount,
-            'submitted': true,
-            'submittedAt': DateTime.now(),
-            'breakdown': breakdownForFirestore,
+            'score': totalScore,
+            'xCount': totalX,
+            'targetScores': scores,
+            'targetXCounts': xs,
+            'targetBasicScores': basics,
+            'targetBreakdowns': breakdowns,
+            'submitted': allTargetsSubmitted,
+            'submittedAt': allTargetsSubmitted
+                ? DateTime.now()
+                : entry['submittedAt'],
+            'lastTargetSubmittedAt': DateTime.now(),
           };
         }
-        return entry;
+
+        return {
+          ...entry,
+          'score': score,
+          'xCount': xCount,
+          'submitted': true,
+          'submittedAt': DateTime.now(),
+          'breakdown': breakdownForFirestore,
+        };
       }).toList();
 
       await FirebaseFirestore.instance
@@ -156,6 +214,44 @@ class _EnterScoreDialogState extends State<EnterScoreDialog> {
         });
       }
     }
+  }
+
+  List<int?> _copyNullableIntList(dynamic source, int minLength) {
+    final values = List<int?>.filled(minLength, null);
+    if (source is List) {
+      for (var i = 0; i < source.length; i++) {
+        if (i >= values.length) values.add(null);
+        values[i] = (source[i] as num?)?.toInt();
+      }
+    }
+    return values;
+  }
+
+  List<int> _copyIntList(dynamic source, int minLength) {
+    final values = List<int>.filled(minLength, 0);
+    if (source is List) {
+      for (var i = 0; i < source.length; i++) {
+        if (i >= values.length) values.add(0);
+        values[i] = (source[i] as num?)?.toInt() ?? 0;
+      }
+    }
+    return values;
+  }
+
+  List<Map<String, int>?> _copyBreakdownList(dynamic source, int minLength) {
+    final values = List<Map<String, int>?>.filled(minLength, null);
+    if (source is List) {
+      for (var i = 0; i < source.length; i++) {
+        if (i >= values.length) values.add(null);
+        final item = source[i];
+        if (item is Map) {
+          values[i] = item.map(
+            (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+          );
+        }
+      }
+    }
+    return values;
   }
 
   @override

@@ -11,10 +11,7 @@ import 'shooter_score_screen.dart';
 class JoinConfirmationDialog extends StatefulWidget {
   final String competitionId;
 
-  const JoinConfirmationDialog({
-    super.key,
-    required this.competitionId,
-  });
+  const JoinConfirmationDialog({super.key, required this.competitionId});
 
   @override
   State<JoinConfirmationDialog> createState() => _JoinConfirmationDialogState();
@@ -27,6 +24,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
   Map<String, dynamic>? competitionData;
   String? eventName;
   String? firearmCode;
+  String scoringMode = 'basic';
 
   @override
   void initState() {
@@ -44,7 +42,8 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
       if (!doc.exists) {
         setState(() {
           isLoading = false;
-          errorMessage = 'Competition not found. Please check the QR code or ID.';
+          errorMessage =
+              'Competition not found. Please check the QR code or ID.';
         });
         return;
       }
@@ -64,6 +63,7 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
         competitionData = data;
         eventName = data['eventName'] as String?;
         firearmCode = data['firearmCode'] as String?;
+        scoringMode = data['scoringMode'] as String? ?? 'basic';
         isLoading = false;
       });
     } catch (e) {
@@ -101,7 +101,8 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
       // Note: Cannot use FieldValue.serverTimestamp() inside arrayUnion
       // Using DateTime.now() instead, which Firestore converts to Timestamp
       final participantData = {
-        'userId': user?.uid ?? 'anonymous_${DateTime.now().millisecondsSinceEpoch}',
+        'userId':
+            user?.uid ?? 'anonymous_${DateTime.now().millisecondsSinceEpoch}',
         'name': shooterName,
         'joinedAt': DateTime.now(),
         'submitted': false,
@@ -111,8 +112,8 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
           .collection('competitions')
           .doc(widget.competitionId)
           .update({
-        'participants': FieldValue.arrayUnion([participantData]),
-      });
+            'participants': FieldValue.arrayUnion([participantData]),
+          });
 
       if (mounted) {
         Navigator.pop(context); // Close this dialog
@@ -147,92 +148,94 @@ class _JoinConfirmationDialogState extends State<JoinConfirmationDialog> {
       title: isLoading
           ? const Text('Loading...')
           : errorMessage != null
-              ? Row(
-                  children: [
-                    const Icon(Icons.error, color: Colors.red),
-                    const SizedBox(width: 8),
-                    const Text('Error'),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Icon(Icons.emoji_events, color: primaryColor),
-                    const SizedBox(width: 8),
-                    const Text('Join Competition'),
-                  ],
-                ),
+          ? Row(
+              children: [
+                const Icon(Icons.error, color: Colors.red),
+                const SizedBox(width: 8),
+                const Text('Error'),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(Icons.emoji_events, color: primaryColor),
+                const SizedBox(width: 8),
+                const Text('Join Competition'),
+              ],
+            ),
       content: isLoading
           ? const SizedBox(
               height: 100,
               child: Center(child: CircularProgressIndicator()),
             )
           : errorMessage != null
-              ? Text(errorMessage!)
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'You are invited to join:',
-                      style: TextStyle(fontSize: 16),
+          ? Text(errorMessage!)
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'You are invited to join:',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.3),
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: primaryColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.sports_score,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.sports_score, color: primaryColor, size: 32),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          eventName ?? 'Unknown Event',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                             color: primaryColor,
-                            size: 32,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              eventName ?? 'Unknown Event',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: primaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (firearmCode?.isNotEmpty == true) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Firearm: $firearmCode',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: primaryColor,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Do you wish to join this competition?',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'You will be able to calculate and submit your score after joining.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+                if (firearmCode?.isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Firearm: $firearmCode',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  'Scoring: ${scoringMode == 'full' ? 'Full Competition Scoring' : 'Basic Score'}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Do you wish to join this competition?',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You will be able to calculate and submit your score after joining.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
       actions: isLoading
           ? null
           : [

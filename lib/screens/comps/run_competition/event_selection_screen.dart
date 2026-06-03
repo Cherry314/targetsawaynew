@@ -95,6 +95,97 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
         .toList();
   }
 
+  Future<String?> _showScoringModeDialog() async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Select Scoring Type'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildScoringModeOption(
+              icon: Icons.edit_note,
+              title: 'Basic Score',
+              subtitle:
+                  'One score sheet is completed at the end of the competition.',
+              value: 'basic',
+              dialogContext: dialogContext,
+            ),
+            const SizedBox(height: 12),
+            _buildScoringModeOption(
+              icon: Icons.fact_check,
+              title: 'Full Competition Scoring',
+              subtitle:
+                  'Score each target/checkpoint during the event, based on the event setup.',
+              value: 'full',
+              dialogContext: dialogContext,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoringModeOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String value,
+    required BuildContext dialogContext,
+  }) {
+    final primaryColor = Theme.of(dialogContext).primaryColor;
+    final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: () => Navigator.pop(dialogContext, value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: primaryColor, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showFirearmSelectionDialog() async {
     final eventName = selectedEvent;
     if (eventName == null) return;
@@ -145,8 +236,10 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
                               itemBuilder: (context, index) {
                                 final firearm = firearmOptions[index];
                                 final hasOverride =
-                                    event?.getOverrideForFirearmId(firearm.id) !=
-                                        null;
+                                    event?.getOverrideForFirearmId(
+                                      firearm.id,
+                                    ) !=
+                                    null;
                                 return RadioListTile<FirearmInfo>(
                                   value: firearm,
                                   groupValue: selectedFirearm,
@@ -189,6 +282,9 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
 
     if (selected == null || !mounted) return;
 
+    final scoringMode = await _showScoringModeDialog();
+    if (scoringMode == null || !mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -196,6 +292,7 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
           eventName: eventName,
           firearmId: selected.id,
           firearmCode: selected.code,
+          scoringMode: scoringMode,
         ),
       ),
     );
@@ -213,10 +310,7 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
         elevation: 0,
         title: const Text(
           'Select Event',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
         centerTitle: true,
         flexibleSpace: Container(
@@ -257,11 +351,7 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
                     ),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.emoji_events,
-                          size: 48,
-                          color: primaryColor,
-                        ),
+                        Icon(Icons.emoji_events, size: 48, color: primaryColor),
                         const SizedBox(height: 12),
                         Text(
                           'Choose Competition Event',
@@ -344,10 +434,12 @@ class _EventSelectionScreenState extends State<EventSelectionScreen> {
                                           height: 40,
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? primaryColor
-                                                    .withValues(alpha: 0.2)
-                                                : primaryColor
-                                                    .withValues(alpha: 0.1),
+                                                ? primaryColor.withValues(
+                                                    alpha: 0.2,
+                                                  )
+                                                : primaryColor.withValues(
+                                                    alpha: 0.1,
+                                                  ),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(

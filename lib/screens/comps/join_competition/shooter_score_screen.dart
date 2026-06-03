@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../main.dart';
 import '../../../models/comp_history_entry.dart';
+import '../../../models/score_entry.dart';
 import '../../../widgets/help_icon_button.dart';
 import '../../../utils/help_content.dart';
 import '../../../utils/score_calculator_utils.dart';
@@ -36,6 +37,15 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
   final scoreController = TextEditingController();
   final xController = TextEditingController();
   Map<int, int>? scoreBreakdown;
+  String scoringMode = 'basic';
+  int targetCount = 1;
+  int? activeTargetIndex;
+  String? activeCheckpointLabel;
+  final List<int?> targetScores = [];
+  final List<int?> targetXCounts = [];
+  final List<Map<int, int>?> targetBreakdowns = [];
+  final List<int?> targetBasicScores = [];
+  final Set<int> submittedTargets = {};
   bool isSubmitting = false;
   bool hasSubmitted = false;
   bool resultsReceived = false;
@@ -72,12 +82,61 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           final data = snapshot.data();
           if (data == null) return;
 
+          _syncScoringConfig(data);
+
           // Check if competition has ended
           final status = data['status'] as String?;
           if (status == 'completed' && !resultsReceived) {
             _processCompetitionResults(data);
           }
         });
+  }
+
+  void _syncScoringConfig(Map<String, dynamic> data) {
+    final nextMode = data['scoringMode'] as String? ?? 'basic';
+    final nextTargetCount = nextMode == 'full'
+        ? (ScoreCalculatorUtils.getRequiredTargetCount(
+                eventName: widget.eventName,
+                firearmCode: widget.firearmCode,
+              ) ??
+              1)
+        : 1;
+
+    final nextActiveTargetIndex = (data['activeTargetIndex'] as num?)?.toInt();
+    final nextActiveCheckpointLabel = data['activeCheckpointLabel'] as String?;
+
+    if (nextMode == scoringMode &&
+        nextTargetCount == targetCount &&
+        nextActiveTargetIndex == activeTargetIndex &&
+        nextActiveCheckpointLabel == activeCheckpointLabel) {
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      scoringMode = nextMode;
+      targetCount = nextTargetCount;
+      activeTargetIndex = nextActiveTargetIndex;
+      activeCheckpointLabel = nextActiveCheckpointLabel;
+      _ensureTargetSlots(nextTargetCount);
+    });
+  }
+
+  void _ensureTargetSlots(int count) {
+    while (targetScores.length < count) {
+      targetScores.add(null);
+      targetXCounts.add(null);
+      targetBreakdowns.add(null);
+      targetBasicScores.add(null);
+    }
+
+    if (targetScores.length > count) {
+      targetScores.removeRange(count, targetScores.length);
+      targetXCounts.removeRange(count, targetXCounts.length);
+      targetBreakdowns.removeRange(count, targetBreakdowns.length);
+      targetBasicScores.removeRange(count, targetBasicScores.length);
+      submittedTargets.removeWhere((targetIndex) => targetIndex >= count);
+    }
   }
 
   /// Process competition results and save to Hive
@@ -172,6 +231,48 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
     }
   }
 
+  Future<void> _openScoreCalculatorForTarget(int index) async {
+    final result = await showScoreCalculatorDialog(
+      context: context,
+      totalRounds: ScoreCalculatorUtils.getRoundsForTarget(
+        eventName: widget.eventName,
+        firearmCode: widget.firearmCode,
+        targetIndex: index,
+      ),
+      selectedPractice: widget.eventName,
+      selectedFirearmId: widget.firearmCode,
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        targetScores[index] = result.score;
+        targetXCounts[index] = result.xCount > 0 ? result.xCount : 0;
+        targetBreakdowns[index] = result.scoreCounts;
+        targetBasicScores[index] = null;
+      });
+    }
+  }
+
+  Future<void> _openBasicScoreForTarget(int index) async {
+    final result = await showDialog<Map<String, int>>(
+      context: context,
+      builder: (context) => _TargetBasicScoreDialog(
+        targetNumber: index + 1,
+        initialScore: targetScores[index]?.toString() ?? '',
+        initialXCount: targetXCounts[index]?.toString() ?? '',
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        targetScores[index] = result['score'];
+        targetXCounts[index] = result['xCount'];
+        targetBreakdowns[index] = null;
+        targetBasicScores[index] = result['score'];
+      });
+    }
+  }
+
   /// Get total rounds for the event from the shared score calculator context.
   int? _getTotalRoundsForEvent() {
     return ScoreCalculatorUtils.getTotalRounds(
@@ -180,7 +281,136 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
     );
   }
 
+  Future<void> _submitTargetScore(int targetIndex) async {
+    final score = targetScores[targetIndex];
+    if (score == null) return;
+
+    setState(() {
+      isSubmitting = true;
+    });
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('competitions')
+          .doc(widget.competitionId)
+          .get();
+
+      final data = doc.data();
+      final participants =
+          (data?['participants'] as List<dynamic>?)
+              ?.cast<Map<String, dynamic>>() ??
+          [];
+      final now = DateTime.now();
+      final xCount = targetXCounts[targetIndex] ?? 0;
+      final breakdownForFirestore = ScoreCalculatorUtils.breakdownForFirestore(
+        targetBreakdowns[targetIndex],
+      );
+
+      final updatedParticipants = participants.map((p) {
+        if (p['name'] != widget.shooterName) return p;
+
+        final scores = List<int?>.filled(targetCount, null);
+        final xs = List<int>.filled(targetCount, 0);
+        final basics = List<int>.filled(targetCount, 0);
+        final breakdowns = List<Map<String, int>?>.filled(targetCount, null);
+
+        final existingScores = p['targetScores'];
+        if (existingScores is List) {
+          for (var i = 0; i < existingScores.length && i < targetCount; i++) {
+            scores[i] = (existingScores[i] as num?)?.toInt();
+          }
+        }
+        final existingXs = p['targetXCounts'];
+        if (existingXs is List) {
+          for (var i = 0; i < existingXs.length && i < targetCount; i++) {
+            xs[i] = (existingXs[i] as num?)?.toInt() ?? 0;
+          }
+        }
+        final existingBasics = p['targetBasicScores'];
+        if (existingBasics is List) {
+          for (var i = 0; i < existingBasics.length && i < targetCount; i++) {
+            basics[i] = (existingBasics[i] as num?)?.toInt() ?? 0;
+          }
+        }
+        final existingBreakdowns = p['targetBreakdowns'];
+        if (existingBreakdowns is List) {
+          for (
+            var i = 0;
+            i < existingBreakdowns.length && i < targetCount;
+            i++
+          ) {
+            final item = existingBreakdowns[i];
+            if (item is Map) {
+              breakdowns[i] = item.map(
+                (key, value) =>
+                    MapEntry(key.toString(), (value as num).toInt()),
+              );
+            }
+          }
+        }
+
+        scores[targetIndex] = score;
+        xs[targetIndex] = xCount;
+        basics[targetIndex] = targetBasicScores[targetIndex] ?? 0;
+        breakdowns[targetIndex] = breakdownForFirestore;
+
+        final totalScore = scores.whereType<int>().fold<int>(
+          0,
+          (total, s) => total + s,
+        );
+        final totalX = xs.fold<int>(0, (total, x) => total + x);
+        final submitted = scores.every((targetScore) => targetScore != null);
+
+        return {
+          ...p,
+          'score': totalScore,
+          'xCount': totalX,
+          'submitted': submitted,
+          'submittedAt': submitted ? now : p['submittedAt'],
+          'lastTargetSubmittedAt': now,
+          'targetScores': scores,
+          'targetXCounts': xs,
+          'targetBasicScores': basics,
+          'targetBreakdowns': breakdowns,
+        };
+      }).toList();
+
+      await FirebaseFirestore.instance
+          .collection('competitions')
+          .doc(widget.competitionId)
+          .update({'participants': updatedParticipants});
+
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+          submittedTargets.add(targetIndex);
+          hasSubmitted = submittedTargets.length == targetCount;
+        });
+        if (hasSubmitted) {
+          await _saveLocalScoreEntry();
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submitScore() async {
+    if (scoringMode == 'full') {
+      final missingTarget = targetScores.indexWhere((score) => score == null);
+      if (missingTarget >= 0) return;
+      for (var i = 0; i < targetCount; i++) {
+        if (!submittedTargets.contains(i)) {
+          await _submitTargetScore(i);
+        }
+      }
+      return;
+    }
+
     // Validate
     if (scoreController.text.isEmpty) {
       return;
@@ -235,6 +465,8 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           .doc(widget.competitionId)
           .update({'participants': updatedParticipants});
 
+      await _saveLocalScoreEntry();
+
       if (mounted) {
         setState(() {
           isSubmitting = false;
@@ -248,6 +480,370 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
         });
       }
     }
+  }
+
+  Future<void> _saveLocalScoreEntry() async {
+    if (!Hive.isBoxOpen('scores')) return;
+
+    final box = Hive.box<ScoreEntry>('scores');
+    final id = '${widget.competitionId}_${widget.shooterName}';
+    final alreadySaved = box.containsKey(id);
+    if (alreadySaved) return;
+
+    final isFullScoring = scoringMode == 'full';
+    final totalScore = isFullScoring
+        ? targetScores.whereType<int>().fold<int>(
+            0,
+            (total, score) => total + score,
+          )
+        : int.parse(scoreController.text);
+    final totalX = isFullScoring
+        ? targetXCounts.whereType<int>().fold<int>(0, (total, x) => total + x)
+        : (int.tryParse(xController.text) ?? 0);
+
+    final entry = ScoreEntry(
+      id: id,
+      date: DateTime.now(),
+      score: totalScore,
+      practice: widget.eventName,
+      caliber: widget.firearmCode ?? '',
+      firearmId: widget.firearmCode ?? '',
+      firearm: widget.firearmCode,
+      notes:
+          'Competition score submitted from competition ${widget.competitionId}',
+      comp: true,
+      compId: widget.competitionId,
+      compResult: null,
+      targetCaptured: false,
+      x: totalX,
+      scoreX: isFullScoring ? null : (scoreBreakdown != null ? totalX : null),
+      score10: isFullScoring ? null : scoreBreakdown?[10],
+      score9: isFullScoring ? null : scoreBreakdown?[9],
+      score8: isFullScoring ? null : scoreBreakdown?[8],
+      score7: isFullScoring ? null : scoreBreakdown?[7],
+      score6: isFullScoring ? null : scoreBreakdown?[6],
+      score5: isFullScoring ? null : scoreBreakdown?[5],
+      score4: isFullScoring ? null : scoreBreakdown?[4],
+      score3: isFullScoring ? null : scoreBreakdown?[3],
+      score2: isFullScoring ? null : scoreBreakdown?[2],
+      score1: isFullScoring ? null : scoreBreakdown?[1],
+      score0: isFullScoring ? null : scoreBreakdown?[0],
+      scoreBasic: isFullScoring
+          ? null
+          : (scoreBreakdown == null ? totalScore : null),
+      targetFilePaths: isFullScoring
+          ? List<String>.filled(targetCount, '')
+          : null,
+      thumbnailFilePaths: isFullScoring
+          ? List<String>.filled(targetCount, '')
+          : null,
+      targetsCaptured: isFullScoring
+          ? List<bool>.filled(targetCount, false)
+          : [false],
+      xs: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetXCounts[i] ?? 0)
+          : [totalX],
+      scoreXs: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetXCounts[i] ?? 0)
+          : (scoreBreakdown != null ? [totalX] : null),
+      score10s: isFullScoring
+          ? List<int>.generate(
+              targetCount,
+              (i) => targetBreakdowns[i]?[10] ?? 0,
+            )
+          : (scoreBreakdown != null ? [scoreBreakdown![10] ?? 0] : null),
+      score9s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[9] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![9] ?? 0] : null),
+      score8s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[8] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![8] ?? 0] : null),
+      score7s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[7] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![7] ?? 0] : null),
+      score6s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[6] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![6] ?? 0] : null),
+      score5s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[5] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![5] ?? 0] : null),
+      score4s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[4] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![4] ?? 0] : null),
+      score3s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[3] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![3] ?? 0] : null),
+      score2s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[2] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![2] ?? 0] : null),
+      score1s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[1] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![1] ?? 0] : null),
+      score0s: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBreakdowns[i]?[0] ?? 0)
+          : (scoreBreakdown != null ? [scoreBreakdown![0] ?? 0] : null),
+      scoreBasics: isFullScoring
+          ? List<int>.generate(targetCount, (i) => targetBasicScores[i] ?? 0)
+          : [scoreBreakdown == null ? totalScore : 0],
+    );
+
+    await box.put(id, entry);
+  }
+
+  Widget _buildFullCompetitionScoringCard(bool isDark, Color primaryColor) {
+    _ensureTargetSlots(targetCount);
+    final totalScore = targetScores.whereType<int>().fold<int>(
+      0,
+      (total, score) => total + score,
+    );
+    final totalX = targetXCounts.whereType<int>().fold<int>(
+      0,
+      (total, x) => total + x,
+    );
+
+    final activeIndex = activeTargetIndex;
+    final showActiveTarget =
+        activeIndex != null &&
+        activeIndex >= 0 &&
+        activeIndex < targetCount &&
+        !submittedTargets.contains(activeIndex);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey[850] : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Full Competition Scoring',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                showActiveTarget
+                    ? 'The competition runner is ready for this target score.'
+                    : submittedTargets.isEmpty
+                    ? 'You will be prompted when the first target is ready to score.'
+                    : 'Waiting for next target to score.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.summarize, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Total so far: $totalScore${totalX > 0 ? '  X: $totalX' : ''}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (showActiveTarget)
+                _buildTargetScoreCard(activeIndex, isDark, primaryColor)
+              else
+                _buildWaitingForTargetCard(isDark, primaryColor),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (hasSubmitted)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 48),
+                SizedBox(height: 12),
+                Text(
+                  'All Scores Submitted!',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildWaitingForTargetCard(bool isDark, Color primaryColor) {
+    final message = submittedTargets.isEmpty
+        ? 'Full competition scoring is enabled. You will be prompted when the first target is ready to score.'
+        : 'Your score has been submitted. Waiting for next target to score.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.hourglass_top, color: primaryColor, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 15,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetScoreCard(int index, bool isDark, Color primaryColor) {
+    final submitted = submittedTargets.contains(index);
+    final score = targetScores[index];
+    final xCount = targetXCounts[index] ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[800] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: submitted ? Colors.green : Colors.grey.shade300,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Target ${index + 1}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              if (submitted)
+                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: submitted
+                      ? null
+                      : () => _openScoreCalculatorForTarget(index),
+                  icon: const Icon(Icons.calculate),
+                  label: const Text('Calculator'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: submitted
+                      ? null
+                      : () => _openBasicScoreForTarget(index),
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Basic'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (score != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Score: $score${xCount > 0 ? '  X: $xCount' : ''}',
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: submitted || isSubmitting
+                    ? null
+                    : () => _submitTargetScore(index),
+                icon: isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send),
+                label: Text(
+                  submitted ? 'Submitted' : 'Submit Target ${index + 1}',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: submitted ? Colors.green : primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -379,120 +975,125 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
                   _buildResultsCard(isDark, primaryColor)
                 else ...[
                   // Score Entry Card (only shown when no results yet)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[850] : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your Score',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
+                  if (scoringMode == 'full')
+                    _buildFullCompetitionScoringCard(isDark, primaryColor)
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[850] : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Enter your score manually or use the score calculator',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white70 : Colors.black54,
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Your Score',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Enter your score manually or use the score calculator',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
 
-                        // Score Calculator Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _openScoreCalculator,
-                            icon: const Icon(Icons.calculate),
-                            label: const Text('Open Score Calculator'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor.withValues(
-                                alpha: 0.1,
-                              ),
-                              foregroundColor: primaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          // Score Calculator Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _openScoreCalculator,
+                              icon: const Icon(Icons.calculate),
+                              label: const Text('Open Score Calculator'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor.withValues(
+                                  alpha: 0.1,
+                                ),
+                                foregroundColor: primaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                        // Score and X Input Row
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: scoreController,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                decoration: InputDecoration(
-                                  labelText: 'Score',
-                                  prefixIcon: Icon(
-                                    Icons.military_tech,
-                                    color: primaryColor,
+                          // Score and X Input Row
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: scoreController,
+                                  keyboardType: TextInputType.number,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                  decoration: InputDecoration(
+                                    labelText: 'Score',
+                                    prefixIcon: Icon(
+                                      Icons.military_tech,
+                                      color: primaryColor,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[50],
                                   ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[50],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: xController,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
-                                    Icons.gps_fixed,
-                                    color: primaryColor,
-                                  ),
-                                  labelText: 'X',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[50],
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 1,
+                                child: TextFormField(
+                                  controller: xController,
+                                  keyboardType: TextInputType.number,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(
+                                      Icons.gps_fixed,
+                                      color: primaryColor,
+                                    ),
+                                    labelText: 'X',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[50],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 24),
 
                   // Submit Button or Score Submitted Box
@@ -1115,6 +1716,80 @@ class _ShooterScoreScreenState extends State<ShooterScoreScreen> {
           }),
         ],
       ),
+    );
+  }
+}
+
+class _TargetBasicScoreDialog extends StatefulWidget {
+  final int targetNumber;
+  final String initialScore;
+  final String initialXCount;
+
+  const _TargetBasicScoreDialog({
+    required this.targetNumber,
+    required this.initialScore,
+    required this.initialXCount,
+  });
+
+  @override
+  State<_TargetBasicScoreDialog> createState() =>
+      _TargetBasicScoreDialogState();
+}
+
+class _TargetBasicScoreDialogState extends State<_TargetBasicScoreDialog> {
+  late final TextEditingController _scoreController;
+  late final TextEditingController _xController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scoreController = TextEditingController(text: widget.initialScore);
+    _xController = TextEditingController(text: widget.initialXCount);
+  }
+
+  @override
+  void dispose() {
+    _scoreController.dispose();
+    _xController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Target ${widget.targetNumber} Basic Score'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _scoreController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Score'),
+          ),
+          TextField(
+            controller: _xController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'X Count'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final score = int.tryParse(_scoreController.text.trim());
+            if (score == null) return;
+            Navigator.pop(context, {
+              'score': score,
+              'xCount': int.tryParse(_xController.text.trim()) ?? 0,
+            });
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
