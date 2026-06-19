@@ -49,91 +49,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return widget.event.getContentForFirearmId(firearmId);
   }
 
-  bool get _selectedFirearmHasOverride {
-    final firearmId = selectedFirearmId;
-    if (firearmId == null) return false;
-    return widget.event.getOverrideForFirearmId(firearmId) != null;
-  }
-
-  String _targetSummary(List<Target> targets) {
-    final targetNames = targets
-        .map((target) => target.title?.trim() ?? target.text?.trim() ?? '')
-        .where((target) => target.isNotEmpty)
-        .toList();
-    if (targetNames.isEmpty) return 'None';
-    return targetNames.join(', ');
-  }
-
-  String get _overrideDebugSummary {
-    final firearmId = selectedFirearmId;
-    final overrideIds = widget.event.overrides
-        .map((override) => '[${override.firearmIds.join(', ')}]')
-        .join(' ');
-    if (firearmId == null) {
-      return 'Selected ID: none | Overrides: ${overrideIds.isEmpty ? 'none' : overrideIds}';
-    }
-
-    final matchingOverrides = widget.event.getOverridesForFirearmId(firearmId);
-    final overrideTargets = matchingOverrides
-        .map((override) => override.changes.targets)
-        .whereType<List<Target>>()
-        .where((targets) => targets.isNotEmpty)
-        .toList();
-    final hasChanges = matchingOverrides.any(
-      (override) => _overrideHasAnyChanges(override.changes),
-    );
-    final targetText = overrideTargets.isEmpty
-        ? 'none'
-        : overrideTargets.map(_targetSummary).join(' -> ');
-    final classificationOverrides = matchingOverrides
-        .where(
-          (override) => override.changes.classifications?.isNotEmpty == true,
-        )
-        .length;
-    final effectiveClassifications =
-        getCurrentContent().classifications?.length ?? 0;
-    final staleDataHint = matchingOverrides.isNotEmpty && !hasChanges
-        ? ' | Override changes empty - re-upload/re-import event data'
-        : '';
-
-    return 'Selected ID: $firearmId | Overrides: ${overrideIds.isEmpty ? 'none' : overrideIds} | Matches: ${matchingOverrides.length} | Override target: $targetText | Classification overrides: $classificationOverrides | Effective classes: $effectiveClassifications$staleDataHint';
-  }
-
-  bool _overrideHasAnyChanges(dynamic changes) {
-    return changes.targets != null ||
-        changes.ammunition != null ||
-        changes.sights != null ||
-        changes.positions != null ||
-        changes.readyPositions != null ||
-        changes.rangeCommands != null ||
-        changes.notes != null ||
-        changes.ties != null ||
-        changes.proceduralPenalties != null ||
-        changes.classifications != null ||
-        changes.targetPositions != null ||
-        changes.courseOfFire != null ||
-        changes.sighters != null ||
-        changes.practices != null ||
-        changes.targetIds != null ||
-        changes.generalNotes != null ||
-        changes.scoring != null ||
-        changes.loading != null ||
-        changes.reloading != null ||
-        changes.magazine != null ||
-        changes.equipment != null ||
-        changes.rangeEquipment != null ||
-        changes.changingPosition != null;
-  }
-
-  String get _selectedTargetSummary {
-    final content = getCurrentContent();
-    final targetSummary = _targetSummary(content.targets);
-    if (targetSummary == 'None') {
-      return 'Target: Not specified';
-    }
-    return 'Target: $targetSummary';
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -192,68 +107,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Select Firearm Type',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _selectedTargetSummary,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? Colors.grey[300]
-                                    : Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _overrideDebugSummary,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark
-                                    ? Colors.grey[500]
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_selectedFirearmHasOverride)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: primaryColor.withValues(alpha: 0.35),
-                            ),
-                          ),
-                          child: Text(
-                            'Override applied',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
+                  Text(
+                    'Select Firearm Type',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
