@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'models/score_entry.dart';
 import 'models/firearm_entry.dart';
 import 'models/membership_card_entry.dart';
+import 'models/fac_entry.dart';
 import 'models/appointment_entry.dart';
 import 'models/rounds_counter_entry.dart';
 import 'models/comp_history_entry.dart';
@@ -90,6 +91,10 @@ void main() async {
   Hive.registerAdapter(ScoreEntryAdapter()); // typeId:1
   Hive.registerAdapter(FirearmEntryAdapter()); // typeId:2
   Hive.registerAdapter(MembershipCardEntryAdapter()); // typeId:3
+  Hive.registerAdapter(FacEntryAdapter()); // typeId:137
+  Hive.registerAdapter(FacFirearmAllowanceAdapter()); // typeId:138
+  Hive.registerAdapter(FacAmmunitionAllowanceAdapter()); // typeId:139
+  Hive.registerAdapter(FacFirearmOwnedAdapter()); // typeId:140
   Hive.registerAdapter(AppointmentEntryAdapter()); // typeId:4
   Hive.registerAdapter(RoundsCounterEntryAdapter()); // typeId:5
   Hive.registerAdapter(CompHistoryEntryAdapter()); // typeId:134
@@ -137,6 +142,7 @@ void main() async {
   await Hive.openBox<ScoreEntry>('scores');
   await Hive.openBox<FirearmEntry>('firearms');
   await Hive.openBox<MembershipCardEntry>('membership_cards');
+  await Hive.openBox<FacEntry>('fac');
   await Hive.openBox<AppointmentEntry>('appointments');
   await Hive.openBox<RoundsCounterEntry>('rounds_counter');
   await Hive.openBox<CompHistoryEntry>('comp_history');

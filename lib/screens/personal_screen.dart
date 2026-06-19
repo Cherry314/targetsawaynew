@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'armory_tab.dart';
 import 'membership_cards_tab.dart';
+import 'fac_tab.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../widgets/app_drawer.dart';
@@ -22,6 +23,7 @@ class _PersonalScreenState extends State<PersonalScreen>
   final List<Tab> myTabs = const [
     Tab(text: 'Armory'),
     Tab(text: 'Membership Cards'),
+    Tab(text: 'FAC'),
   ];
 
   @override
@@ -93,6 +95,7 @@ class _PersonalScreenState extends State<PersonalScreen>
           children: [
             ArmoryTab(primaryColor: primaryColor),
             MembershipCardsTab(primaryColor: primaryColor),
+            FacTab(primaryColor: primaryColor),
           ],
         ),
       ),

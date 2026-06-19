@@ -112,108 +112,120 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
       );
     }
 
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final isCompact = screenHeight < 700;
+
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 40),
-              // Icon
-              Icon(
-                Icons.security,
-                size: 80,
-                color: primaryColor,
-              ),
-              const SizedBox(height: 24),
-              // Title
-              Text(
-                'Secure Your App',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 48,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Choose how you want to protect your data',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-
-              // Passcode Option
-              _SecurityOptionCard(
-                icon: Icons.pin,
-                title: 'Set Up Passcode',
-                description: 'Use a 4-6 digit code to unlock',
-                primaryColor: primaryColor,
-                isDark: isDark,
-                onTap: _setupPasscode,
-              ),
-              const SizedBox(height: 16),
-
-              // Biometric Option
-              if (_biometricAvailable)
-                _SecurityOptionCard(
-                  icon: Icons.fingerprint,
-                  title: 'Use $_biometricType',
-                  description: 'Quick and secure authentication',
-                  primaryColor: primaryColor,
-                  isDark: isDark,
-                  onTap: _setupBiometric,
-                ),
-              
-              if (_biometricAvailable) const SizedBox(height: 16),
-
-              // Skip Option
-              _SecurityOptionCard(
-                icon: Icons.lock_open,
-                title: 'Skip for Now',
-                description: 'You can set this up later in settings',
-                primaryColor: Colors.grey,
-                isDark: isDark,
-                onTap: _skipSecurity,
-                isOutlined: true,
-              ),
-
-              const Spacer(),
-
-              // Info text
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: primaryColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.info_outline, color: primaryColor, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'You can always change these settings later',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white70 : Colors.black87,
+                    SizedBox(height: isCompact ? 16 : 40),
+                    // Icon
+                    Icon(
+                      Icons.security,
+                      size: isCompact ? 64 : 80,
+                      color: primaryColor,
+                    ),
+                    SizedBox(height: isCompact ? 16 : 24),
+                    // Title
+                    Text(
+                      'Secure Your App',
+                      style: TextStyle(
+                        fontSize: isCompact ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Choose how you want to protect your data',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: isCompact ? 28 : 48),
+
+                    // Passcode Option
+                    _SecurityOptionCard(
+                      icon: Icons.pin,
+                      title: 'Set Up Passcode',
+                      description: 'Use a 4-6 digit code to unlock',
+                      primaryColor: primaryColor,
+                      isDark: isDark,
+                      onTap: _setupPasscode,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Biometric Option
+                    if (_biometricAvailable)
+                      _SecurityOptionCard(
+                        icon: Icons.fingerprint,
+                        title: 'Use $_biometricType',
+                        description: 'Quick and secure authentication',
+                        primaryColor: primaryColor,
+                        isDark: isDark,
+                        onTap: _setupBiometric,
+                      ),
+
+                    if (_biometricAvailable) const SizedBox(height: 16),
+
+                    // Skip Option
+                    _SecurityOptionCard(
+                      icon: Icons.lock_open,
+                      title: 'Skip for Now',
+                      description: 'You can set this up later in settings',
+                      primaryColor: Colors.grey,
+                      isDark: isDark,
+                      onTap: _skipSecurity,
+                      isOutlined: true,
+                    ),
+
+                    SizedBox(height: isCompact ? 24 : 40),
+
+                    // Info text
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: primaryColor.withOpacity(0.3),
                         ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: primaryColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'You can always change these settings later',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

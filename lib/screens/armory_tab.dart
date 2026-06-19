@@ -48,7 +48,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
     final TextEditingController notesController = TextEditingController(
       text: entry?.notes ?? '',
     );
-    bool owned = entry?.owned ?? false;
+    bool owned = entry?.owned ?? true;
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final primaryColor = themeProvider.primaryColor;
@@ -56,7 +56,8 @@ class _ArmoryTabState extends State<ArmoryTab> {
 
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         backgroundColor: bgColor,
         title: Text(
           entry == null ? 'Add Firearm' : 'Edit Firearm',
@@ -128,10 +129,20 @@ class _ArmoryTabState extends State<ArmoryTab> {
                   Text('Owned:', style: TextStyle(color: primaryColor)),
                   Checkbox(
                     value: owned,
-                    onChanged: (val) => setState(() => owned = val!),
+                    onChanged: (val) => setDialogState(() => owned = val ?? true),
                     fillColor: WidgetStateProperty.all(primaryColor),
                   ),
                 ],
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Untick if the firearm is a club gun, or other firearm you regularly use that is not owned by yourself.',
+                  style: TextStyle(
+                    color: primaryColor.withOpacity(0.75),
+                    fontSize: 12,
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
               if (imageFile != null)
@@ -214,6 +225,7 @@ class _ArmoryTabState extends State<ArmoryTab> {
             child: const Text('Save'),
           ),
         ],
+      ),
       ),
     );
   }
