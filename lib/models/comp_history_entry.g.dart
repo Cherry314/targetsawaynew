@@ -25,7 +25,7 @@ class CompHistoryEntryAdapter extends TypeAdapter<CompHistoryEntry> {
       totalShooters: fields[5] as int,
       finalResults: (fields[6] as List?)
           ?.map((dynamic e) => (e as Map).cast<String, dynamic>())
-          ?.toList(),
+          .toList(),
     );
   }
 

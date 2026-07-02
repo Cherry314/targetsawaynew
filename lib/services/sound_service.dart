@@ -275,7 +275,7 @@ class SoundService {
 
     var currentStep = 0;
     var isFadingIn = true;
-    var isHolding = false;
+ //   var isHolding = false;
 
     _heartFadeTimer = Timer.periodic(fadeStepDuration, (timer) async {
       if (!_soundsEnabled) {
@@ -292,7 +292,7 @@ class SoundService {
 
           if (currentStep >= fadeSteps) {
             isFadingIn = false;
-            isHolding = true;
+     //       isHolding = true;
             currentStep = 0;
             // Switch to hold timing
             timer.cancel();
