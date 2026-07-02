@@ -9,9 +9,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../data/dropdown_values.dart';
 import '../main.dart';
 import '../models/rounds_counter_entry.dart';
 import '../widgets/app_drawer.dart';
+import 'methods/caliber_selection_dialog.dart';
 
 class RoundsManagerScreen extends StatefulWidget {
   const RoundsManagerScreen({super.key});
@@ -1653,8 +1656,8 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
   DateTime selectedDate = DateTime.now();
   final dateController = TextEditingController();
   final roundsController = TextEditingController();
-  final calibreController = TextEditingController();
   final notesController = TextEditingController();
+  String? selectedCalibre;
   String? errorMessage;
   bool isLoading = false;
 
@@ -1662,13 +1665,26 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
   void initState() {
     super.initState();
     dateController.text = DateFormat('dd/MM/yyyy').format(selectedDate);
+    _loadFavoriteCalibres();
+  }
+
+  Future<void> _loadFavoriteCalibres() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favoriteCalibres = prefs.getStringList('favoriteCalibers');
+    if (favoriteCalibres != null && favoriteCalibres.isNotEmpty) {
+      DropdownValues.calibers = favoriteCalibres;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      selectedCalibre = DropdownValues.calibers.first;
+    });
   }
 
   @override
   void dispose() {
     dateController.dispose();
     roundsController.dispose();
-    calibreController.dispose();
     notesController.dispose();
     super.dispose();
   }
@@ -1728,8 +1744,8 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
         notes: notesController.text.trim().isNotEmpty
             ? notesController.text.trim()
             : null,
-        calibre: calibreController.text.trim().isNotEmpty
-            ? calibreController.text.trim()
+        calibre: selectedCalibre?.trim().isNotEmpty == true
+            ? selectedCalibre!.trim()
             : null,
       );
 
@@ -1871,15 +1887,72 @@ class _ManualEntryScreenState extends State<_ManualEntryScreen> {
                 const SizedBox(height: 16),
 
                 // Calibre Field
-                TextField(
-                  controller: calibreController,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    labelText: 'Calibre',
-                    prefixIcon: Icon(Icons.straighten, color: primaryColor),
-                    border: const OutlineInputBorder(),
-                    hintText: 'e.g. .22, 9mm, .357',
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('manual_calibre_$selectedCalibre'),
+                        value: selectedCalibre,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Calibre',
+                          prefixIcon: Icon(
+                            Icons.straighten,
+                            color: primaryColor,
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: DropdownValues.calibers
+                            .map(
+                              (calibre) => DropdownMenuItem<String>(
+                                value: calibre,
+                                child: Text(
+                                  calibre.isEmpty
+                                      ? 'Please select a Favourite'
+                                      : calibre,
+                                  style: TextStyle(
+                                    fontStyle: calibre.isEmpty
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    color: calibre.isEmpty ? Colors.grey : null,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() => selectedCalibre = value);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.favorite, color: primaryColor),
+                        tooltip: 'Manage Favourite Calibres',
+                        onPressed: () async {
+                          await showCaliberSelectionDialog(
+                            context: context,
+                            onSelectionChanged: () {
+                              setState(() {
+                                final currentCalibres = DropdownValues.calibers;
+                                if (!currentCalibres.contains(
+                                  selectedCalibre,
+                                )) {
+                                  selectedCalibre = currentCalibres.first;
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
