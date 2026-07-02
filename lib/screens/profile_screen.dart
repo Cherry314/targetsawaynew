@@ -8,9 +8,12 @@ import 'package:local_auth/local_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../main.dart';
 import '../services/auth_service.dart';
 import '../models/user_profile.dart';
+import '../models/hive/club.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/help_icon_button.dart';
 import '../utils/help_content.dart';
@@ -95,6 +98,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool get _hasProfilePhoto {
     final path = _profilePhotoPath;
     return path != null && path.isNotEmpty && File(path).existsSync();
+  }
+
+  Future<void> _checkAndLoadClubs() async {
+    final clubsBox = Hive.box<Club>('clubs');
+    if (clubsBox.isNotEmpty) return;
+
+    await _downloadClubsFromFirestore();
+  }
+
+  Future<void> _downloadClubsFromFirestore() async {
+    final firestore = FirebaseFirestore.instance;
+    final clubsBox = Hive.box<Club>('clubs');
+
+    await clubsBox.clear();
+
+    final snapshot = await firestore.collection('clubs').get();
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      if (data.containsKey('clubname')) {
+        await clubsBox.add(Club(clubname: data['clubname'] as String));
+      }
+    }
+  }
+
+  Future<void> _showEditClubsDialog() async {
+    final profile = _userProfile;
+    if (profile == null) return;
+
+    if (Hive.box<Club>('clubs').isEmpty) {
+      try {
+        await _checkAndLoadClubs();
+      } catch (_) {
+        // The edit dialog still allows manual club entry if clubs cannot load.
+      }
+    }
+
+    if (!mounted) return;
+
+    final updatedClubs = await showDialog<List<String>>(
+      context: context,
+      builder: (_) => _EditClubsDialog(
+        initialClubs: profile.clubs,
+        downloadClubsFromFirestore: _downloadClubsFromFirestore,
+      ),
+    );
+
+    if (updatedClubs == null) return;
+
+    try {
+      final updatedProfile = profile.copyWith(clubs: updatedClubs);
+      await _authService.updateUserProfile(updatedProfile);
+      if (!mounted) return;
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Clubs updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update clubs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _updateProfilePhoto(ImageSource source) async {
@@ -254,6 +327,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildClubsSubtitle(BuildContext context) {
+    final clubs = _userProfile?.clubs ?? [];
+    if (clubs.isEmpty) return const Text('No clubs selected');
+
+    final dividerColor = Theme.of(context).dividerColor.withOpacity(0.6);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < clubs.length; index++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(clubs[index]),
+            ),
+            if (index < clubs.length - 1)
+              Divider(height: 1, thickness: 0.5, color: dividerColor),
+          ],
+        ],
+      ),
     );
   }
 
@@ -498,28 +595,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.person),
-                    title: const Text('Name'),
+                    title: const Text(
+                      'Name',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text(_userProfile!.fullName),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.email),
-                    title: const Text('Email'),
+                    title: const Text(
+                      'Email',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text(_userProfile!.email),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.sports),
-                    title: const Text('Clubs'),
-                    subtitle: Text(_userProfile!.clubs.join(', ')),
+                    title: const Text(
+                      'Clubs',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: _buildClubsSubtitle(context),
+                    trailing: TextButton.icon(
+                      onPressed: _showEditClubsDialog,
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Edit'),
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.calendar_today),
-                    title: const Text('Member Since'),
+                    title: const Text(
+                      'Member Since',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text(
                       '${_userProfile!.createdAt.day}/${_userProfile!.createdAt.month}/${_userProfile!.createdAt.year}',
                     ),
@@ -852,6 +966,344 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EditClubsDialog extends StatefulWidget {
+  final List<String> initialClubs;
+  final Future<void> Function() downloadClubsFromFirestore;
+
+  const _EditClubsDialog({
+    required this.initialClubs,
+    required this.downloadClubsFromFirestore,
+  });
+
+  @override
+  State<_EditClubsDialog> createState() => _EditClubsDialogState();
+}
+
+class _EditClubsDialogState extends State<_EditClubsDialog> {
+  final TextEditingController _clubSearchController = TextEditingController();
+  late final Set<String> _selectedClubs;
+  List<String> _searchResults = [];
+  bool _isLoadingClubs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedClubs = widget.initialClubs.toSet();
+  }
+
+  @override
+  void dispose() {
+    _clubSearchController.dispose();
+    super.dispose();
+  }
+
+  List<String> _filterAvailableClubs(String query) {
+    final normalizedQuery = query.toLowerCase().trim();
+    if (normalizedQuery.isEmpty) return [];
+
+    final clubsBox = Hive.box<Club>('clubs');
+    final allClubs = clubsBox.values.map((club) => club.clubname).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return allClubs
+        .where((club) => club.toLowerCase().contains(normalizedQuery))
+        .where((club) => !_selectedClubs.contains(club))
+        .toList();
+  }
+
+  void _refreshSearchResults() {
+    setState(() {
+      _searchResults = _filterAvailableClubs(_clubSearchController.text);
+    });
+  }
+
+  void _addClub(String clubName) {
+    final trimmedClubName = clubName.trim();
+    if (trimmedClubName.isEmpty) return;
+
+    setState(() {
+      _selectedClubs.add(trimmedClubName);
+      _clubSearchController.clear();
+      _searchResults = [];
+    });
+  }
+
+  Future<void> _refreshClubs() async {
+    setState(() {
+      _isLoadingClubs = true;
+    });
+
+    try {
+      await widget.downloadClubsFromFirestore();
+      if (!mounted) return;
+      setState(() {
+        _isLoadingClubs = false;
+        _searchResults = _filterAvailableClubs(_clubSearchController.text);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloaded ${Hive.box<Club>('clubs').length} clubs'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingClubs = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download clubs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final clubsBox = Hive.box<Club>('clubs');
+
+    return AlertDialog(
+      title: const Text('Edit Clubs'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add clubs from the list or remove clubs you no longer belong to.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_isLoadingClubs) ...[
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Loading clubs...')),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ] else if (clubsBox.isEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No clubs available in database.',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'You can enter a club manually or refresh the clubs list.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _isLoadingClubs ? null : _refreshClubs,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Refresh Clubs List'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: _clubSearchController,
+                onChanged: (_) => _refreshSearchResults(),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty &&
+                      (clubsBox.isEmpty || _searchResults.isEmpty)) {
+                    _addClub(value);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: clubsBox.isEmpty
+                      ? 'Type your club name and press Enter'
+                      : 'Search for a club...',
+                  prefixIcon: Icon(
+                    clubsBox.isEmpty ? Icons.edit : Icons.search,
+                    color: primaryColor,
+                  ),
+                  suffixIcon: _clubSearchController.text.isNotEmpty
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (clubsBox.isEmpty || _searchResults.isEmpty)
+                              IconButton(
+                                icon: Icon(Icons.add, color: primaryColor),
+                                tooltip: 'Add this club',
+                                onPressed: () =>
+                                    _addClub(_clubSearchController.text),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _clubSearchController.clear();
+                                  _searchResults = [];
+                                });
+                              },
+                            ),
+                          ],
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: isDark ? Colors.grey[850] : Colors.grey[50],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_clubSearchController.text.isNotEmpty) ...[
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 180),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[850] : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        color: isDark ? Colors.grey[700] : Colors.grey[300],
+                      ),
+                      itemBuilder: (context, index) {
+                        final club = _searchResults[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(club),
+                          trailing: ElevatedButton(
+                            onPressed: () => _addClub(club),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            child: const Text('Select'),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[850] : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'No clubs found matching "${_clubSearchController.text}". You can add it manually.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+              ],
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'Selected Clubs:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_selectedClubs.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _selectedClubs.map((club) {
+                    return Chip(
+                      label: Text(club),
+                      deleteIcon: const Icon(Icons.close, size: 18),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedClubs.remove(club);
+                          _searchResults = _filterAvailableClubs(
+                            _clubSearchController.text,
+                          );
+                        });
+                      },
+                      backgroundColor: primaryColor.withOpacity(0.1),
+                      deleteIconColor: primaryColor,
+                    );
+                  }).toList(),
+                )
+              else
+                Text(
+                  'No clubs selected yet. Add at least one club before saving.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white60 : Colors.black45,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedClubs.isEmpty
+              ? null
+              : () => Navigator.pop(context, _selectedClubs.toList()),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
