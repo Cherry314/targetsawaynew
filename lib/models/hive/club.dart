@@ -7,7 +7,8 @@ class Club extends HiveObject {
   @HiveField(0)
   String clubname;
 
-  Club({
-    required this.clubname,
-  });
+  @HiveField(1)
+  DateTime? renewalDate;
+
+  Club({required this.clubname, this.renewalDate});
 }

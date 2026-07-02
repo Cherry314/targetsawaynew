@@ -136,18 +136,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!mounted) return;
 
-    final updatedClubs = await showDialog<List<String>>(
+    final updatedClubRenewalDates = await showDialog<Map<String, DateTime>>(
       context: context,
       builder: (_) => _EditClubsDialog(
         initialClubs: profile.clubs,
+        initialClubRenewalDates: profile.clubRenewalDates,
         downloadClubsFromFirestore: _downloadClubsFromFirestore,
       ),
     );
 
-    if (updatedClubs == null) return;
+    if (updatedClubRenewalDates == null) return;
 
     try {
-      final updatedProfile = profile.copyWith(clubs: updatedClubs);
+      final updatedClubs = updatedClubRenewalDates.keys.toList();
+      final updatedProfile = profile.copyWith(
+        clubs: updatedClubs,
+        clubRenewalDates: updatedClubRenewalDates,
+      );
       await _authService.updateUserProfile(updatedProfile);
       if (!mounted) return;
       setState(() {
@@ -331,8 +336,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildClubsSubtitle(BuildContext context) {
-    final clubs = _userProfile?.clubs ?? [];
-    if (clubs.isEmpty) return const Text('No clubs selected');
+    final profile = _userProfile;
+    final clubs = profile?.clubs ?? [];
+    if (clubs.isEmpty || profile == null) {
+      return const Text('No clubs selected');
+    }
 
     final dividerColor = Theme.of(context).dividerColor.withOpacity(0.6);
 
@@ -344,7 +352,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           for (var index = 0; index < clubs.length; index++) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(clubs[index]),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(clubs[index]),
+                  Text(
+                    'Renewal Date: ${_formatDate(profile.clubRenewalDates[clubs[index]] ?? profile.createdAt)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
             ),
             if (index < clubs.length - 1)
               Divider(height: 1, thickness: 0.5, color: dividerColor),
@@ -352,6 +369,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   Widget _buildSectionCard({
@@ -624,18 +645,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: _showEditClubsDialog,
                       icon: const Icon(Icons.edit, size: 18),
                       label: const Text('Edit'),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today),
-                    title: const Text(
-                      'Member Since',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${_userProfile!.createdAt.day}/${_userProfile!.createdAt.month}/${_userProfile!.createdAt.year}',
                     ),
                   ),
                 ],
@@ -972,10 +981,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _EditClubsDialog extends StatefulWidget {
   final List<String> initialClubs;
+  final Map<String, DateTime> initialClubRenewalDates;
   final Future<void> Function() downloadClubsFromFirestore;
 
   const _EditClubsDialog({
     required this.initialClubs,
+    required this.initialClubRenewalDates,
     required this.downloadClubsFromFirestore,
   });
 
@@ -986,6 +997,7 @@ class _EditClubsDialog extends StatefulWidget {
 class _EditClubsDialogState extends State<_EditClubsDialog> {
   final TextEditingController _clubSearchController = TextEditingController();
   late final Set<String> _selectedClubs;
+  late final Map<String, DateTime> _clubRenewalDates;
   List<String> _searchResults = [];
   bool _isLoadingClubs = false;
 
@@ -993,6 +1005,10 @@ class _EditClubsDialogState extends State<_EditClubsDialog> {
   void initState() {
     super.initState();
     _selectedClubs = widget.initialClubs.toSet();
+    _clubRenewalDates = {
+      for (final club in widget.initialClubs)
+        club: widget.initialClubRenewalDates[club] ?? DateTime.now(),
+    };
   }
 
   @override
@@ -1027,9 +1043,54 @@ class _EditClubsDialogState extends State<_EditClubsDialog> {
 
     setState(() {
       _selectedClubs.add(trimmedClubName);
+      _clubRenewalDates.putIfAbsent(trimmedClubName, () => DateTime.now());
       _clubSearchController.clear();
       _searchResults = [];
     });
+  }
+
+  void _removeClub(String clubName) {
+    setState(() {
+      _selectedClubs.remove(clubName);
+      _clubRenewalDates.remove(clubName);
+      _searchResults = _filterAvailableClubs(_clubSearchController.text);
+    });
+  }
+
+  Future<void> _selectClubRenewalDate(String clubName) async {
+    final now = DateTime.now();
+    final earliestDate = DateTime(now.year - 1, now.month, now.day);
+    final latestDate = DateTime(now.year + 100, now.month, now.day);
+    final currentDate = _clubRenewalDates[clubName] ?? now;
+    final initialDate = currentDate.isBefore(earliestDate)
+        ? earliestDate
+        : currentDate.isAfter(latestDate)
+        ? latestDate
+        : currentDate;
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: earliestDate,
+      lastDate: latestDate,
+    );
+
+    if (selectedDate == null || !mounted) return;
+
+    setState(() {
+      _clubRenewalDates[clubName] = selectedDate;
+    });
+  }
+
+  Map<String, DateTime> _selectedClubRenewalDates() {
+    return {
+      for (final club in _selectedClubs)
+        club: _clubRenewalDates[club] ?? DateTime.now(),
+    };
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   Future<void> _refreshClubs() async {
@@ -1259,23 +1320,54 @@ class _EditClubsDialogState extends State<_EditClubsDialog> {
               ),
               const SizedBox(height: 8),
               if (_selectedClubs.isNotEmpty)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Column(
                   children: _selectedClubs.map((club) {
-                    return Chip(
-                      label: Text(club),
-                      deleteIcon: const Icon(Icons.close, size: 18),
-                      onDeleted: () {
-                        setState(() {
-                          _selectedClubs.remove(club);
-                          _searchResults = _filterAvailableClubs(
-                            _clubSearchController.text,
-                          );
-                        });
-                      },
-                      backgroundColor: primaryColor.withOpacity(0.1),
-                      deleteIconColor: primaryColor,
+                    final renewalDate =
+                        _clubRenewalDates[club] ?? DateTime.now();
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      color: primaryColor.withOpacity(0.08),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    club,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  color: primaryColor,
+                                  tooltip: 'Remove club',
+                                  onPressed: () => _removeClub(club),
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            OutlinedButton.icon(
+                              onPressed: () => _selectClubRenewalDate(club),
+                              icon: const Icon(Icons.calendar_today, size: 16),
+                              label: Text(
+                                'Renewal Date: ${_formatDate(renewalDate)}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: primaryColor,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   }).toList(),
                 )
@@ -1300,7 +1392,7 @@ class _EditClubsDialogState extends State<_EditClubsDialog> {
         ElevatedButton(
           onPressed: _selectedClubs.isEmpty
               ? null
-              : () => Navigator.pop(context, _selectedClubs.toList()),
+              : () => Navigator.pop(context, _selectedClubRenewalDates()),
           child: const Text('Save'),
         ),
       ],

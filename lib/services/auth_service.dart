@@ -38,6 +38,7 @@ class AuthService {
     required String firstName,
     required String lastName,
     required List<String> clubs,
+    required Map<String, DateTime> clubRenewalDates,
   }) async {
     try {
       // Create user in Firebase Auth
@@ -58,6 +59,7 @@ class AuthService {
         firstName: firstName,
         lastName: lastName,
         clubs: clubs,
+        clubRenewalDates: clubRenewalDates,
         createdAt: DateTime.now(),
         lastLoginAt: DateTime.now(),
       );
@@ -170,7 +172,8 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         throw Exception(
-            'Please log in again before deleting your account for security reasons.');
+          'Please log in again before deleting your account for security reasons.',
+        );
       }
       throw _handleAuthException(e);
     } catch (e) {
@@ -308,7 +311,7 @@ class AuthService {
         localizedReason: 'Please authenticate to enable biometric login',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,  // Allow device credentials as fallback
+          biometricOnly: false, // Allow device credentials as fallback
           sensitiveTransaction: true,
         ),
       );

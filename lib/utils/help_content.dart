@@ -217,7 +217,7 @@ Profile Screen
 Manage your account information and security settings.
 
 ACCOUNT INFORMATION:
-• View your full profile including name, email, clubs, and member since date
+• View your full profile including name, email, clubs, and renewal dates
 • See which shooting clubs you are associated with
 
 SECURITY:

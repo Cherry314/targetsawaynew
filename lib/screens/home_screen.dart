@@ -1,11 +1,16 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../models/hive/club.dart';
 import '../widgets/app_drawer.dart';
+import '../services/auth_service.dart';
 import '../services/data_sync_service.dart';
 import '../services/sound_service.dart';
+
+enum _ExpiredRenewalAction { renew, leave }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  final AuthService _authService = AuthService();
   final DataSyncService _dataSyncService = DataSyncService();
 
   final double swayAmount = 10;
@@ -30,21 +36,208 @@ class _HomeScreenState extends State<HomeScreen>
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: cycleMs),
-    )
-      ..repeat();
-    
-    // Check for data updates from Firestore
-    _checkForDataUpdates();
+    )..repeat();
+
+    // Check for expired club renewal dates before other startup prompts.
+    _runStartupChecks();
 
     // Start heartbeat sound loop
     SoundService().startHeartBeat();
   }
 
-  /// Check for data updates from Firebase
-  Future<void> _checkForDataUpdates() async {
-    // Wait a bit for the UI to settle
+  Future<void> _runStartupChecks() async {
+    // Wait a bit for the UI to settle before showing startup dialogs.
     await Future.delayed(const Duration(milliseconds: 500));
 
+    await _checkForExpiredRenewalDates();
+
+    if (mounted) {
+      await _checkForDataUpdates();
+    }
+  }
+
+  Future<void> _checkForExpiredRenewalDates() async {
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      var profile = await _authService.getUserProfile(currentUser.uid);
+
+      while (mounted) {
+        final today = _dateOnly(DateTime.now());
+        final expiredClub = profile.clubs.cast<String?>().firstWhere((club) {
+          if (club == null) return false;
+          final renewalDate = profile.clubRenewalDates[club];
+          return renewalDate != null && _dateOnly(renewalDate).isBefore(today);
+        }, orElse: () => null);
+
+        if (expiredClub == null) break;
+
+        final action = await _showExpiredRenewalDialog(
+          clubName: expiredClub,
+          renewalDate: profile.clubRenewalDates[expiredClub]!,
+        );
+
+        if (!mounted || action == null) return;
+
+        if (action == _ExpiredRenewalAction.renew) {
+          final newRenewalDate = _addOneYear(
+            profile.clubRenewalDates[expiredClub]!,
+          );
+          final updatedRenewalDates = Map<String, DateTime>.from(
+            profile.clubRenewalDates,
+          )..[expiredClub] = newRenewalDate;
+          profile = profile.copyWith(clubRenewalDates: updatedRenewalDates);
+          await _authService.updateUserProfile(profile);
+          await _updateLocalClubRenewalDate(expiredClub, newRenewalDate);
+          if (mounted) {
+            _showClubMembershipRenewedMessage();
+          }
+        } else {
+          final confirmed = await _showLeaveClubConfirmationDialog(expiredClub);
+          if (!mounted) return;
+          if (confirmed != true) continue;
+
+          final updatedClubs = List<String>.from(profile.clubs)
+            ..remove(expiredClub);
+          final updatedRenewalDates = Map<String, DateTime>.from(
+            profile.clubRenewalDates,
+          )..remove(expiredClub);
+          profile = profile.copyWith(
+            clubs: updatedClubs,
+            clubRenewalDates: updatedRenewalDates,
+          );
+          await _authService.updateUserProfile(profile);
+          await _removeLocalClub(expiredClub);
+        }
+      }
+    } catch (e) {
+      // Silently fail so renewal checks do not block the user from opening the app.
+    }
+  }
+
+  Future<_ExpiredRenewalAction?> _showExpiredRenewalDialog({
+    required String clubName,
+    required DateTime renewalDate,
+  }) {
+    return showDialog<_ExpiredRenewalAction>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 10),
+              Expanded(child: Text('Club Renewal Expired')),
+            ],
+          ),
+          content: Text(
+            'Your renewal date for $clubName was ${_formatDate(renewalDate)}.\n\n'
+            'Are you still a member of this club?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_ExpiredRenewalAction.leave),
+              child: const Text('No, leave club'),
+            ),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_ExpiredRenewalAction.renew),
+              child: const Text('Yes, update renewal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showLeaveClubConfirmationDialog(String clubName) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Leave Club?'),
+          content: Text(
+            'Leaving this club may affect your Firearms Certificate requirements.\n\n'
+            'Are you sure you want to leave and delete $clubName?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Confirm Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showClubMembershipRenewedMessage() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Club membership renewed')));
+  }
+
+  DateTime _addOneYear(DateTime date) {
+    final nextYear = date.year + 1;
+    final lastDayOfTargetMonth = DateTime(nextYear, date.month + 1, 0).day;
+    return DateTime(
+      nextYear,
+      date.month,
+      date.day.clamp(1, lastDayOfTargetMonth),
+    );
+  }
+
+  Future<void> _updateLocalClubRenewalDate(
+    String clubName,
+    DateTime renewalDate,
+  ) async {
+    if (!Hive.isBoxOpen('clubs')) return;
+
+    final clubBox = Hive.box<Club>('clubs');
+    for (final club in clubBox.values) {
+      if (club.clubname == clubName) {
+        club.renewalDate = renewalDate;
+        await club.save();
+        return;
+      }
+    }
+  }
+
+  Future<void> _removeLocalClub(String clubName) async {
+    if (!Hive.isBoxOpen('clubs')) return;
+
+    final clubBox = Hive.box<Club>('clubs');
+    for (final key in clubBox.keys) {
+      final club = clubBox.get(key);
+      if (club?.clubname == clubName) {
+        await clubBox.delete(key);
+        return;
+      }
+    }
+  }
+
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/'
+      '${date.year}';
+
+  /// Check for data updates from Firebase
+  Future<void> _checkForDataUpdates() async {
     try {
       final isUpdateAvailable = await _dataSyncService.isUpdateAvailable();
 
@@ -196,9 +389,9 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animationsEnabled = Provider
-        .of<AnimationsProvider>(context)
-        .animationsEnabled;
+    final animationsEnabled = Provider.of<AnimationsProvider>(
+      context,
+    ).animationsEnabled;
     if (animationsEnabled && !_controller.isAnimating) {
       _controller.repeat();
     } else if (!animationsEnabled && _controller.isAnimating) {
@@ -223,9 +416,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<bool> _showExitDialog() async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) =>
-          AlertDialog(
+          context: context,
+          builder: (context) => AlertDialog(
             title: const Text('Exit Application'),
             content: const Text('Are you sure you want to exit?'),
             actions: [
@@ -239,20 +431,19 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   @override
   Widget build(BuildContext context) {
     // final themeProvider = Provider.of<ThemeProvider>(context);
     // final primaryColor = themeProvider.primaryColor;
-    final animationsEnabled = Provider
-        .of<AnimationsProvider>(context)
-        .animationsEnabled;
+    final animationsEnabled = Provider.of<AnimationsProvider>(
+      context,
+    ).animationsEnabled;
     final bgColor = Colors.black; // Black background under range.jpg
-    final screenSize = MediaQuery
-        .of(context)
-        .size;
+    final screenSize = MediaQuery.of(context).size;
 
     return PopScope(
       canPop: false,
@@ -311,7 +502,6 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
 
                   // Existing homeback2.png with modulated color
-
 
                   // Existing animated front image
                   Center(

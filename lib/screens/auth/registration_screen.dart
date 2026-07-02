@@ -25,6 +25,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _clubSearchController = TextEditingController();
 
   final Set<String> _selectedClubs = {};
+  final Map<String, DateTime> _clubRenewalDates = {};
   List<String> _searchResults = [];
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -46,7 +47,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     final clubsBox = Hive.box<Club>('clubs');
-    
+
     // If clubs are already loaded, no need to download
     if (clubsBox.isNotEmpty) {
       setState(() {
@@ -88,7 +89,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     // Download from Firestore
     final snapshot = await firestore.collection('clubs').get();
-    
+
     for (final doc in snapshot.docs) {
       final data = doc.data();
       if (data.containsKey('clubname')) {
@@ -165,6 +166,61 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
   }
 
+  void _addClub(String clubName) {
+    final trimmedClubName = clubName.trim();
+    if (trimmedClubName.isEmpty) return;
+
+    setState(() {
+      _selectedClubs.add(trimmedClubName);
+      _clubRenewalDates.putIfAbsent(trimmedClubName, () => DateTime.now());
+      _clubSearchController.clear();
+      _searchResults = [];
+    });
+  }
+
+  void _removeClub(String clubName) {
+    setState(() {
+      _selectedClubs.remove(clubName);
+      _clubRenewalDates.remove(clubName);
+    });
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Future<void> _selectClubRenewalDate(String clubName) async {
+    final now = DateTime.now();
+    final earliestDate = DateTime(now.year - 1, now.month, now.day);
+    final latestDate = DateTime(now.year + 100, now.month, now.day);
+    final currentDate = _clubRenewalDates[clubName] ?? now;
+    final initialDate = currentDate.isBefore(earliestDate)
+        ? earliestDate
+        : currentDate.isAfter(latestDate)
+        ? latestDate
+        : currentDate;
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: earliestDate,
+      lastDate: latestDate,
+    );
+
+    if (selectedDate == null || !mounted) return;
+
+    setState(() {
+      _clubRenewalDates[clubName] = selectedDate;
+    });
+  }
+
+  Map<String, DateTime> _selectedClubRenewalDates() {
+    return {
+      for (final club in _selectedClubs)
+        club: _clubRenewalDates[club] ?? DateTime.now(),
+    };
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -187,6 +243,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         clubs: _selectedClubs.toList(),
+        clubRenewalDates: _selectedClubRenewalDates(),
       );
 
       if (mounted) {
@@ -208,10 +265,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
@@ -232,11 +286,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               children: [
                 const SizedBox(height: 40),
                 // App Icon
-                Icon(
-                  Icons.gps_fixed,
-                  size: 80,
-                  color: primaryColor,
-                ),
+                Icon(Icons.gps_fixed, size: 80, color: primaryColor),
                 const SizedBox(height: 16),
                 // Title
                 Text(
@@ -318,8 +368,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -436,9 +487,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               ),
                             ),
                           ),
-                          if (_clubsChecked && !_isLoadingClubs && Hive.box<Club>('clubs').isNotEmpty)
+                          if (_clubsChecked &&
+                              !_isLoadingClubs &&
+                              Hive.box<Club>('clubs').isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -497,7 +553,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   'Downloading clubs from database...',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? Colors.white : Colors.black87,
+                                    color: isDark
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                               ),
@@ -507,7 +565,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         const SizedBox(height: 12),
                       ]
                       // Database empty warning with retry button
-                      else if (_clubsChecked && Hive.box<Club>('clubs').isEmpty) ...[
+                      else if (_clubsChecked &&
+                          Hive.box<Club>('clubs').isEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -522,7 +581,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: Colors.orange,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
@@ -530,7 +592,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.white : Colors.black87,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
                                       ),
                                     ),
                                   ),
@@ -541,7 +605,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                 'You can enter your club name manually below, or try refreshing the clubs list.',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -570,40 +636,43 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         controller: _clubSearchController,
                         onSubmitted: (value) {
                           // Allow manual entry if database is empty or no results
-                          if (value.trim().isNotEmpty && 
-                              (Hive.box<Club>('clubs').isEmpty || _searchResults.isEmpty)) {
-                            setState(() {
-                              _selectedClubs.add(value.trim());
-                              _clubSearchController.clear();
-                              _searchResults = [];
-                            });
+                          if (value.trim().isNotEmpty &&
+                              (Hive.box<Club>('clubs').isEmpty ||
+                                  _searchResults.isEmpty)) {
+                            _addClub(value);
                           }
                         },
                         decoration: InputDecoration(
-                          hintText: Hive.box<Club>('clubs').isEmpty 
+                          hintText: Hive.box<Club>('clubs').isEmpty
                               ? 'Type your club name and press Enter'
                               : 'Search for a club...',
                           prefixIcon: Icon(
-                            Hive.box<Club>('clubs').isEmpty ? Icons.edit : Icons.search, 
+                            Hive.box<Club>('clubs').isEmpty
+                                ? Icons.edit
+                                : Icons.search,
                             color: primaryColor,
                           ),
                           suffixIcon: _clubSearchController.text.isNotEmpty
                               ? Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (Hive.box<Club>('clubs').isEmpty || 
-                                        (_clubSearchController.text.isNotEmpty && _searchResults.isEmpty))
+                                    if (Hive.box<Club>('clubs').isEmpty ||
+                                        (_clubSearchController
+                                                .text
+                                                .isNotEmpty &&
+                                            _searchResults.isEmpty))
                                       IconButton(
-                                        icon: Icon(Icons.add, color: primaryColor),
+                                        icon: Icon(
+                                          Icons.add,
+                                          color: primaryColor,
+                                        ),
                                         tooltip: 'Add this club',
                                         onPressed: () {
-                                          final clubName = _clubSearchController.text.trim();
+                                          final clubName = _clubSearchController
+                                              .text
+                                              .trim();
                                           if (clubName.isNotEmpty) {
-                                            setState(() {
-                                              _selectedClubs.add(clubName);
-                                              _clubSearchController.clear();
-                                              _searchResults = [];
-                                            });
+                                            _addClub(clubName);
                                           }
                                         },
                                       ),
@@ -624,7 +693,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             vertical: 8,
                           ),
                           filled: true,
-                          fillColor: isDark ? Colors.grey[850] : Colors.grey[50],
+                          fillColor: isDark
+                              ? Colors.grey[850]
+                              : Colors.grey[50],
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -635,7 +706,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           Container(
                             constraints: const BoxConstraints(maxHeight: 200),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[850] : Colors.grey[50],
+                              color: isDark
+                                  ? Colors.grey[850]
+                                  : Colors.grey[50],
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: ListView.separated(
@@ -643,7 +716,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               itemCount: _searchResults.length,
                               separatorBuilder: (context, index) => Divider(
                                 height: 1,
-                                color: isDark ? Colors.grey[700] : Colors.grey[300],
+                                color: isDark
+                                    ? Colors.grey[700]
+                                    : Colors.grey[300],
                               ),
                               itemBuilder: (context, index) {
                                 final club = _searchResults[index];
@@ -654,13 +729,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                     style: const TextStyle(fontSize: 14),
                                   ),
                                   trailing: ElevatedButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _selectedClubs.add(club);
-                                        _clubSearchController.clear();
-                                        _searchResults = [];
-                                      });
-                                    },
+                                    onPressed: () => _addClub(club),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
                                       foregroundColor: Colors.white,
@@ -684,7 +753,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[850] : Colors.grey[50],
+                              color: isDark
+                                  ? Colors.grey[850]
+                                  : Colors.grey[50],
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -692,14 +763,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                 Icon(
                                   Icons.search_off,
                                   size: 48,
-                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'No clubs found matching "${_clubSearchController.text}"',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: isDark ? Colors.white70 : Colors.black54,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -710,7 +785,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       : 'Try a different search term or manually enter your club name.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? Colors.white60 : Colors.black45,
+                                    color: isDark
+                                        ? Colors.white60
+                                        : Colors.black45,
                                     fontStyle: FontStyle.italic,
                                   ),
                                   textAlign: TextAlign.center,
@@ -735,23 +812,64 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        Column(
                           children: _selectedClubs.map((club) {
-                            return Chip(
-                              label: Text(club),
-                              deleteIcon: const Icon(Icons.close, size: 18),
-                              onDeleted: () {
-                                setState(() {
-                                  _selectedClubs.remove(club);
-                                });
-                              },
-                              backgroundColor: primaryColor.withOpacity(0.1),
-                              deleteIconColor: primaryColor,
-                              labelStyle: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 12,
+                            final renewalDate =
+                                _clubRenewalDates[club] ?? DateTime.now();
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              color: primaryColor.withOpacity(0.08),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            club,
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : Colors.black87,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            size: 18,
+                                          ),
+                                          color: primaryColor,
+                                          tooltip: 'Remove club',
+                                          onPressed: () => _removeClub(club),
+                                          constraints: const BoxConstraints(),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _selectClubRenewalDate(club),
+                                      icon: const Icon(
+                                        Icons.calendar_today,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        'Renewal Date: ${_formatDate(renewalDate)}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: primaryColor,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           }).toList(),

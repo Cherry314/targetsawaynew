@@ -18,15 +18,18 @@ class ClubAdapter extends TypeAdapter<Club> {
     };
     return Club(
       clubname: fields[0] as String,
+      renewalDate: fields[1] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Club obj) {
     writer
-      ..writeByte(1)
+      ..writeByte(2)
       ..writeByte(0)
-      ..write(obj.clubname);
+      ..write(obj.clubname)
+      ..writeByte(1)
+      ..write(obj.renewalDate);
   }
 
   @override
